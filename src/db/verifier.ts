@@ -251,6 +251,46 @@ async function main(): Promise<void> {
       `${typesAlea?.n} types`,
     )
 
+    /* --- Cache recalculable ---------------------------------------------------- */
+
+    const [instantanes] = await client<{ n: number }[]>`
+      select count(*)::int as n from snapshot_avancement`
+    if (Number(instantanes?.n) > 0) {
+      const desagregations = await client<{ date: string }[]>`
+        select date from snapshot_avancement
+         group by date
+        having max(case when lot_id is null then valeur_acquise_xof end)
+               <> sum(case when lot_id is not null then valeur_acquise_xof else 0 end)`
+      verifier(
+        'La valeur acquise du projet egale la somme de celle des lots',
+        desagregations.length === 0,
+        `${desagregations.length} journees incoherentes`,
+      )
+
+      const regressions = await client<{ n: number }[]>`
+        select count(*)::int as n from (
+          select valeur_acquise_xof as v,
+                 lag(valeur_acquise_xof) over (partition by lot_id order by date) as precedent
+            from snapshot_avancement
+        ) c where precedent is not null and v < precedent`
+      verifier('La valeur acquise ne decroit jamais dans le temps', Number(regressions[0]?.n) === 0)
+
+      const [marges] = await client<{ n: number }[]>`
+        select count(*)::int as n from tache
+         where parent_id is not null and (marge_totale_j is null or marge_totale_j < 0)`
+      verifier(
+        'Chaque tache feuille porte une marge totale positive ou nulle',
+        Number(marges?.n) === 0,
+      )
+
+      const [critiques] = await client<{ n: number }[]>`
+        select count(*)::int as n from tache where critique and marge_totale_j <> 0`
+      verifier('Aucune tache critique ne porte de marge', Number(critiques?.n) === 0)
+    } else {
+      console.log('Cache vide : lancer npm run db:recalcul pour le verifier aussi.')
+      console.log()
+    }
+
     /* --- Audit --------------------------------------------------------------------- */
 
     const declencheurs = await client<{ n: number }[]>`

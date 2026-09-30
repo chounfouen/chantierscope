@@ -59,7 +59,7 @@ export default function Accueil() {
               <dt className="text-muted-foreground">Forme compacte</dt>
               <dd className="text-right font-medium">{fcfaCompact(1_156_141_200)}</dd>
               <dt className="text-muted-foreground">Valeur acquise</dt>
-              <dd className="text-right font-medium">{fcfaCompact(517_077_955)}</dd>
+              <dd className="text-right font-medium">{fcfaCompact(500_883_296)}</dd>
               <dt className="text-muted-foreground">Beton coule</dt>
               <dd className="text-right font-medium">{quantite(1284.5, 'M3')}</dd>
               <dt className="text-muted-foreground">Acier pose</dt>
@@ -78,15 +78,15 @@ export default function Accueil() {
           <CardContent>
             <dl className="chiffres-alignes grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted-foreground">Avancement global</dt>
-              <dd className="text-right font-medium">{pourcent(0.447)}</dd>
+              <dd className="text-right font-medium">{pourcent(0.433)}</dd>
               <dt className="text-muted-foreground">Ecart de delai</dt>
-              <dd className="text-etat-retard text-right font-medium">{jours(-14)}</dd>
+              <dd className="text-etat-retard text-right font-medium">{jours(-18)}</dd>
               <dt className="text-muted-foreground">SPI</dt>
-              <dd className="text-right font-medium">{indice(0.902)}</dd>
+              <dd className="text-right font-medium">{indice(0.873)}</dd>
               <dt className="text-muted-foreground">CPI</dt>
-              <dd className="text-right font-medium">{indice(0.981)}</dd>
+              <dd className="text-right font-medium">{indice(0.979)}</dd>
               <dt className="text-muted-foreground">Penalite projetee</dt>
-              <dd className="text-right font-medium">{fcfa(16_186_000)}</dd>
+              <dd className="text-right font-medium">{fcfa(20_233_000)}</dd>
             </dl>
           </CardContent>
         </Card>
@@ -150,7 +150,7 @@ export default function Accueil() {
 
       <footer className="text-muted-foreground flex items-center gap-2 text-xs">
         <Icone.valide className="text-etat-acheve size-4" />
-        Sprint 1 — schema et jeu de donnees en place. Etape suivante : le noyau de calcul.
+        Sprint 3 — persistance et recalcul en place. Etape suivante : authentification et ecrans.
       </footer>
     </div>
   )

@@ -21,10 +21,11 @@
     "db:studio": "drizzle-kit studio",
     "db:dump": "bash scripts/sauvegarder.sh",
     "db:seed": "tsx --env-file=.env.local src/db/seed/index.ts",
-    "db:reset": "tsx scripts/reinitialiser.ts && npm run db:migrate && npm run db:seed",
+    "db:reset": "tsx scripts/reinitialiser.ts && npm run db:migrate && npm run db:seed && npm run db:recalcul",
     "db:check": "tsx --env-file=.env.local src/db/verifier.ts",
     "db:meteo": "tsx --env-file=.env.local src/db/seed/meteo.ts",
-    "db:empreinte": "tsx --env-file=.env.local scripts/empreinte.ts"
+    "db:empreinte": "tsx --env-file=.env.local scripts/empreinte.ts",
+    "db:recalcul": "tsx --env-file=.env.local scripts/recalculer.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

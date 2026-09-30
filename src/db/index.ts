@@ -15,13 +15,13 @@
 
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { env } from '@/lib/env'
+import { urlBase } from '@/lib/env'
 import * as schema from '@/db/schema'
 
 let cache: ReturnType<typeof creer> | undefined
 
 function creer() {
-  const client = postgres(env().DATABASE_URL, {
+  const client = postgres(urlBase(), {
     prepare: false,
     max: 1,
     idle_timeout: 20,
@@ -44,7 +44,7 @@ export function db() {
  * en masse gagne a ne pas etre bridee a une seule connexion.
  */
 export function dbScript() {
-  const client = postgres(env().DIRECT_URL, { max: 4, onnotice: () => {} })
+  const client = postgres(urlBase(true), { max: 4, onnotice: () => {} })
   const instance = drizzle(client, { schema, casing: 'snake_case' })
   return { db: instance, client, fermer: () => client.end({ timeout: 5 }) }
 }

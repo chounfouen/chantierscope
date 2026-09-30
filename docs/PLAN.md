@@ -767,3 +767,80 @@ memoire.
   courbe en S, et le SPI, qui est un rapport sans unite. Les confondre est
   une erreur classique.
 - L'episode du test faux sur la nature d'une contrainte de date.
+
+
+### Sprint 3 — Persistance et recalcul : termine
+
+Critere d'achevement atteint : le test de coherence du cache passe, le
+recalcul integral du projet de demonstration prend 434 ms pour 1 917
+instantanes, et `npm run db:check` reste au vert, desormais avec 29 controles.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/queries/contexte.ts` | Chargement du contexte complet d'un projet en six requetes paralleles, jamais une par tache |
+| `src/db/recompute.ts` | Reconstruction integrale du cache : avancement, poids budgetaire, marges, criticite, et la totalite des instantanes journaliers |
+| `src/db/mutations/releve.ts` | Ecritures transactionnelles, identite de l'auteur posee par `set_config`, recalcul dans la meme transaction |
+| `src/services/meteo.ts` | Releve Open-Meteo, archive et prevision fusionnees, tolerant a l'indisponibilite |
+| `src/app/api/cron/nuit/route.ts` | Tache nocturne : completion de la meteo, recalcul, maintien en eveil |
+| `scripts/recalculer.ts` | Recalcul manuel, pour verifier l'invariant a la demande |
+
+24 tests d'integration s'ajoutent aux 262 tests unitaires, soit 286 au total.
+
+#### Situation calculee depuis la base
+
+| Indicateur | Valeur |
+|---|---|
+| Avancement | 43,3 % |
+| Valeur planifiee | 573 504 519 FCFA |
+| Valeur acquise | 500 883 296 FCFA |
+| Cout reel | 511 857 107 FCFA |
+| SPI | 0,873 |
+| CPI | 0,979 |
+| Ecart de delai | 17,5 jours |
+| Duree du recalcul | 434 ms pour 1 917 instantanes |
+
+Ces valeurs different legerement de celles mesurees au sprint 1, et la raison
+est une decision de conception : **seuls les releves VALIDES alimentent les
+indicateurs**. Le jeu de demonstration laisse volontairement les trois
+derniers jours en attente de validation, de sorte que valider un releve fasse
+observablement bouger l'avancement du projet. C'est le critere d'achevement du
+sprint, et c'est aussi ce qui justifie l'alerte « releve en attente ».
+
+Le modele de cout, dont les quatre parametres avaient ete poses sans
+calibration au sprint 2, produit un CPI de 0,979 : la derive de productivite
+du gros oeuvre se traduit bien par une consommation d'heures superieure a la
+valeur acquise, sans exagerer l'effet.
+
+#### Le test qui protege l'invariant
+
+`coherence du cache : incremental contre integral` compare deux chemins :
+
+1. Validation d'un releve, qui declenche un recalcul incremental dans la
+   transaction.
+2. Effacement total du cache, puis recalcul integral reparti de zero.
+
+Les deux empreintes doivent etre identiques, sur les taches comme sur les
+1 917 instantanes. Tant que ce test passe, l'invariant de la section 11.5 de
+la conception tient : aucune incoherence n'est definitive.
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Seuls les releves VALIDES comptent | Un releve en brouillon ou soumis n'engage encore personne. Rend la validation observable |
+| Les frais de chantier ne sont pas repartis sur les lots | Ce sont des couts indirects. Les ventiler au prorata serait une convention arbitraire presentee comme une mesure |
+| `snapshot_avancement` est efface puis reecrit sur la plage recalculee | Un `insert on conflict` laisserait subsister les instantanes de journees devenues vides apres annulation d'un releve |
+| Mise a jour des 76 taches en une seule instruction, par jointure sur une table de valeurs | Soixante-seize instructions distinctes couteraient soixante-seize allers-retours |
+| Base d'integration dediee, reconstruite a chaque execution de la suite | Les tests ecrivent ; ils ne doivent jamais alterer le jeu de demonstration |
+| `set_config` avec portee de transaction plutot que `SET` | Une identite collee a une connexion reutilisee par le pooler attribuerait des actions au mauvais utilisateur |
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le resultat du test de coherence du cache, qui demontre l'invariant de
+  recalcul plutot que de l'affirmer.
+- La mesure du recalcul : 1 917 instantanes en 434 ms, ce qui justifie le
+  choix de precalculer plutot que d'agreger a l'affichage.
+- La justification du perimetre des releves pris en compte, et son effet
+  mesure sur les indicateurs.

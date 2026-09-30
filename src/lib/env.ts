@@ -25,6 +25,13 @@ const Schema = z.object({
 
   CRON_SECRET: z.string().min(1),
 
+  /**
+   * Base dediee a la suite d'integration. Absente en production : la suite
+   * ne s'y execute pas.
+   */
+  DATABASE_URL_TEST: z.string().optional(),
+  DIRECT_URL_TEST: z.string().optional(),
+
   /** Production uniquement. */
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -63,4 +70,31 @@ export function env(): Env {
 /** Vrai en developpement local. Sert a n'exposer certains outils qu'en local. */
 export function enDeveloppement(): boolean {
   return env().NODE_ENV === 'development'
+}
+
+/** Vrai lorsque le code s'execute sous la suite de tests. */
+export function sousTest(): boolean {
+  return process.env['VITEST'] === 'true'
+}
+
+/**
+ * URL de connexion a employer, selon le contexte.
+ *
+ * Sous la suite de tests, la base dediee remplace la base de developpement :
+ * les tests d'integration detruisent et repeuplent leur base, et ne doivent
+ * jamais toucher au jeu de demonstration.
+ */
+export function urlBase(direct = false): string {
+  const e = env()
+  if (sousTest()) {
+    const url = direct ? e.DIRECT_URL_TEST : e.DATABASE_URL_TEST
+    if (!url) {
+      throw new Error(
+        'DATABASE_URL_TEST est absente. La suite d integration a besoin d une base dediee : ' +
+          'voir .env.example.',
+      )
+    }
+    return url
+  }
+  return direct ? e.DIRECT_URL : e.DATABASE_URL
 }
