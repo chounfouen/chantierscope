@@ -19,7 +19,24 @@ Verifie le 30 septembre 2026 sur la machine de developpement.
 | Node | 24.14.1 |
 | npm | 11.11.0 |
 | `psql` / `pg_dump` | presents dans le PATH |
-| Depot Git | a initialiser (sprint 0) |
+| Depot Git | initialise, branche `main` |
+| Next.js | **16.3.7** et non 15 — voir la note ci-dessous |
+| React | 19.1 |
+| Vulnerabilites de production | aucune (`npm audit --omit=dev`) |
+
+### Note : Next.js 16 au lieu de 15
+
+Le plan initial prevoyait Next.js 15. L'installation a fait apparaitre un
+avis de securite de gravite haute sur `postcss`, transitif de Next 15, dont la
+correction impose Next 16. Le passage a ete fait au sprint 0, alors qu'aucune
+ligne de code metier n'existait, donc a cout nul ; le report aurait impose une
+migration en fin de projet. `npm audit --omit=dev` ne remonte plus aucune
+vulnerabilite.
+
+Consequence a retenir : Next 16 introduit des ruptures d'API par rapport a
+Next 15. Le fichier `AGENTS.md` genere a la racine renvoie vers
+`node_modules/next/dist/docs/`, a consulter avant d'ecrire un gestionnaire de
+route ou une Server Action.
 
 Consequence : pas de Docker. En developpement, la connexion est directe, donc
 `DATABASE_URL` et `DIRECT_URL` pointent vers la meme base. La distinction ne
@@ -536,3 +553,53 @@ A collecter pendant le developpement, pas a reconstituer a la fin.
 | 7 | Verification des indicateurs EVM a trois dates, calcul manuel contre application |
 | 8 | Mesures de latence avant et apres suppression du back separe, captures de l'onglet reseau |
 | 8 | Limites assumees : la saisie reste declarative, l'application ne mesure rien physiquement |
+
+
+---
+
+## Journal d'avancement
+
+### Sprint 0 — Fondations : termine
+
+Commit `fe4f5d5`. Critere d'achevement atteint : `npm run verifier` passe
+(typage strict, ESLint, absence d'emoji, tests), `npm run build` produit une
+sortie statique, et la connexion a la base `chantierscope` est verifiee depuis
+les variables d'environnement du projet.
+
+Ecarts par rapport au plan, tous assumes :
+
+| Ecart | Raison |
+|---|---|
+| Next.js 16 au lieu de 15 | Avis de securite sur `postcss`, voir ci-dessus |
+| PostgreSQL local au lieu de Docker | Serveur 16.15 deja installe sur la machine |
+| Ajout de `src/lib/env.ts` | Le typage strict a rendu visible l'acces direct a `process.env` ; une validation Zod au demarrage vaut mieux qu'un contournement |
+| `@eslint/eslintrc` et `FlatCompat` retires | `eslint-config-next` 16 exporte nativement de la configuration plate ; le pont provoquait une erreur de structure circulaire |
+| Composant `form` de shadcn non installe | Il depend de `react-hook-form`, qui n'a d'utilite qu'au sprint 5 |
+| `vitest.config.mts` au lieu de `.ts` | Vite charge un `.ts` racine en CommonJS et emet un avertissement |
+
+Ajouts non prevus au plan, conserves :
+
+- Regle ESLint interdisant toute couleur hexadecimale en dur hors des modules
+  de palette. La palette a ete validee ; une couleur ecrite a la main dans un
+  composant echapperait a cette validation.
+- Script `npm run lint:emoji`, qui applique la contrainte d'iconographie plutot
+  que de la laisser a la vigilance.
+- Script `npm run verifier`, qui enchaine les quatre controles avant commit.
+- Page de reference des jetons a la racine de l'application : elle rend
+  visibles la palette, les etats et le formatage, pour qu'une derive se voie
+  immediatement. Elle sera remplacee par le selecteur de projet au sprint 4.
+
+Rapport de validation de la palette, a conserver pour le memoire :
+
+| Verification | Clair, surface `#ffffff` | Sombre, surface `#171717` |
+|---|---|---|
+| Bande de clarte | conforme | conforme |
+| Plancher de chroma | conforme | conforme |
+| Separation en vision deficiente, paires adjacentes | 9,1 (>= 8) | 8,4 (>= 8) |
+| Plancher en vision normale, paires adjacentes | 19,6 (>= 15) | 19,3 (>= 15) |
+| Contraste face a la surface | 3 teintes sous 3:1, regle de relief appliquee | les 8 au-dela de 3:1 |
+| Courbe en S, 3 series, toutes paires | 9,2 / 24,0 | 9,4 / 20,9 |
+
+La regle de relief signifie que tout graphique employant les teintes 3, 4 ou 5
+en mode clair doit porter des etiquettes directes visibles ou offrir la vue
+tableau. Contrainte de conception, pas une recommandation.
