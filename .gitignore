@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ChantierScope
+!.env.example
+/sauvegardes
+/src/db/seed/cache-meteo.json
+/.vitest
+/test-results
+/playwright-report

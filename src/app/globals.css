@@ -1,26 +1,263 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* ------------------------------------------------------------------------- */
+/* ChantierScope — jetons de visualisation                                   */
+/*                                                                            */
+/* Palette validee par scripts/validate_palette.js contre les surfaces        */
+/* reelles de l'application : #ffffff en clair, #171717 en sombre.            */
+/* Les huit teintes categorielles servent l'identite des huit lots, dans un   */
+/* ordre FIXE, jamais cycle. Les trois premieres servent les trois series de  */
+/* la courbe en S (valeur planifiee, valeur acquise, cout reel), les seules   */
+/* qui valident en mode toutes-paires.                                        */
+/*                                                                            */
+/* Valeurs en hexadecimal et non en oklch : ce sont exactement les valeurs    */
+/* soumises au validateur. Toute conversion introduirait une derive qui       */
+/* invaliderait le rapport de validation.                                     */
+/*                                                                            */
+/* Contrainte de relief : en mode clair, --serie-3 (2,82:1), --serie-4        */
+/* (2,17:1) et --serie-5 (2,69:1) passent sous 3:1 face a la surface. Tout    */
+/* graphique les employant doit porter des etiquettes directes visibles ou    */
+/* offrir la vue tableau. Ce n'est pas negociable.                            */
+/* ------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-serie-1: var(--serie-1);
+  --color-serie-2: var(--serie-2);
+  --color-serie-3: var(--serie-3);
+  --color-serie-4: var(--serie-4);
+  --color-serie-5: var(--serie-5);
+  --color-serie-6: var(--serie-6);
+  --color-serie-7: var(--serie-7);
+  --color-serie-8: var(--serie-8);
+
+  --color-etat-neant: var(--etat-neant);
+  --color-etat-cours: var(--etat-cours);
+  --color-etat-acheve: var(--etat-acheve);
+  --color-etat-retard: var(--etat-retard);
+  --color-etat-critique: var(--etat-critique);
+  --color-etat-chome: var(--etat-chome);
+
+  --color-encre-primaire: var(--encre-primaire);
+  --color-encre-secondaire: var(--encre-secondaire);
+  --color-encre-discrete: var(--encre-discrete);
+  --color-grille: var(--grille);
+  --color-ligne-base: var(--ligne-base);
+}
+
+:root {
+  /* Huit teintes categorielles, ordre fixe — identite des lots */
+  --serie-1: #2a78d6; /* bleu     */
+  --serie-2: #eb6834; /* orange   */
+  --serie-3: #1baf7a; /* aqua     */
+  --serie-4: #eda100; /* jaune    */
+  --serie-5: #e87ba4; /* magenta  */
+  --serie-6: #008300; /* vert     */
+  --serie-7: #4a3aa7; /* violet   */
+  --serie-8: #e34948; /* rouge    */
+
+  /* Etats d'avancement — palette de statut, reservee, jamais reutilisee
+     comme teinte de serie. Chaque etat s'accompagne d'une icone et d'un
+     libelle : la couleur ne porte jamais seule le sens. */
+  --etat-neant: #898781; /* non commence — recede vers la surface */
+  --etat-cours: #fab219; /* en cours                              */
+  --etat-acheve: #0ca30c; /* acheve                                */
+  --etat-retard: #ec835a; /* en retard                             */
+  --etat-critique: #d03b3b; /* critique                              */
+  --etat-chome: #e1e0d9; /* non travaille — porte une hachure 45 degres */
+
+  /* Encre et chrome de graphique */
+  --encre-primaire: #0b0b0b;
+  --encre-secondaire: #52514e;
+  --encre-discrete: #898781;
+  --grille: #e1e0d9;
+  --ligne-base: #c3c2b7;
+}
+
+.dark {
+  /* Memes huit teintes, reechelonnees pour la surface sombre.
+     Ce n'est pas une inversion automatique : chaque pas a ete choisi puis
+     valide comme ensemble contre #171717. */
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+
+  /* Palette de statut : memes quatre pas, tous au-dela de 3:1 sur la
+     surface sombre. Volontairement non theme. */
+  --etat-neant: #898781;
+  --etat-cours: #fab219;
+  --etat-acheve: #0ca30c;
+  --etat-retard: #ec835a;
+  --etat-critique: #d03b3b;
+  --etat-chome: #2c2c2a;
+
+  --encre-primaire: #ffffff;
+  --encre-secondaire: #c3c2b7;
+  --encre-discrete: #898781;
+  --grille: #2c2c2a;
+  --ligne-base: #383835;
+}
+
+/* Hachure a 45 degres : canal d'accessibilite du mode non travaille, et
+   secours en impression, en vision des couleurs deficiente et sous
+   forced-colors. Jamais decorative.
+   Le trait reprend --etat-neant, invariant dans les deux themes : « non
+   travaille » et « non commence » partagent donc leur teinte, et c'est la
+   TEXTURE qui les distingue, doublee de l'icone et du libelle. Un aplat
+   --etat-chome resterait invisible sur une petite surface. */
+.hachure-chome {
+  background-color: var(--etat-chome);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--etat-neant) 0,
+    var(--etat-neant) 2px,
+    transparent 2px,
+    transparent 5px
+  );
+}
+
+@media (forced-colors: active) {
+  .hachure-chome {
+    background-image: none;
+    border: 1px dashed CanvasText;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Chiffres a chasse fixe pour les colonnes qui doivent s'aligner
+   verticalement : lignes de tableau, graduations d'axe. Jamais pour un
+   grand nombre isole, qui garde les chiffres proportionnels. */
+.chiffres-alignes {
+  font-variant-numeric: tabular-nums;
 }
