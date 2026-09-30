@@ -211,3 +211,32 @@ describe('modele de cout reel', () => {
     expect(Number.isInteger(cr)).toBe(true)
   })
 })
+
+describe('lecture horizontale : cas limites de la branche d avance', () => {
+  it('une valeur acquise superieure a toute la courbe donne l avance maximale', () => {
+    // La courbe s arrete a 300 ; la valeur acquise la depasse. On ne peut pas
+    // interpoler au-dela du planifie connu : l avance est bornee par la fin
+    // de la courbe.
+    expect(ecartDelaiJours([0, 100, 200, 300], 500, 3)).toBe(0)
+  })
+
+  it('une avance analysee avant la fin de la courbe s interpole', () => {
+    // Analyse au jour 1, valeur acquise de 250 : le planifie atteindra 250
+    // au jour 2,5. L avance vaut 1,5 jour.
+    expect(ecartDelaiJours([0, 100, 200, 300], 250, 1)).toBeCloseTo(-1.5, 10)
+  })
+
+  it('un palier plat en avance ne provoque pas de division par zero', () => {
+    // La courbe stagne a 200 entre les jours 2 et 3.
+    const r = ecartDelaiJours([0, 100, 200, 200, 400], 200, 1)
+    expect(Number.isFinite(r)).toBe(true)
+  })
+
+  it('une courbe entierement plate en avance reste finie', () => {
+    expect(Number.isFinite(ecartDelaiJours([0, 0, 0], 50, 1))).toBe(true)
+  })
+
+  it('un jour d analyse au-dela de la courbe est ramene a sa derniere valeur', () => {
+    expect(ecartDelaiJours([0, 100, 200], 100, 99)).toBe(98)
+  })
+})

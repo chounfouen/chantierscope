@@ -114,3 +114,17 @@ describe('feries sur la duree du chantier', () => {
     expect(liste.length).toBeLessThanOrEqual(30)
   })
 })
+
+describe('annee hors table des fetes musulmanes', () => {
+  it('rend les feries chretiens et fixes sans echouer', () => {
+    // La table des fetes musulmanes ne couvre que les annees du projet. Une
+    // annee hors table doit degrader proprement, pas lever.
+    const feries = feriesEntre('2035-01-01', '2035-12-31')
+    expect(feries.length).toBeGreaterThan(0)
+    expect(feries.every((f) => f.estimee === false)).toBe(true)
+  })
+
+  it('conserve la fete nationale sur une annee hors table', () => {
+    expect(ferie('2035-08-07')?.nom).toBe('Fete nationale')
+  })
+})

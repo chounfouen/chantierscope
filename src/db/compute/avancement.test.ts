@@ -249,3 +249,31 @@ describe('avancement planifie a une date', () => {
     expect(avancementPrevu({ debut: 4, duree: 1 }, 3)).toBe(0)
   })
 })
+
+describe('cas degeneres des methodes', () => {
+  it('les jalons ponderes ne divisent pas par zero sur un budget nul', () => {
+    const r = avancementTache(tache({ methode: 'JALONS_PONDERES', lignes: [ligne(1, 1, 0)] }), 0)
+    expect(r.avancement).toBe(0)
+    expect(Number.isFinite(r.avancement)).toBe(true)
+  })
+
+  it('les jalons ponderes sur une tache sans ligne restent a zero', () => {
+    expect(avancementTache(tache({ methode: 'JALONS_PONDERES', lignes: [] }), 0).avancement).toBe(0)
+  })
+
+  it('le tout ou rien sur une tache sans ligne reste a zero', () => {
+    // Sans ligne de quantitatif, il n y a rien a achever : la tache ne peut
+    // pas etre declaree terminee par vacuite.
+    expect(avancementTache(tache({ methode: 'ZERO_CENT', lignes: [] }), 0).avancement).toBe(0)
+  })
+
+  it('la proportion de duree traite une duree nulle comme un achevement', () => {
+    expect(avancementPrevu({ debut: 0, duree: 0 }, 0)).toBe(1)
+  })
+
+  it('une quantite prevue nulle ne fait pas exploser le rapport', () => {
+    const r = avancementTache(tache({ lignes: [ligne(0, 0, 1000)] }), 0)
+    expect(Number.isFinite(r.avancement)).toBe(true)
+    expect(r.avancement).toBe(0)
+  })
+})

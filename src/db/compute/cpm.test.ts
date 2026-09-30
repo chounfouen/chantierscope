@@ -259,3 +259,69 @@ describe('detection de circuit', () => {
     ).toThrow()
   })
 })
+
+describe('circuits multiples et imbriques', () => {
+  it('isole deux circuits disjoints', () => {
+    try {
+      calculerReseau({
+        taches: [
+          { id: 'A', duree: 1 },
+          { id: 'B', duree: 1 },
+          { id: 'X', duree: 1 },
+          { id: 'Y', duree: 1 },
+          { id: 'SAINE', duree: 1 },
+        ],
+        liaisons: [
+          { amont: 'A', aval: 'B', type: 'FD', decalage: 0 },
+          { amont: 'B', aval: 'A', type: 'FD', decalage: 0 },
+          { amont: 'X', aval: 'Y', type: 'FD', decalage: 0 },
+          { amont: 'Y', aval: 'X', type: 'FD', decalage: 0 },
+        ],
+      })
+      expect.unreachable('les circuits auraient du etre detectes')
+    } catch (e) {
+      expect((e as ErreurCycle).taches).toEqual(['A', 'B', 'X', 'Y'])
+    }
+  })
+
+  it('isole un circuit alimente par une chaine amont saine', () => {
+    try {
+      calculerReseau({
+        taches: [
+          { id: 'AMONT', duree: 1 },
+          { id: 'A', duree: 1 },
+          { id: 'B', duree: 1 },
+          { id: 'C', duree: 1 },
+        ],
+        liaisons: [
+          { amont: 'AMONT', aval: 'A', type: 'FD', decalage: 0 },
+          { amont: 'A', aval: 'B', type: 'FD', decalage: 0 },
+          { amont: 'B', aval: 'C', type: 'FD', decalage: 0 },
+          { amont: 'C', aval: 'A', type: 'FD', decalage: 0 },
+        ],
+      })
+      expect.unreachable('le circuit aurait du etre detecte')
+    } catch (e) {
+      expect((e as ErreurCycle).taches).toEqual(['A', 'B', 'C'])
+    }
+  })
+
+  it('le message d erreur nomme les taches et indique quoi faire', () => {
+    try {
+      calculerReseau({
+        taches: [
+          { id: 'A', duree: 1 },
+          { id: 'B', duree: 1 },
+        ],
+        liaisons: [
+          { amont: 'A', aval: 'B', type: 'FD', decalage: 0 },
+          { amont: 'B', aval: 'A', type: 'FD', decalage: 0 },
+        ],
+      })
+      expect.unreachable('le circuit aurait du etre detecte')
+    } catch (e) {
+      expect((e as Error).message).toContain('A, B')
+      expect((e as Error).message).toContain('Supprimer une liaison')
+    }
+  })
+})

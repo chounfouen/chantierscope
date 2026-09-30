@@ -688,3 +688,82 @@ npm run db:meteo      re-archive l historique meteo
 npm run db:studio     explorateur de base
 npm run db:dump       sauvegarde manuelle
 ```
+
+
+### Sprint 2 — Noyau de calcul : termine
+
+Commits `e0a1b57` et suivant. Critere d'achevement atteint : 261 tests au
+vert, et une couverture de `src/db/compute` et `src/lib` de 98,7 % des
+instructions, 99,4 % des lignes, 100 % des fonctions et 87,5 % des branches,
+au-dessus des seuils fixes au sprint 0.
+
+#### Ce qui a ete produit
+
+| Module | Role | Tests |
+|---|---|---|
+| `cpm.ts` | Tri topologique, passes avant et arriere, marges totale et libre, chemin critique, detection de circuit | 39 |
+| `avancement.ts` | Les quatre methodes d'avancement, plafonnement du depassement, agregation ponderee par le budget | 36 |
+| `evm.ts` | Les treize indicateurs, lecture horizontale de la courbe en S, penalite, modele de cout reel | 37 |
+| `simulation.ts` | Calcul pur : decalages, allongements, jalons menaces, marges consommees | 30 |
+| `calendrier.ts` | Feries ivoiriens, Paques par l'algorithme gregorien | 28 |
+| `meteo.ts` | Seuils testes a leur valeur limite et de part et d'autre | 24 |
+| `format.ts`, `viz.ts`, `env.ts` | Montants FCFA, dates, palette, validation d'environnement | 67 |
+
+#### Le cas de reference
+
+Le reseau de dix taches de `src/db/compute/reference.ts` a ete resolu au
+crayon AVANT l'ecriture du moteur : passe avant, passe arriere, marges
+totales et libres, chemin critique A-B-D-F-G-I-J de 35 jours. Le calcul
+manuel complet figure en en-tete du fichier, pret a devenir une annexe du
+memoire. Les valeurs attendues des tests en sont recopiees, et non relevees
+sur la sortie du programme : c'est ce qui donne au test valeur de preuve
+plutot que de constat.
+
+#### Verification croisee
+
+Applique au reseau reel de 59 taches et 60 liaisons, le moteur retrouve
+exactement les dates au plus tot du planning cale independamment au sprint 1
+par `src/db/seed/planning.ts`. Deux implementations ecrites separement qui
+concordent au jour pres sur un reseau de taille reelle. Une divergence aurait
+signale une erreur dans l'une des deux sans dire laquelle, ce qui aurait
+oblige a revenir au calcul manuel pour trancher.
+
+#### Un test faux, corrige apres analyse
+
+Le scenario « decalage de dix jours sur une tache a marge » attendait que le
+predecesseur de la tache decalee devienne critique. Le programme repondait le
+contraire. Verification faite, c'est le test qui avait tort : le decalage est
+une CONTRAINTE DE DATE posee sur la tache, pas un retard propage depuis son
+predecesseur. La tache ne pouvant plus remonter, son predecesseur gagne de la
+marge au lieu d'en perdre — il passe de quatre a dix jours.
+
+Le cas a ete conserve et documente comme tel dans `simulation.test.ts` : il
+distingue deux natures de perturbation que l'intuition confond, et merite
+d'etre expose dans le memoire.
+
+#### Limite assumee : le modele de cout reel
+
+Le cout reel d'un chantier est une donnee comptable, lue dans la comptabilite
+analytique de l'entreprise. L'application n'en dispose pas : elle le
+reconstitue a partir de ce que le chantier declare, heures ouvriers, journees
+d'encadrement, quantites mises en oeuvre et cout des aleas, avec quatre
+parametres d'ordre de grandeur ivoirien.
+
+Cela suffit a rendre le CPI significatif en tendance — une productivite
+degradee consomme plus d'heures pour la meme valeur acquise, et fait
+mecaniquement descendre l'indice — mais ne remplace pas une comptabilite. Le
+point est documente en tete de `evm.ts` et doit figurer parmi les limites du
+memoire.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le calcul manuel du reseau de dix taches, avec la sortie du programme en
+  regard.
+- Le contre-exemple chiffre de la ponderation : deux taches de meme duree,
+  budgets de 12 et 108 millions, la premiere achevee. Ponderation par duree
+  50 %, ponderation budgetaire 10 %, soit quarante points d'ecart. Seule la
+  seconde est coherente avec la valeur acquise.
+- La distinction entre l'ecart de delai en jours, lu horizontalement sur la
+  courbe en S, et le SPI, qui est un rapport sans unite. Les confondre est
+  une erreur classique.
+- L'episode du test faux sur la nature d'une contrainte de date.
