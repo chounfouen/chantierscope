@@ -1,0 +1,2682 @@
+{
+  "id": "f287f1c0-ff04-4229-bbc1-559aa92a8090",
+  "prevId": "8152394d-88d9-43be-8560-601d71497cb8",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.acces_projet": {
+      "name": "acces_projet",
+      "schema": "",
+      "columns": {
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "acces_projet_projet_idx": {
+          "name": "acces_projet_projet_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "acces_projet_utilisateur_id_utilisateur_id_fk": {
+          "name": "acces_projet_utilisateur_id_utilisateur_id_fk",
+          "tableFrom": "acces_projet",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "tableTo": "utilisateur",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "acces_projet_projet_id_projet_id_fk": {
+          "name": "acces_projet_projet_id_projet_id_fk",
+          "tableFrom": "acces_projet",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "acces_projet_utilisateur_id_projet_id_pk": {
+          "name": "acces_projet_utilisateur_id_projet_id_pk",
+          "columns": [
+            "utilisateur_id",
+            "projet_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.affectation": {
+      "name": "affectation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tache_id": {
+          "name": "tache_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ressource_id": {
+          "name": "ressource_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantite": {
+          "name": "quantite",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "date_debut": {
+          "name": "date_debut",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_fin": {
+          "name": "date_fin",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "affectation_tache_idx": {
+          "name": "affectation_tache_idx",
+          "columns": [
+            {
+              "expression": "tache_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "affectation_ressource_idx": {
+          "name": "affectation_ressource_idx",
+          "columns": [
+            {
+              "expression": "ressource_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date_debut",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "affectation_tache_id_tache_id_fk": {
+          "name": "affectation_tache_id_tache_id_fk",
+          "tableFrom": "affectation",
+          "columnsFrom": [
+            "tache_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "affectation_ressource_id_ressource_id_fk": {
+          "name": "affectation_ressource_id_ressource_id_fk",
+          "tableFrom": "affectation",
+          "columnsFrom": [
+            "ressource_id"
+          ],
+          "tableTo": "ressource",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "affectation_fin_apres_debut": {
+          "name": "affectation_fin_apres_debut",
+          "value": "\"affectation\".\"date_fin\" >= \"affectation\".\"date_debut\""
+        },
+        "affectation_quantite_positive": {
+          "name": "affectation_quantite_positive",
+          "value": "\"affectation\".\"quantite\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.alea": {
+      "name": "alea",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tache_id": {
+          "name": "tache_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type_alea",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gravite": {
+          "name": "gravite",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "impact_delai_j": {
+          "name": "impact_delai_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "impact_cout_xof": {
+          "name": "impact_cout_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "statut": {
+          "name": "statut",
+          "type": "statut_alea",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'OUVERT'"
+        },
+        "declare_par_id": {
+          "name": "declare_par_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolu_le": {
+          "name": "resolu_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "alea_projet_date_idx": {
+          "name": "alea_projet_date_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "alea_statut_idx": {
+          "name": "alea_statut_idx",
+          "columns": [
+            {
+              "expression": "statut",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "alea_projet_id_projet_id_fk": {
+          "name": "alea_projet_id_projet_id_fk",
+          "tableFrom": "alea",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "alea_lot_id_lot_id_fk": {
+          "name": "alea_lot_id_lot_id_fk",
+          "tableFrom": "alea",
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "tableTo": "lot",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "alea_tache_id_tache_id_fk": {
+          "name": "alea_tache_id_tache_id_fk",
+          "tableFrom": "alea",
+          "columnsFrom": [
+            "tache_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "alea_declare_par_id_utilisateur_id_fk": {
+          "name": "alea_declare_par_id_utilisateur_id_fk",
+          "tableFrom": "alea",
+          "columnsFrom": [
+            "declare_par_id"
+          ],
+          "tableTo": "utilisateur",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "alea_gravite_borne": {
+          "name": "alea_gravite_borne",
+          "value": "\"alea\".\"gravite\" between 1 and 4"
+        },
+        "alea_impact_delai_positif": {
+          "name": "alea_impact_delai_positif",
+          "value": "\"alea\".\"impact_delai_j\" >= 0"
+        },
+        "alea_resolution_coherente": {
+          "name": "alea_resolution_coherente",
+          "value": "\"alea\".\"statut\" <> 'SOLDE' or \"alea\".\"resolu_le\" is not null"
+        },
+        "alea_resolution_apres_fait": {
+          "name": "alea_resolution_apres_fait",
+          "value": "\"alea\".\"resolu_le\" is null or \"alea\".\"resolu_le\" >= \"alea\".\"date\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.jalon": {
+      "name": "jalon",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_prevue": {
+          "name": "date_prevue",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_reelle": {
+          "name": "date_reelle",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contractuel": {
+          "name": "contractuel",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "tache_declenchante_id": {
+          "name": "tache_declenchante_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "penalite_xof": {
+          "name": "penalite_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "ordre": {
+          "name": "ordre",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "jalon_date_idx": {
+          "name": "jalon_date_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date_prevue",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "jalon_projet_id_projet_id_fk": {
+          "name": "jalon_projet_id_projet_id_fk",
+          "tableFrom": "jalon",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "jalon_tache_declenchante_id_tache_id_fk": {
+          "name": "jalon_tache_declenchante_id_tache_id_fk",
+          "tableFrom": "jalon",
+          "columnsFrom": [
+            "tache_declenchante_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "jalon_unique": {
+          "name": "jalon_unique",
+          "columns": [
+            "projet_id",
+            "nom"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "jalon_penalite_positive": {
+          "name": "jalon_penalite_positive",
+          "value": "\"jalon\".\"penalite_xof\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.journal_audit": {
+      "name": "journal_audit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entite": {
+          "name": "entite",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entite_id": {
+          "name": "entite_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avant": {
+          "name": "avant",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "apres": {
+          "name": "apres",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "horodatage": {
+          "name": "horodatage",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_entite_idx": {
+          "name": "audit_entite_idx",
+          "columns": [
+            {
+              "expression": "entite",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entite_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "audit_horodatage_idx": {
+          "name": "audit_horodatage_idx",
+          "columns": [
+            {
+              "expression": "horodatage",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "audit_utilisateur_idx": {
+          "name": "audit_utilisateur_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.liaison": {
+      "name": "liaison",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tache_amont_id": {
+          "name": "tache_amont_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tache_aval_id": {
+          "name": "tache_aval_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type_liaison",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'FD'"
+        },
+        "decalage_j": {
+          "name": "decalage_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "liaison_amont_idx": {
+          "name": "liaison_amont_idx",
+          "columns": [
+            {
+              "expression": "tache_amont_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "liaison_aval_idx": {
+          "name": "liaison_aval_idx",
+          "columns": [
+            {
+              "expression": "tache_aval_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "liaison_tache_amont_id_tache_id_fk": {
+          "name": "liaison_tache_amont_id_tache_id_fk",
+          "tableFrom": "liaison",
+          "columnsFrom": [
+            "tache_amont_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "liaison_tache_aval_id_tache_id_fk": {
+          "name": "liaison_tache_aval_id_tache_id_fk",
+          "tableFrom": "liaison",
+          "columnsFrom": [
+            "tache_aval_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "liaison_unique": {
+          "name": "liaison_unique",
+          "columns": [
+            "tache_amont_id",
+            "tache_aval_id",
+            "type"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "liaison_pas_reflexive": {
+          "name": "liaison_pas_reflexive",
+          "value": "\"liaison\".\"tache_amont_id\" <> \"liaison\".\"tache_aval_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ligne_quantitatif": {
+      "name": "ligne_quantitatif",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tache_id": {
+          "name": "tache_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "designation": {
+          "name": "designation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unite": {
+          "name": "unite",
+          "type": "unite_mesure",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantite_prevue": {
+          "name": "quantite_prevue",
+          "type": "numeric(14, 3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prix_unitaire_xof": {
+          "name": "prix_unitaire_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "montant_xof": {
+          "name": "montant_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "type": "stored",
+            "as": "round(quantite_prevue * prix_unitaire_xof)::bigint"
+          }
+        }
+      },
+      "indexes": {
+        "ligne_quantitatif_tache_idx": {
+          "name": "ligne_quantitatif_tache_idx",
+          "columns": [
+            {
+              "expression": "tache_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "ligne_quantitatif_tache_id_tache_id_fk": {
+          "name": "ligne_quantitatif_tache_id_tache_id_fk",
+          "tableFrom": "ligne_quantitatif",
+          "columnsFrom": [
+            "tache_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ligne_quantite_positive": {
+          "name": "ligne_quantite_positive",
+          "value": "\"ligne_quantitatif\".\"quantite_prevue\" > 0"
+        },
+        "ligne_prix_positif": {
+          "name": "ligne_prix_positif",
+          "value": "\"ligne_quantitatif\".\"prix_unitaire_xof\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lot": {
+      "name": "lot",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordre": {
+          "name": "ordre",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "budget_xof": {
+          "name": "budget_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rang_couleur": {
+          "name": "rang_couleur",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lot_projet_id_projet_id_fk": {
+          "name": "lot_projet_id_projet_id_fk",
+          "tableFrom": "lot",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lot_code_unique": {
+          "name": "lot_code_unique",
+          "columns": [
+            "projet_id",
+            "code"
+          ],
+          "nullsNotDistinct": false
+        },
+        "lot_rang_couleur_unique": {
+          "name": "lot_rang_couleur_unique",
+          "columns": [
+            "projet_id",
+            "rang_couleur"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lot_budget_positif": {
+          "name": "lot_budget_positif",
+          "value": "\"lot\".\"budget_xof\" >= 0"
+        },
+        "lot_rang_couleur_borne": {
+          "name": "lot_rang_couleur_borne",
+          "value": "\"lot\".\"rang_couleur\" between 0 and 7"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.photo": {
+      "name": "photo",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "releve_journalier_id": {
+          "name": "releve_journalier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tache_id": {
+          "name": "tache_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zone_id": {
+          "name": "zone_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "point_de_vue_id": {
+          "name": "point_de_vue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "chemin": {
+          "name": "chemin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chemin_vignette": {
+          "name": "chemin_vignette",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "largeur": {
+          "name": "largeur",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hauteur": {
+          "name": "hauteur",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "octets": {
+          "name": "octets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prise_le": {
+          "name": "prise_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cap_degres": {
+          "name": "cap_degres",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legende": {
+          "name": "legende",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "photo_point_de_vue_idx": {
+          "name": "photo_point_de_vue_idx",
+          "columns": [
+            {
+              "expression": "point_de_vue_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "prise_le",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "photo_projet_idx": {
+          "name": "photo_projet_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "prise_le",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "photo_projet_id_projet_id_fk": {
+          "name": "photo_projet_id_projet_id_fk",
+          "tableFrom": "photo",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "photo_releve_journalier_id_releve_journalier_id_fk": {
+          "name": "photo_releve_journalier_id_releve_journalier_id_fk",
+          "tableFrom": "photo",
+          "columnsFrom": [
+            "releve_journalier_id"
+          ],
+          "tableTo": "releve_journalier",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "photo_tache_id_tache_id_fk": {
+          "name": "photo_tache_id_tache_id_fk",
+          "tableFrom": "photo",
+          "columnsFrom": [
+            "tache_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "photo_zone_id_zone_id_fk": {
+          "name": "photo_zone_id_zone_id_fk",
+          "tableFrom": "photo",
+          "columnsFrom": [
+            "zone_id"
+          ],
+          "tableTo": "zone",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "photo_point_de_vue_id_point_de_vue_id_fk": {
+          "name": "photo_point_de_vue_id_point_de_vue_id_fk",
+          "tableFrom": "photo",
+          "columnsFrom": [
+            "point_de_vue_id"
+          ],
+          "tableTo": "point_de_vue",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "photo_octets_positif": {
+          "name": "photo_octets_positif",
+          "value": "\"photo\".\"octets\" is null or \"photo\".\"octets\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.point_de_vue": {
+      "name": "point_de_vue",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cap_degres": {
+          "name": "cap_degres",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "point_de_vue_projet_id_projet_id_fk": {
+          "name": "point_de_vue_projet_id_projet_id_fk",
+          "tableFrom": "point_de_vue",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "point_de_vue_unique": {
+          "name": "point_de_vue_unique",
+          "columns": [
+            "projet_id",
+            "nom"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "point_de_vue_cap_borne": {
+          "name": "point_de_vue_cap_borne",
+          "value": "\"point_de_vue\".\"cap_degres\" is null or \"point_de_vue\".\"cap_degres\" between 0 and 359"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.projet": {
+      "name": "projet",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maitre_ouvrage": {
+          "name": "maitre_ouvrage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "maitre_oeuvre": {
+          "name": "maitre_oeuvre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entreprise": {
+          "name": "entreprise",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lieu": {
+          "name": "lieu",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_ordre_service": {
+          "name": "date_ordre_service",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duree_contractuelle_j": {
+          "name": "duree_contractuelle_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_fin_contractuelle": {
+          "name": "date_fin_contractuelle",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "montant_marche_xof": {
+          "name": "montant_marche_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taux_penalite_journaliere": {
+          "name": "taux_penalite_journaliere",
+          "type": "numeric(8, 7)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.001
+        },
+        "devise": {
+          "name": "devise",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'XOF'"
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "projet_code_unique": {
+          "name": "projet_code_unique",
+          "columns": [
+            "code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "projet_devise_xof": {
+          "name": "projet_devise_xof",
+          "value": "\"projet\".\"devise\" = 'XOF'"
+        },
+        "projet_duree_positive": {
+          "name": "projet_duree_positive",
+          "value": "\"projet\".\"duree_contractuelle_j\" > 0"
+        },
+        "projet_montant_positif": {
+          "name": "projet_montant_positif",
+          "value": "\"projet\".\"montant_marche_xof\" > 0"
+        },
+        "projet_penalite_fraction": {
+          "name": "projet_penalite_fraction",
+          "value": "\"projet\".\"taux_penalite_journaliere\" >= 0 and \"projet\".\"taux_penalite_journaliere\" <= 1"
+        },
+        "projet_fin_apres_debut": {
+          "name": "projet_fin_apres_debut",
+          "value": "\"projet\".\"date_fin_contractuelle\" > \"projet\".\"date_ordre_service\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.releve_journalier": {
+      "name": "releve_journalier",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "auteur_id": {
+          "name": "auteur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effectif_ouvriers": {
+          "name": "effectif_ouvriers",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "effectif_encadrement": {
+          "name": "effectif_encadrement",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "heures_travaillees": {
+          "name": "heures_travaillees",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "meteo_code": {
+          "name": "meteo_code",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "temperature_c": {
+          "name": "temperature_c",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "precipitations_mm": {
+          "name": "precipitations_mm",
+          "type": "numeric(6, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rafales_kmh": {
+          "name": "rafales_kmh",
+          "type": "numeric(5, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "journee_travaillee": {
+          "name": "journee_travaillee",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "motif_arret": {
+          "name": "motif_arret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observations": {
+          "name": "observations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statut": {
+          "name": "statut",
+          "type": "statut_releve",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'BROUILLON'"
+        },
+        "valide_par_id": {
+          "name": "valide_par_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valide_le": {
+          "name": "valide_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remplace_par": {
+          "name": "remplace_par",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "modifie_le": {
+          "name": "modifie_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "releve_actif_unique": {
+          "name": "releve_actif_unique",
+          "columns": [
+            {
+              "expression": "lot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "statut <> 'RECTIFIE'",
+          "concurrently": false
+        },
+        "releve_projet_date_idx": {
+          "name": "releve_projet_date_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "releve_statut_idx": {
+          "name": "releve_statut_idx",
+          "columns": [
+            {
+              "expression": "statut",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "releve_journalier_projet_id_projet_id_fk": {
+          "name": "releve_journalier_projet_id_projet_id_fk",
+          "tableFrom": "releve_journalier",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "releve_journalier_lot_id_lot_id_fk": {
+          "name": "releve_journalier_lot_id_lot_id_fk",
+          "tableFrom": "releve_journalier",
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "tableTo": "lot",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "releve_journalier_auteur_id_utilisateur_id_fk": {
+          "name": "releve_journalier_auteur_id_utilisateur_id_fk",
+          "tableFrom": "releve_journalier",
+          "columnsFrom": [
+            "auteur_id"
+          ],
+          "tableTo": "utilisateur",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "releve_journalier_valide_par_id_utilisateur_id_fk": {
+          "name": "releve_journalier_valide_par_id_utilisateur_id_fk",
+          "tableFrom": "releve_journalier",
+          "columnsFrom": [
+            "valide_par_id"
+          ],
+          "tableTo": "utilisateur",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "releve_journalier_remplace_par_releve_journalier_id_fk": {
+          "name": "releve_journalier_remplace_par_releve_journalier_id_fk",
+          "tableFrom": "releve_journalier",
+          "columnsFrom": [
+            "remplace_par"
+          ],
+          "tableTo": "releve_journalier",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "releve_effectifs_positifs": {
+          "name": "releve_effectifs_positifs",
+          "value": "\"releve_journalier\".\"effectif_ouvriers\" >= 0 and \"releve_journalier\".\"effectif_encadrement\" >= 0"
+        },
+        "releve_heures_positives": {
+          "name": "releve_heures_positives",
+          "value": "\"releve_journalier\".\"heures_travaillees\" >= 0"
+        },
+        "releve_arret_motive": {
+          "name": "releve_arret_motive",
+          "value": "\"releve_journalier\".\"journee_travaillee\" or \"releve_journalier\".\"motif_arret\" is not null"
+        },
+        "releve_validation_complete": {
+          "name": "releve_validation_complete",
+          "value": "\"releve_journalier\".\"statut\" <> 'VALIDE' or (\"releve_journalier\".\"valide_par_id\" is not null and \"releve_journalier\".\"valide_le\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.releve_quantite": {
+      "name": "releve_quantite",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "releve_journalier_id": {
+          "name": "releve_journalier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ligne_quantitatif_id": {
+          "name": "ligne_quantitatif_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantite_realisee": {
+          "name": "quantite_realisee",
+          "type": "numeric(14, 3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commentaire": {
+          "name": "commentaire",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "releve_quantite_ligne_idx": {
+          "name": "releve_quantite_ligne_idx",
+          "columns": [
+            {
+              "expression": "ligne_quantitatif_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "releve_quantite_releve_journalier_id_releve_journalier_id_fk": {
+          "name": "releve_quantite_releve_journalier_id_releve_journalier_id_fk",
+          "tableFrom": "releve_quantite",
+          "columnsFrom": [
+            "releve_journalier_id"
+          ],
+          "tableTo": "releve_journalier",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "releve_quantite_ligne_quantitatif_id_ligne_quantitatif_id_fk": {
+          "name": "releve_quantite_ligne_quantitatif_id_ligne_quantitatif_id_fk",
+          "tableFrom": "releve_quantite",
+          "columnsFrom": [
+            "ligne_quantitatif_id"
+          ],
+          "tableTo": "ligne_quantitatif",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "releve_quantite_unique": {
+          "name": "releve_quantite_unique",
+          "columns": [
+            "releve_journalier_id",
+            "ligne_quantitatif_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "releve_quantite_positive": {
+          "name": "releve_quantite_positive",
+          "value": "\"releve_quantite\".\"quantite_realisee\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ressource": {
+      "name": "ressource",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type_ressource",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capacite": {
+          "name": "capacite",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cout_unitaire_xof": {
+          "name": "cout_unitaire_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "unite_cout": {
+          "name": "unite_cout",
+          "type": "unite_cout",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'JOUR'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ressource_projet_id_projet_id_fk": {
+          "name": "ressource_projet_id_projet_id_fk",
+          "tableFrom": "ressource",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ressource_unique": {
+          "name": "ressource_unique",
+          "columns": [
+            "projet_id",
+            "nom"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ressource_cout_positif": {
+          "name": "ressource_cout_positif",
+          "value": "\"ressource\".\"cout_unitaire_xof\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.snapshot_avancement": {
+      "name": "snapshot_avancement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avancement_pct": {
+          "name": "avancement_pct",
+          "type": "numeric(7, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valeur_planifiee_xof": {
+          "name": "valeur_planifiee_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valeur_acquise_xof": {
+          "name": "valeur_acquise_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cout_reel_xof": {
+          "name": "cout_reel_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "spi": {
+          "name": "spi",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpi": {
+          "name": "cpi",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_fin_projetee": {
+          "name": "date_fin_projetee",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "calcule_le": {
+          "name": "calcule_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "snapshot_lot_unique": {
+          "name": "snapshot_lot_unique",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "lot_id is not null",
+          "concurrently": false
+        },
+        "snapshot_projet_unique": {
+          "name": "snapshot_projet_unique",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "lot_id is null",
+          "concurrently": false
+        },
+        "snapshot_lecture_idx": {
+          "name": "snapshot_lecture_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "snapshot_avancement_projet_id_projet_id_fk": {
+          "name": "snapshot_avancement_projet_id_projet_id_fk",
+          "tableFrom": "snapshot_avancement",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "snapshot_avancement_lot_id_lot_id_fk": {
+          "name": "snapshot_avancement_lot_id_lot_id_fk",
+          "tableFrom": "snapshot_avancement",
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "tableTo": "lot",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "snapshot_avancement_fraction": {
+          "name": "snapshot_avancement_fraction",
+          "value": "\"snapshot_avancement\".\"avancement_pct\" between 0 and 1"
+        },
+        "snapshot_montants_positifs": {
+          "name": "snapshot_montants_positifs",
+          "value": "\"snapshot_avancement\".\"valeur_planifiee_xof\" >= 0 and \"snapshot_avancement\".\"valeur_acquise_xof\" >= 0 and \"snapshot_avancement\".\"cout_reel_xof\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tache": {
+      "name": "tache",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code_wbs": {
+          "name": "code_wbs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nature": {
+          "name": "nature",
+          "type": "nature_tache",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "methode_avancement": {
+          "name": "methode_avancement",
+          "type": "methode_avancement",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UNITES_PHYSIQUES'"
+        },
+        "date_debut_prevue": {
+          "name": "date_debut_prevue",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_fin_prevue": {
+          "name": "date_fin_prevue",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duree_prevue_j": {
+          "name": "duree_prevue_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_debut_reelle": {
+          "name": "date_debut_reelle",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_fin_reelle": {
+          "name": "date_fin_reelle",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "poids_budgetaire_xof": {
+          "name": "poids_budgetaire_xof",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "avancement_pct": {
+          "name": "avancement_pct",
+          "type": "numeric(7, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "marge_libre_j": {
+          "name": "marge_libre_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "marge_totale_j": {
+          "name": "marge_totale_j",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "critique": {
+          "name": "critique",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "tache_lot_idx": {
+          "name": "tache_lot_idx",
+          "columns": [
+            {
+              "expression": "lot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "tache_parent_idx": {
+          "name": "tache_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "tache_lot_id_lot_id_fk": {
+          "name": "tache_lot_id_lot_id_fk",
+          "tableFrom": "tache",
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "tableTo": "lot",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "tache_parent_id_tache_id_fk": {
+          "name": "tache_parent_id_tache_id_fk",
+          "tableFrom": "tache",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tache_code_wbs_unique": {
+          "name": "tache_code_wbs_unique",
+          "columns": [
+            "lot_id",
+            "code_wbs"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tache_duree_positive": {
+          "name": "tache_duree_positive",
+          "value": "\"tache\".\"duree_prevue_j\" > 0"
+        },
+        "tache_fin_apres_debut": {
+          "name": "tache_fin_apres_debut",
+          "value": "\"tache\".\"date_fin_prevue\" >= \"tache\".\"date_debut_prevue\""
+        },
+        "tache_fin_reelle_apres_debut": {
+          "name": "tache_fin_reelle_apres_debut",
+          "value": "\"tache\".\"date_fin_reelle\" is null or \"tache\".\"date_debut_reelle\" is null or \"tache\".\"date_fin_reelle\" >= \"tache\".\"date_debut_reelle\""
+        },
+        "tache_avancement_fraction": {
+          "name": "tache_avancement_fraction",
+          "value": "\"tache\".\"avancement_pct\" between 0 and 1"
+        },
+        "tache_pas_son_propre_parent": {
+          "name": "tache_pas_son_propre_parent",
+          "value": "\"tache\".\"parent_id\" is null or \"tache\".\"parent_id\" <> \"tache\".\"id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.utilisateur": {
+      "name": "utilisateur",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "role_utilisateur",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mot_de_passe_hash": {
+          "name": "mot_de_passe_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actif": {
+          "name": "actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "utilisateur_email_unique": {
+          "name": "utilisateur_email_unique",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.zone": {
+      "name": "zone",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "projet_id": {
+          "name": "projet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "niveau": {
+          "name": "niveau",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path_svg": {
+          "name": "path_svg",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "zone_niveau_idx": {
+          "name": "zone_niveau_idx",
+          "columns": [
+            {
+              "expression": "projet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "niveau",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "zone_projet_id_projet_id_fk": {
+          "name": "zone_projet_id_projet_id_fk",
+          "tableFrom": "zone",
+          "columnsFrom": [
+            "projet_id"
+          ],
+          "tableTo": "projet",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "zone_unique": {
+          "name": "zone_unique",
+          "columns": [
+            "projet_id",
+            "nom"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.zone_tache": {
+      "name": "zone_tache",
+      "schema": "",
+      "columns": {
+        "zone_id": {
+          "name": "zone_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tache_id": {
+          "name": "tache_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "zone_tache_tache_idx": {
+          "name": "zone_tache_tache_idx",
+          "columns": [
+            {
+              "expression": "tache_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "zone_tache_zone_id_zone_id_fk": {
+          "name": "zone_tache_zone_id_zone_id_fk",
+          "tableFrom": "zone_tache",
+          "columnsFrom": [
+            "zone_id"
+          ],
+          "tableTo": "zone",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "zone_tache_tache_id_tache_id_fk": {
+          "name": "zone_tache_tache_id_tache_id_fk",
+          "tableFrom": "zone_tache",
+          "columnsFrom": [
+            "tache_id"
+          ],
+          "tableTo": "tache",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "zone_tache_zone_id_tache_id_pk": {
+          "name": "zone_tache_zone_id_tache_id_pk",
+          "columns": [
+            "zone_id",
+            "tache_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.methode_avancement": {
+      "name": "methode_avancement",
+      "schema": "public",
+      "values": [
+        "UNITES_PHYSIQUES",
+        "JALONS_PONDERES",
+        "PROPORTION_DUREE",
+        "ZERO_CENT"
+      ]
+    },
+    "public.nature_tache": {
+      "name": "nature_tache",
+      "schema": "public",
+      "values": [
+        "TERRASSEMENT",
+        "VRD",
+        "ENROBES",
+        "FONDATION",
+        "BETONNAGE",
+        "LEVAGE",
+        "MACONNERIE",
+        "CHARPENTE",
+        "ETANCHEITE",
+        "ENDUIT",
+        "INTERIEUR",
+        "SUPPORT"
+      ]
+    },
+    "public.role_utilisateur": {
+      "name": "role_utilisateur",
+      "schema": "public",
+      "values": [
+        "CHEF_CHANTIER",
+        "CONDUCTEUR",
+        "MOE",
+        "MOA",
+        "ADMIN"
+      ]
+    },
+    "public.statut_alea": {
+      "name": "statut_alea",
+      "schema": "public",
+      "values": [
+        "OUVERT",
+        "EN_TRAITEMENT",
+        "SOLDE"
+      ]
+    },
+    "public.statut_releve": {
+      "name": "statut_releve",
+      "schema": "public",
+      "values": [
+        "BROUILLON",
+        "SOUMIS",
+        "VALIDE",
+        "RECTIFIE"
+      ]
+    },
+    "public.type_alea": {
+      "name": "type_alea",
+      "schema": "public",
+      "values": [
+        "INTEMPERIE",
+        "INCIDENT",
+        "NON_CONFORMITE",
+        "AVENANT",
+        "PANNE_ENGIN",
+        "RUPTURE_APPROVISIONNEMENT",
+        "ADMINISTRATIF"
+      ]
+    },
+    "public.type_liaison": {
+      "name": "type_liaison",
+      "schema": "public",
+      "values": [
+        "FD",
+        "DD",
+        "FF",
+        "DF"
+      ]
+    },
+    "public.type_ressource": {
+      "name": "type_ressource",
+      "schema": "public",
+      "values": [
+        "EQUIPE",
+        "ENGIN",
+        "MATERIEL",
+        "MATERIAU"
+      ]
+    },
+    "public.unite_cout": {
+      "name": "unite_cout",
+      "schema": "public",
+      "values": [
+        "JOUR",
+        "HEURE",
+        "UNITE"
+      ]
+    },
+    "public.unite_mesure": {
+      "name": "unite_mesure",
+      "schema": "public",
+      "values": [
+        "M3",
+        "M2",
+        "ML",
+        "KG",
+        "T",
+        "U",
+        "ENS",
+        "FORFAIT"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
