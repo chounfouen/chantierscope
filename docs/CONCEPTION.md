@@ -437,29 +437,115 @@ navigation entre ecrans sous 400 millisecondes, soumission d'un releve sous
 
 ## 8. Jeu de donnees de demonstration
 
-Chantier plausible et de taille maitrisable, pour ne pas passer le projet a
-saisir des donnees.
+Realise au sprint 1. Les valeurs ci-dessous ne sont pas des hypotheses : elles
+sont celles que le peuplement produit effectivement, verifiees par
+`npm run db:check`.
 
-- Operation : 24 logements, R+3, un seul batiment, Abidjan.
-- Montant du marche : 2 100 000 000 FCFA.
-- Duree contractuelle : 14 mois, ordre de service au 6 janvier 2025.
-- Penalite de retard : un millieme du montant du marche par jour calendaire.
-- 8 lots : installation de chantier, terrassement et VRD, fondations,
-  gros oeuvre, charpente et couverture, second oeuvre, lots techniques,
-  finitions et amenagements exterieurs.
-- Environ 60 taches, 80 liaisons, 6 jalons dont 4 contractuels.
-- 6 mois d'historique de releves journaliers, meteo reelle recuperee via
-  Open-Meteo pour Abidjan.
-- Une derive volontaire de 12 jours sur le gros oeuvre, causee par deux aleas :
-  une serie d'intemperies en juin et une rupture d'approvisionnement en acier.
-  Cette derive est ce qui permet de demontrer les alertes, la projection de
-  date de fin, le calcul de penalite et la simulation.
-- 4 points de vue photographiques, 8 dates de prise de vue chacun.
+### 8.1 L'operation
 
-Un script de peuplement genere l'ensemble de facon deterministe, pour que la
-demonstration soit reproductible.
+| | |
+|---|---|
+| Operation | Residence Les Palmiers, 24 logements, R+3, un batiment |
+| Lieu | Abidjan, Cocody Angre 7e Tranche |
+| Ordre de service | 2 mars 2026 |
+| Duree contractuelle | 412 jours calendaires |
+| Fin contractuelle | 17 avril 2027 |
+| Montant du marche | 1 156 141 200 FCFA |
+| Penalite de retard | un millieme du marche par jour calendaire |
+| Date d'analyse | 30 septembre 2026, soit le jour 212 sur 412 |
 
----
+### 8.2 Volumetrie
+
+| Objet | Nombre |
+|---|---|
+| Lots | 8 |
+| Noeuds de WBS | 17 |
+| Taches feuilles | 59 |
+| Liaisons | 60 |
+| Lignes de quantitatif | 134 |
+| Releves journaliers | 357 |
+| Quantites realisees | 1 201 |
+| Aleas | 12 |
+| Jalons | 6, dont 4 contractuels |
+| Zones du plan | 12, sur 4 niveaux |
+| Planches photographiques | 32, sur 4 points de vue |
+
+### 8.3 Trois principes de construction
+
+**Le montant du marche n'est pas un parametre.** Il est la somme du
+quantitatif : le montant d'une ligne est son produit quantite par prix
+unitaire, le poids d'une tache la somme de ses lignes, le budget d'un lot la
+somme de ses taches, et le marche la somme des lots. C'est exactement ainsi
+que se construit un DPGF, et cela rend toute incoherence impossible par
+construction plutot que verifiee apres coup. La consequence est que le montant
+n'est pas un nombre rond, ce qui est aussi le cas dans la realite.
+
+**Les dates du planning de reference ne sont pas ecrites.** Elles sont
+calculees par passe avant sur le reseau des liaisons, a partir des seules
+durees. Une date saisie a la main finirait toujours par contredire le reseau
+de dependances. Effet secondaire utile : le moteur CPM du sprint 2, applique
+au meme reseau, doit retrouver exactement ces dates au plus tot. C'est une
+verification croisee entre deux implementations independantes, et un test de
+non-regression gratuit.
+
+**La derive n'est pas ecrite non plus.** C'etait le risque principal identifie
+au plan : un jeu de donnees dont les dates auraient ete decalees a la main
+produirait des indicateurs contredisant l'histoire racontee. La derive EMERGE
+d'une simulation d'execution jour par jour, ou trois causes reduisent la
+production :
+
+1. La meteo reelle d'Abidjan sur la periode, recuperee via Open-Meteo et
+   archivee dans le depot. Juin 2026 y compte 345 mm et onze journees
+   au-dessus de 10 mm : la serie d'intemperies de l'histoire est dans les
+   donnees, pas inventee.
+2. Un rendement de lot inferieur a l'unite, marque sur le gros oeuvre, avec
+   une dispersion gaussienne par journee.
+3. Une rupture d'approvisionnement en acier de six jours en juin, qui tombe
+   sur le ferraillage des longrines et bloque toute la chaine aval.
+
+### 8.4 Situation constatee a la date d'analyse
+
+| Indicateur | Valeur |
+|---|---|
+| Avancement planifie | 49,6 % |
+| Avancement reel | 44,7 % |
+| Valeur planifiee | 573 504 519 FCFA |
+| Valeur acquise | 517 077 955 FCFA |
+| SPI | 0,902 |
+| Ecart de delai | 14 jours, par lecture horizontale de la courbe en S |
+| Penalite projetee | environ 16 200 000 FCFA |
+
+Un SPI de 0,902 place le chantier dans la zone d'alerte : la derive est nette
+mais encore rattrapable. C'est la situation la plus interessante a
+demontrer — un chantier a l'arret ou un chantier a l'heure ne montreraient
+ni la projection, ni la simulation, ni les alertes.
+
+L'analyse par lot montre que la derive est concentree : les lots 01 a 03 sont
+a l'heure, le gros oeuvre accuse 7,2 points de retard, et les lots aval, qui
+en dependent, davantage encore par effet de cascade. C'est le comportement
+attendu d'un reseau a chemin critique.
+
+### 8.5 Reproductibilite
+
+Le peuplement n'appelle jamais `Math.random` : il utilise un generateur
+mulberry32 a graine fixe. Deux executions de `npm run db:reset` produisent la
+meme empreinte metier, verifiee par `npm run db:empreinte`. L'historique meteo
+est versionne dans le depot, et non telecharge a chaque execution, faute de
+quoi le peuplement ne serait ni reproductible d'une machine a l'autre, ni
+executable hors ligne.
+
+### 8.6 Recalage avant une soutenance
+
+L'ordre de service et la date d'analyse sont deux constantes de
+`src/db/seed/catalogue.ts`. Les decaler rajeunit toute la demonstration :
+
+1. Modifier `DATE_ORDRE_SERVICE` et `DATE_ANALYSE`.
+2. `npm run db:meteo` pour re-archiver l'historique meteo de la nouvelle
+   periode.
+3. `npm run db:reset`, puis `npm run db:check`.
+
+Les dates internes aux aleas scenarises, rupture d'acier et non-conformites,
+sont a decaler d'autant.
 
 ## 9. Deroulement du projet
 

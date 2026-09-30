@@ -55,11 +55,11 @@ export default function Accueil() {
           <CardContent>
             <dl className="chiffres-alignes grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted-foreground">Montant du marche</dt>
-              <dd className="text-right font-medium">{fcfa(2_100_000_000)}</dd>
+              <dd className="text-right font-medium">{fcfa(1_156_141_200)}</dd>
               <dt className="text-muted-foreground">Forme compacte</dt>
-              <dd className="text-right font-medium">{fcfaCompact(2_100_000_000)}</dd>
+              <dd className="text-right font-medium">{fcfaCompact(1_156_141_200)}</dd>
               <dt className="text-muted-foreground">Valeur acquise</dt>
-              <dd className="text-right font-medium">{fcfaCompact(847_300_000)}</dd>
+              <dd className="text-right font-medium">{fcfaCompact(517_077_955)}</dd>
               <dt className="text-muted-foreground">Beton coule</dt>
               <dd className="text-right font-medium">{quantite(1284.5, 'M3')}</dd>
               <dt className="text-muted-foreground">Acier pose</dt>
@@ -78,15 +78,15 @@ export default function Accueil() {
           <CardContent>
             <dl className="chiffres-alignes grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted-foreground">Avancement global</dt>
-              <dd className="text-right font-medium">{pourcent(0.4035)}</dd>
+              <dd className="text-right font-medium">{pourcent(0.447)}</dd>
               <dt className="text-muted-foreground">Ecart de delai</dt>
-              <dd className="text-etat-retard text-right font-medium">{jours(-12)}</dd>
+              <dd className="text-etat-retard text-right font-medium">{jours(-14)}</dd>
               <dt className="text-muted-foreground">SPI</dt>
-              <dd className="text-right font-medium">{indice(0.934)}</dd>
+              <dd className="text-right font-medium">{indice(0.902)}</dd>
               <dt className="text-muted-foreground">CPI</dt>
-              <dd className="text-right font-medium">{indice(0.987)}</dd>
+              <dd className="text-right font-medium">{indice(0.981)}</dd>
               <dt className="text-muted-foreground">Penalite projetee</dt>
-              <dd className="text-right font-medium">{fcfa(25_200_000)}</dd>
+              <dd className="text-right font-medium">{fcfa(16_186_000)}</dd>
             </dl>
           </CardContent>
         </Card>
@@ -150,7 +150,7 @@ export default function Accueil() {
 
       <footer className="text-muted-foreground flex items-center gap-2 text-xs">
         <Icone.valide className="text-etat-acheve size-4" />
-        Sprint 0 — fondations en place. Etape suivante : schema et jeu de donnees.
+        Sprint 1 — schema et jeu de donnees en place. Etape suivante : le noyau de calcul.
       </footer>
     </div>
   )

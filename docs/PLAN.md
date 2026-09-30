@@ -603,3 +603,88 @@ Rapport de validation de la palette, a conserver pour le memoire :
 La regle de relief signifie que tout graphique employant les teintes 3, 4 ou 5
 en mode clair doit porter des etiquettes directes visibles ou offrir la vue
 tableau. Contrainte de conception, pas une recommandation.
+
+
+### Sprint 1 — Schema et jeu de donnees : termine
+
+Commit `274801e`. Critere d'achevement atteint : `npm run db:reset` s'execute
+en moins de dix secondes, `npm run db:check` enchaine 25 controles de
+coherence sans echec, et deux peuplements successifs produisent la meme
+empreinte metier.
+
+#### Ce qui a ete produit
+
+Dix-neuf tables, deux migrations, six declencheurs. Un chantier de 24
+logements R+3 a Abidjan : 76 taches en WBS a trois niveaux, 60 liaisons, 134
+lignes de quantitatif, 357 releves journaliers, 1 201 quantites realisees, 12
+aleas, 6 jalons, 12 zones, 32 planches photographiques.
+
+#### Ecarts par rapport au plan
+
+| Ecart | Raison |
+|---|---|
+| 19 tables au lieu de 16 | Les deux colonnes tableau de la conception, `projet_ids` sur l'utilisateur et `tache_ids` sur la zone, sont devenues les tables de liaison `acces_projet` et `zone_tache` : indexables, porteuses de l'integrite referentielle, et conformes a la normalisation attendue d'un modele relationnel |
+| Montant du marche 1 156 141 200 FCFA au lieu de 2 100 000 000 | Le montant n'est pas un parametre mais la somme du quantitatif. La cible initiale de 2,1 milliards correspondait a 516 000 FCFA du metre carre habitable, au-dessus des ordres de grandeur du marche ivoirien pour du logement collectif |
+| Duree 412 jours au lieu de 426 | La duree contractuelle est calee sur la duree du reseau, elle-meme issue des durees de taches. Un contrat plus long aurait offert une marge de quatorze jours qui aurait absorbe la derive et prive la demonstration de son enjeu de penalite |
+| Ordre de service au 2 mars 2026 au lieu du 6 janvier 2025 | La demonstration doit paraitre vivante le jour de la soutenance. La date d'analyse du 30 septembre 2026 place le chantier au jour 212 sur 412 |
+| Derive constatee de 14 jours au lieu de 12 | La derive n'etant pas ecrite mais emergente, sa valeur exacte est un resultat, pas une consigne. Le modele a ete calibre en trois iterations pour atteindre la zone d'alerte |
+| Le module `src/db/compute/meteo.ts` ecrit au sprint 1 | Le peuplement a besoin des memes seuils que l'application. Les dupliquer aurait garanti leur divergence. Ses tests restent au sprint 2 |
+| Passage du projet en modules ES | Requis par les scripts de peuplement, qui utilisent l'attente de premier niveau et `import.meta`. Verifie sans regression sur le typage, le lint et la construction |
+
+#### Une correction de fond, et non un ajustement
+
+La premiere calibration produisait 37 jours de derive. L'analyse a montre que
+la cause principale n'etait pas un parametre mal regle mais une regle fausse :
+le seuil de pluie qui interdisait le betonnage etait fixe a 10 mm, comme pour
+les terrassements. C'est inexact. On betonne sous pluie legere, avec bachage
+et cure adaptee ; seule la pluie forte, au-dela de 25 mm, l'interdit. Les
+terrassements, les VRD, l'etancheite et les enduits sont en revanche
+reellement arretes des 10 mm.
+
+La regle a donc ete corrigee dans `src/db/compute/meteo.ts`, ou elle sert a la
+fois au peuplement et a l'application. La derive est tombee de 37 a 22 jours
+par cette seule correction. Le reste de l'ecart a ete resorbe en ajustant deux
+parametres du modele : le rendement du gros oeuvre et la duree de la rupture
+d'approvisionnement.
+
+C'est un point a raconter dans le memoire : un modele qui donne un resultat
+aberrant signale parfois une erreur de comprehension du metier, pas une erreur
+de calage.
+
+#### Ajouts non prevus au plan, conserves
+
+- `npm run db:empreinte` produit une empreinte du jeu de donnees independante
+  des identifiants et des horodatages, ce qui permet de prouver le
+  determinisme au lieu de l'affirmer.
+- `scripts/reinitialiser.ts` refuse de s'executer sur une base dont l'hote
+  n'est pas local. Un garde-fou vaut mieux qu'une consigne.
+- Les declencheurs d'audit sont desactives pendant le chargement puis
+  reactives : le journal doit tracer des actions humaines, pas les quinze
+  mille ecritures du peuplement.
+- Les planches photographiques sont des SVG generes, portant la mention
+  « image de demonstration, generee, non photographique ». Elles rendent la
+  timeline du sprint 8 demontrable sans se procurer de vraies photographies,
+  sans jamais pouvoir passer pour un releve reel.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le schema relationnel complet, 19 tables, a mettre en annexe.
+- Le rapport des 25 verifications de coherence.
+- La preuve de determinisme par empreinte, avant et apres reinitialisation.
+- Le tableau des trois causes de derive et leur contribution respective.
+- L'episode de la regle meteo fausse, qui illustre la difference entre calibrer
+  un modele et corriger sa comprehension du metier.
+
+#### Commandes disponibles
+
+```
+npm run db:generate   genere une migration depuis le schema
+npm run db:migrate    applique les migrations
+npm run db:seed       peuple le chantier de demonstration
+npm run db:reset      reinitialise, migre et peuple
+npm run db:check      25 controles de coherence
+npm run db:empreinte  empreinte metier, pour prouver le determinisme
+npm run db:meteo      re-archive l historique meteo
+npm run db:studio     explorateur de base
+npm run db:dump       sauvegarde manuelle
+```
