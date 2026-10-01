@@ -163,6 +163,39 @@ describe('coherence des agregats', () => {
     expect(ecarts).toEqual([])
   })
 
+  /**
+   * Non-regression sur un defaut reel.
+   *
+   * Une premiere version sommait directement les quantites plafonnees pour
+   * batir l'instantane, ce qui revenait a traiter toutes les taches en unites
+   * physiques. Les quatre taches en jalons ponderes ou en tout ou rien
+   * etaient alors valorisees differemment selon qu'on lisait le tableau de
+   * bord ou la vue du lot, avec un ecart de 3,6 millions de FCFA.
+   */
+  it('la valeur acquise de l instantane honore la methode d avancement de chaque tache', async () => {
+    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+
+    const [parTache] = await client<{ v: number }[]>`
+      select round(sum(avancement_pct * poids_budgetaire_xof))::float8 as v
+        from tache where parent_id is not null`
+    const [instantane] = await client<{ v: number }[]>`
+      select valeur_acquise_xof::float8 as v from snapshot_avancement
+       where lot_id is null and date = ${DATE_ANALYSE}::date`
+
+    // Tolerance d'un FCFA par tache, les arrondis n'etant pas faits au meme
+    // niveau d'agregation.
+    expect(Math.abs(Number(parTache?.v) - Number(instantane?.v))).toBeLessThan(80)
+  })
+
+  it('des methodes autres que les unites physiques sont bien representees', async () => {
+    // Le test precedent n'aurait aucune portee si toutes les taches
+    // employaient la meme methode.
+    const [n] = await client<{ n: number }[]>`
+      select count(*)::int as n from tache
+       where parent_id is not null and methode_avancement <> 'UNITES_PHYSIQUES'`
+    expect(Number(n?.n)).toBeGreaterThanOrEqual(3)
+  })
+
   it('le chemin critique est identifie sur les taches feuilles', async () => {
     const [c] = await client<{ n: number }[]>`
       select count(*)::int as n from tache where critique and parent_id is not null`

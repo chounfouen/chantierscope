@@ -275,6 +275,19 @@ async function main(): Promise<void> {
         ) c where precedent is not null and v < precedent`
       verifier('La valeur acquise ne decroit jamais dans le temps', Number(regressions[0]?.n) === 0)
 
+      const [parTache] = await client<{ v: number }[]>`
+        select round(sum(avancement_pct * poids_budgetaire_xof))::float8 as v
+          from tache where parent_id is not null`
+      const [consolide] = await client<{ v: number }[]>`
+        select valeur_acquise_xof::float8 as v from snapshot_avancement
+         where lot_id is null order by date desc limit 1`
+      const ecartVa = Math.abs(Number(parTache?.v) - Number(consolide?.v))
+      verifier(
+        'La valeur acquise de l instantane honore la methode d avancement',
+        ecartVa < 80,
+        `ecart ${Math.round(ecartVa)} FCFA`,
+      )
+
       const [marges] = await client<{ n: number }[]>`
         select count(*)::int as n from tache
          where parent_id is not null and (marge_totale_j is null or marge_totale_j < 0)`

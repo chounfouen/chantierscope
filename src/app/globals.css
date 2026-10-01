@@ -49,83 +49,189 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* ------------------------------------------------------------------------
+     Neutres legerement teintees, hue 255.
+     Un gris pur donne un rendu plat et clinique ; une pointe de chroma le
+     rechauffe imperceptiblement et rapproche le rendu d un papier technique.
+     La chroma reste sous 0.016 : la couleur ne doit jamais concurrencer les
+     donnees, qui sont seules a porter du sens colore.
+     ------------------------------------------------------------------------ */
+  --background: oklch(0.994 0.0015 255);
+  --foreground: oklch(0.19 0.012 255);
+
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.19 0.012 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.19 0.012 255);
+
+  --primary: oklch(0.24 0.016 255);
+  --primary-foreground: oklch(0.99 0.002 255);
+  --secondary: oklch(0.965 0.004 255);
+  --secondary-foreground: oklch(0.26 0.014 255);
+
+  --muted: oklch(0.966 0.004 255);
+  --muted-foreground: oklch(0.505 0.014 255);
+  --accent: oklch(0.955 0.006 255);
+  --accent-foreground: oklch(0.24 0.016 255);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.915 0.006 255);
+  --input: oklch(0.905 0.007 255);
+  --ring: oklch(0.55 0.035 255);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  --sidebar: oklch(0.985 0.003 255);
+  --sidebar-foreground: oklch(0.19 0.012 255);
+  --sidebar-primary: oklch(0.24 0.016 255);
+  --sidebar-primary-foreground: oklch(0.99 0.002 255);
+  --sidebar-accent: oklch(0.955 0.006 255);
+  --sidebar-accent-foreground: oklch(0.24 0.016 255);
+  --sidebar-border: oklch(0.915 0.006 255);
+  --sidebar-ring: oklch(0.55 0.035 255);
+
+  /* Les emplacements de graphique de shadcn pointent sur la palette validee. */
+  --chart-1: var(--serie-1);
+  --chart-2: var(--serie-2);
+  --chart-3: var(--serie-3);
+  --chart-4: var(--serie-4);
+  --chart-5: var(--serie-5);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.152 0.006 255);
+  --foreground: oklch(0.962 0.003 255);
+
+  --card: oklch(0.192 0.007 255);
+  --card-foreground: oklch(0.962 0.003 255);
+  --popover: oklch(0.212 0.009 255);
+  --popover-foreground: oklch(0.962 0.003 255);
+
+  --primary: oklch(0.93 0.005 255);
+  --primary-foreground: oklch(0.2 0.012 255);
+  --secondary: oklch(0.252 0.009 255);
+  --secondary-foreground: oklch(0.95 0.003 255);
+
+  --muted: oklch(0.245 0.009 255);
+  --muted-foreground: oklch(0.685 0.014 255);
+  --accent: oklch(0.275 0.012 255);
+  --accent-foreground: oklch(0.962 0.003 255);
+
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.62 0.035 255);
+
+  --sidebar: oklch(0.172 0.007 255);
+  --sidebar-foreground: oklch(0.962 0.003 255);
+  --sidebar-primary: oklch(0.93 0.005 255);
+  --sidebar-primary-foreground: oklch(0.2 0.012 255);
+  --sidebar-accent: oklch(0.275 0.012 255);
+  --sidebar-accent-foreground: oklch(0.962 0.003 255);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.62 0.035 255);
+
+  --chart-1: var(--serie-1);
+  --chart-2: var(--serie-2);
+  --chart-3: var(--serie-3);
+  --chart-4: var(--serie-4);
+  --chart-5: var(--serie-5);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Ligatures et formes contextuelles : rendu plus soigne sans changer la
+       chasse, donc sans decaler les colonnes de chiffres. */
+    font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Un anneau de focus visible, unique pour toute l application, et jamais
+     supprime : la saisie de chantier se fait souvent au clavier. */
+  :focus-visible {
+    @apply ring-ring/70 ring-offset-background outline-none ring-2 ring-offset-2;
+  }
+
+  ::selection {
+    @apply bg-foreground/10;
+  }
+
+  /* Les titres portent un interlettrage legerement negatif : a ces corps, le
+     defaut parait relache. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+
+  /* Barres de defilement discretes, pour ne pas decouper les tableaux denses. */
+  @supports (scrollbar-width: thin) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+  }
+}
+
+@layer components {
+  /**
+   * Surface d une carte.
+   *
+   * Aucune ombre portee : sur un outil dense, les ombres empilees produisent
+   * un rendu boursoufle. La profondeur vient d un filet de bordure et d un
+   * ecart de luminosite avec le fond, ce qui reste lisible en clair comme en
+   * sombre et supporte l impression.
+   */
+  .surface {
+    @apply bg-card border-border/80 rounded-xl border;
+  }
+
+  .surface-interactive {
+    @apply bg-card border-border/80 hover:border-border rounded-xl border transition-colors;
+  }
+
+  /**
+   * Bandeau d en-tete de section : un filet superieur teinte, qui structure
+   * la page sans ajouter de trait horizontal supplementaire.
+   */
+  .filet-haut {
+    @apply border-t-2;
+  }
+
+  /* Chiffres a chasse fixe : reserve aux colonnes qui doivent s aligner
+     verticalement. Un grand nombre isole garde les chiffres proportionnels,
+     plus agreables a lire. */
+  .chiffres-alignes {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* En-tete de tableau colle en haut lors du defilement d une longue liste. */
+  .entete-collante th {
+    @apply bg-card sticky top-0 z-10;
+  }
+}
+
+@layer utilities {
+  /* Degrade de masquage en bas d une zone defilante. */
+  .fondu-bas {
+    mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent 100%);
+  }
+
+  /* Trame fine, pour les fonds de graphique et les zones inactives. */
+  .trame {
+    background-image: radial-gradient(var(--border) 0.5px, transparent 0.5px);
+    background-size: 8px 8px;
   }
 }
 /* ------------------------------------------------------------------------- */
@@ -193,12 +299,13 @@
   --etat-critique: #d03b3b; /* critique                              */
   --etat-chome: #e1e0d9; /* non travaille — porte une hachure 45 degres */
 
-  /* Encre et chrome de graphique */
-  --encre-primaire: #0b0b0b;
-  --encre-secondaire: #52514e;
-  --encre-discrete: #898781;
-  --grille: #e1e0d9;
-  --ligne-base: #c3c2b7;
+  /* Encre et chrome de graphique, alignes sur le theme : une seule source de
+     verite pour le texte, qu il soit en HTML ou en SVG. */
+  --encre-primaire: oklch(0.19 0.012 255);
+  --encre-secondaire: oklch(0.42 0.014 255);
+  --encre-discrete: oklch(0.6 0.012 255);
+  --grille: oklch(0.925 0.005 255);
+  --ligne-base: oklch(0.86 0.007 255);
 }
 
 .dark {
@@ -223,11 +330,11 @@
   --etat-critique: #d03b3b;
   --etat-chome: #2c2c2a;
 
-  --encre-primaire: #ffffff;
-  --encre-secondaire: #c3c2b7;
-  --encre-discrete: #898781;
-  --grille: #2c2c2a;
-  --ligne-base: #383835;
+  --encre-primaire: oklch(0.962 0.003 255);
+  --encre-secondaire: oklch(0.755 0.012 255);
+  --encre-discrete: oklch(0.6 0.014 255);
+  --grille: oklch(0.275 0.01 255);
+  --ligne-base: oklch(0.34 0.012 255);
 }
 
 /* Hachure a 45 degres : canal d'accessibilite du mode non travaille, et
@@ -255,9 +362,3 @@
   }
 }
 
-/* Chiffres a chasse fixe pour les colonnes qui doivent s'aligner
-   verticalement : lignes de tableau, graduations d'axe. Jamais pour un
-   grand nombre isole, qui garde les chiffres proportionnels. */
-.chiffres-alignes {
-  font-variant-numeric: tabular-nums;
-}

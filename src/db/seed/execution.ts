@@ -151,13 +151,30 @@ export function simulerExecution(): Execution {
 
   /* Etat de chaque tache. */
   const cumuls = new Map<string, number[]>()
+  /**
+   * Cumul tel qu'il sera STOCKE, c'est-a-dire apres arrondi au millieme.
+   *
+   * Les quantites journalieres sont arrondies avant d'etre ecrites en base.
+   * Emettre l'arrondi de chaque production ferait deriver la somme stockee de
+   * quelques milliemes sous la quantite prevue : une ligne pourtant achevee
+   * afficherait une valeur acquise inferieure d'un franc a son montant. On
+   * emet donc la DIFFERENCE entre deux cumuls arrondis, ce qui garantit que
+   * la somme stockee egale exactement le cumul arrondi, donc la quantite
+   * prevue a l'achevement.
+   */
+  const cumulsStockes = new Map<string, number[]>()
   const debutReel = new Map<string, number>()
   const finReelle = new Map<string, number>()
-  for (const t of planning.taches)
+  for (const t of planning.taches) {
     cumuls.set(
       t.code,
       t.lignes.map(() => 0),
     )
+    cumulsStockes.set(
+      t.code,
+      t.lignes.map(() => 0),
+    )
+  }
 
   const releves: ReleveSimule[] = []
   const aleas: AleaSimule[] = []
@@ -236,6 +253,7 @@ export function simulerExecution(): Execution {
       )
 
       const c = cumuls.get(t.code) as number[]
+      const stocke = cumulsStockes.get(t.code) as number[]
       const lignesDuJour: QuantiteJour[] = []
 
       t.lignes.forEach((ligne, i) => {
@@ -252,7 +270,13 @@ export function simulerExecution(): Execution {
         if (produit <= 1e-6) return
 
         c[i] = (c[i] ?? 0) + produit
-        lignesDuJour.push({ ligne: i, quantite: arrondi(produit, 3) })
+
+        const cumulArrondi = arrondi(c[i] as number, 3)
+        const quantiteJour = arrondi(cumulArrondi - (stocke[i] ?? 0), 3)
+        if (quantiteJour <= 0) return
+        stocke[i] = cumulArrondi
+
+        lignesDuJour.push({ ligne: i, quantite: quantiteJour })
       })
 
       if (lignesDuJour.length > 0) {

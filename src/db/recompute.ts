@@ -280,14 +280,19 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
  * Construit un instantane par jour et par lot, plus un instantane consolide
  * par jour pour l'ensemble du projet.
  *
- * Le parcours est incremental : les cumuls par ligne sont maintenus au fil
- * des jours, et la valeur acquise d'un lot est mise a jour par difference.
- * Recalculer la totalite des lignes a chaque jour donnerait le meme resultat,
- * mais en temps quadratique.
+ * La valeur acquise est calculee par TACHE, en appliquant la methode
+ * d'avancement de chacune, puis sommee par lot. Une premiere version sommait
+ * directement les quantites plafonnees, ce qui revenait a traiter toutes les
+ * taches en unites physiques : les quatre taches en jalons ponderes ou en
+ * tout ou rien etaient alors valorisees differemment dans le tableau de bord
+ * et dans la vue du lot, avec un ecart de 3,6 millions de FCFA. La valeur
+ * acquise doit etre coherente a tous les niveaux, sans quoi l'agregation ne
+ * veut plus rien dire.
  *
- * Le plafonnement de chaque ligne a sa quantite prevue est applique sur le
- * CUMUL, et non jour par jour : c'est ce qui rend la mise a jour par
- * difference correcte.
+ * Cout : environ soixante taches evaluees sur deux cents journees, soit
+ * douze mille evaluations d'une poignee de lignes chacune. Mesure a moins de
+ * cent millisecondes, ce qui ne justifie pas de compliquer le code par un
+ * suivi des taches modifiees.
  */
 function construireInstantanes(
   contexte: Contexte,
@@ -301,35 +306,34 @@ function construireInstantanes(
 ): Instantane[] {
   const { projet, lots } = contexte
 
-  const lotParTache = new Map(p.feuilles.map((t) => [t.id, t.lotId]))
-  const lotParLigne = new Map<string, string>()
-  const prevuParLigne = new Map<string, number>()
-  const puParLigne = new Map<string, number>()
+  /* Lignes par tache, avec une quantite realisee mutable au fil des jours. */
+  const lignesParTache = new Map<string, LigneCalcul[]>()
+  const ligneParId = new Map<string, LigneCalcul>()
   for (const l of p.lignes) {
-    const lotId = lotParTache.get(l.tacheId)
-    if (lotId) lotParLigne.set(l.id, lotId)
-    prevuParLigne.set(l.id, l.quantitePrevue)
-    puParLigne.set(l.id, l.prixUnitaireXof)
+    const ligne: LigneCalcul = {
+      tacheId: l.tacheId,
+      quantitePrevue: l.quantitePrevue,
+      quantiteRealisee: 0,
+      prixUnitaireXof: l.prixUnitaireXof,
+    }
+    ligneParId.set(l.id, ligne)
+    const liste = lignesParTache.get(l.tacheId) ?? []
+    liste.push(ligne)
+    lignesParTache.set(l.tacheId, liste)
   }
 
-  /* Budget par lot, et par jour la valeur planifiee de chaque lot. */
   const budgetParLot = new Map<string, number>()
-  for (const l of p.lignes) {
-    const lotId = lotParLigne.get(l.id)
-    if (!lotId) continue
-    budgetParLot.set(lotId, (budgetParLot.get(lotId) ?? 0) + l.quantitePrevue * l.prixUnitaireXof)
-  }
-
-  const budgetParTache = new Map<string, number>()
-  for (const l of p.lignes) {
-    budgetParTache.set(
-      l.tacheId,
-      (budgetParTache.get(l.tacheId) ?? 0) + l.quantitePrevue * l.prixUnitaireXof,
+  for (const t of p.feuilles) {
+    const budget = (lignesParTache.get(t.id) ?? []).reduce(
+      (total, l) => total + l.quantitePrevue * l.prixUnitaireXof,
+      0,
     )
+    budgetParLot.set(t.lotId, (budgetParLot.get(t.lotId) ?? 0) + budget)
   }
+  const budgetTotal = [...budgetParLot.values()].reduce((a, b) => a + b, 0)
 
-  /* Quantites et moyens indexes par date. */
-  const quantitesParDate = new Map<string, typeof contexte.quantites>()
+  /* Indexation par date des quantites, des moyens et des aleas. */
+  const quantitesParDate = new Map<string, Contexte['quantites']>()
   for (const q of contexte.quantites) {
     if (q.date > p.dateAnalyse) continue
     const liste = quantitesParDate.get(q.date) ?? []
@@ -337,7 +341,7 @@ function construireInstantanes(
     quantitesParDate.set(q.date, liste)
   }
 
-  const moyensParDate = new Map<string, typeof contexte.moyens>()
+  const moyensParDate = new Map<string, Contexte['moyens']>()
   for (const m of contexte.moyens) {
     if (m.date > p.dateAnalyse) continue
     const liste = moyensParDate.get(m.date) ?? []
@@ -357,62 +361,56 @@ function construireInstantanes(
     }
   }
 
-  /* Etat courant, mis a jour jour apres jour. */
-  const cumulLigne = new Map<string, number>()
-  const acquisePlafonneeLigne = new Map<string, number>()
-  const vaParLot = new Map<string, number>()
+  /* Cumuls de moyens, qui ne redescendent jamais. */
   const heuresParLot = new Map<string, number>()
   const encadrementParLot = new Map<string, number>()
   const aleasCumulParLot = new Map<string, number>()
   let aleasCumulProjet = 0
 
   const instantanes: Instantane[] = []
-  const budgetTotal = [...budgetParLot.values()].reduce((a, b) => a + b, 0)
 
   for (let j = 0; j <= p.jourAnalyse; j++) {
     const date = formatISO(addDays(parseISO(p.origine), j), { representation: 'date' })
 
-    /* Quantites du jour : mise a jour des cumuls et de la valeur acquise. */
     for (const q of quantitesParDate.get(date) ?? []) {
-      const prevu = prevuParLigne.get(q.ligneId)
-      const pu = puParLigne.get(q.ligneId)
-      const lotId = lotParLigne.get(q.ligneId)
-      if (prevu === undefined || pu === undefined || lotId === undefined) continue
-
-      const cumul = (cumulLigne.get(q.ligneId) ?? 0) + q.quantite
-      cumulLigne.set(q.ligneId, cumul)
-
-      const avant = acquisePlafonneeLigne.get(q.ligneId) ?? 0
-      const apres = Math.min(cumul, prevu) * pu
-      acquisePlafonneeLigne.set(q.ligneId, apres)
-      vaParLot.set(lotId, (vaParLot.get(lotId) ?? 0) + (apres - avant))
+      const ligne = ligneParId.get(q.ligneId)
+      if (ligne) ligne.quantiteRealisee += q.quantite
     }
 
-    /* Moyens du jour. */
     for (const m of moyensParDate.get(date) ?? []) {
       heuresParLot.set(m.lotId, (heuresParLot.get(m.lotId) ?? 0) + m.heuresOuvrier)
       encadrementParLot.set(m.lotId, (encadrementParLot.get(m.lotId) ?? 0) + m.encadrement)
     }
 
-    /* Aleas du jour. */
     aleasCumulProjet += aleasParDate.get(date) ?? 0
     for (const [lotId, cout] of aleasLotParDate.get(date) ?? []) {
       aleasCumulParLot.set(lotId, (aleasCumulParLot.get(lotId) ?? 0) + cout)
     }
 
-    /* Valeur planifiee du jour, par lot. */
+    /* Avancement de chaque tache a cette date, methode appliquee. */
+    const vaParLot = new Map<string, number>()
     const vpParLot = new Map<string, number>()
+
     for (const t of p.feuilles) {
-      const budget = budgetParTache.get(t.id) ?? 0
-      if (budget === 0) continue
-      const prevu = avancementPrevu(
-        { debut: jourDepuis(p.origine, t.dateDebutPrevue), duree: t.dureePrevueJ },
+      const lignesTache = lignesParTache.get(t.id) ?? []
+      const debutTache = jourDepuis(p.origine, t.dateDebutPrevue)
+
+      const a = avancementTache(
+        {
+          id: t.id,
+          methode: t.methodeAvancement,
+          lignes: lignesTache,
+          debut: debutTache,
+          duree: t.dureePrevueJ,
+        },
         j,
       )
-      vpParLot.set(t.lotId, (vpParLot.get(t.lotId) ?? 0) + prevu * budget)
+      vaParLot.set(t.lotId, (vaParLot.get(t.lotId) ?? 0) + a.valeurAcquise)
+
+      const prevu = avancementPrevu({ debut: debutTache, duree: t.dureePrevueJ }, j)
+      vpParLot.set(t.lotId, (vpParLot.get(t.lotId) ?? 0) + prevu * a.budget)
     }
 
-    /* Un instantane par lot. */
     let vpTotal = 0
     let vaTotal = 0
     let crLotsTotal = 0
@@ -448,7 +446,6 @@ function construireInstantanes(
       })
     }
 
-    /* Instantane consolide du projet. */
     const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasCumulProjet
     const spi = vpTotal > 0 ? vaTotal / vpTotal : null
     const dateFinProjetee =
