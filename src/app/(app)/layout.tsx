@@ -58,7 +58,10 @@ export default async function CoquilleApplication({
     {
       titre: 'Chantier',
       entrees: [
-        { libelle: 'Saisie journaliere', href: `${base}/releve`, icone: 'releve', aVenir: true },
+        // Le journal porte les effectifs : il suit la regle des donnees internes.
+        ...(interne
+          ? [{ libelle: 'Saisie journalière', href: `${base}/releve`, icone: 'releve' as const }]
+          : []),
         { libelle: 'Plan interactif', href: `${base}/plan`, icone: 'plan', aVenir: true },
         { libelle: 'Photos', href: `${base}/photos`, icone: 'photos', aVenir: true },
       ],

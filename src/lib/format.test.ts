@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  libelleMeteo,
   aujourdhui,
   dateCourte,
   dateLongue,
@@ -190,5 +191,26 @@ describe('ecart entre deux dates', () => {
 
   it('compte la duree du chantier de demonstration', () => {
     expect(ecartJours('2026-03-02', '2027-04-17')).toBe(411)
+  })
+})
+
+describe('libelle meteo', () => {
+  it('regroupe les codes WMO par famille', () => {
+    expect(libelleMeteo(0)).toBe('Ciel dégagé')
+    expect(libelleMeteo(2)).toBe('Nuageux')
+    expect(libelleMeteo(45)).toBe('Brouillard')
+    expect(libelleMeteo(53)).toBe('Bruine')
+    expect(libelleMeteo(63)).toBe('Pluie')
+    expect(libelleMeteo(73)).toBe('Neige')
+    expect(libelleMeteo(81)).toBe('Averses')
+    expect(libelleMeteo(95)).toBe('Orage')
+  })
+
+  it('signale une meteo absente plutot que de la deviner', () => {
+    expect(libelleMeteo(null)).toBe('Météo non relevée')
+  })
+
+  it('garde le code brut quand il ne correspond a aucune famille', () => {
+    expect(libelleMeteo(30)).toBe('Code météo 30')
   })
 })

@@ -166,3 +166,25 @@ export function aujourdhui(): DateSimple {
 export function ecartJours(de: DateSimple, a: DateSimple): number {
   return differenceInCalendarDays(parseISO(a), parseISO(de))
 }
+
+/* -------------------------------------------------------------------------- */
+/* Meteo                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Libelle d'un code meteo WMO, tel que renvoye par Open-Meteo. Regroupe par
+ * famille : sur un chantier, distinguer la bruine moderee de la bruine dense
+ * n'apporte rien, distinguer la pluie de l'orage, si.
+ */
+export function libelleMeteo(code: number | null): string {
+  if (code === null) return 'Météo non relevée'
+  if (code === 0) return 'Ciel dégagé'
+  if (code <= 3) return 'Nuageux'
+  if (code === 45 || code === 48) return 'Brouillard'
+  if (code >= 51 && code <= 57) return 'Bruine'
+  if (code >= 61 && code <= 67) return 'Pluie'
+  if (code >= 71 && code <= 77) return 'Neige'
+  if (code >= 80 && code <= 82) return 'Averses'
+  if (code >= 95) return 'Orage'
+  return `Code météo ${code}`
+}

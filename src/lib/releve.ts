@@ -218,3 +218,25 @@ export function erreursParChamp(erreur: z.ZodError): Record<string, string> {
   }
   return resultat
 }
+
+/* -------------------------------------------------------------------------- */
+/* Libelles                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const LIBELLE_TYPE_ALEA: Record<(typeof typeAlea.enumValues)[number], string> = {
+  INTEMPERIE: 'Intempérie',
+  INCIDENT: 'Incident',
+  NON_CONFORMITE: 'Non-conformité',
+  AVENANT: 'Avenant',
+  PANNE_ENGIN: 'Panne d’engin',
+  RUPTURE_APPROVISIONNEMENT: 'Rupture d’approvisionnement',
+  ADMINISTRATIF: 'Administratif',
+}
+
+/** Gravite d'un alea, de 1 a 4. */
+export const LIBELLE_GRAVITE: Record<number, string> = {
+  1: 'Mineure',
+  2: 'Modérée',
+  3: 'Majeure',
+  4: 'Bloquante',
+}

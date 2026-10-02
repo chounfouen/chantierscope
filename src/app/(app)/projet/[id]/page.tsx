@@ -7,7 +7,7 @@ import { Tuile, type Ton } from '@/components/indicateurs/tuile'
 import { dbScript } from '@/db/index'
 import { chargerCourbeS, chargerSynthese } from '@/db/queries/lecture'
 import { ecartDelaiJours } from '@/db/compute/evm'
-import { exiger, voitDonneesInternes } from '@/lib/garde'
+import { exigerPage, voitDonneesInternes } from '@/lib/garde'
 import { dateLongue, ecartJours, fcfa, fcfaCompact, indice, jours, pourcent } from '@/lib/format'
 import { Icone } from '@/lib/icones'
 
@@ -29,7 +29,7 @@ function tonEcart(ecart: number): Ton {
 
 export default async function VueProjet({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const utilisateur = await exiger(id)
+  const utilisateur = await exigerPage(id)
   const interne = voitDonneesInternes(utilisateur.role)
 
   const { db, fermer } = dbScript()

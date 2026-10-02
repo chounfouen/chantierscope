@@ -87,3 +87,40 @@ export const ETAT: Record<Etat, DescriptionEtat> = {
     definition: 'Journee sans activite : intemperie, ferie ou arret de chantier.',
   },
 }
+
+/**
+ * Statuts d'un releve journalier, sur le meme principe : couleur de la
+ * palette d'etats, toujours doublee d'une icone et d'un libelle.
+ *
+ * Le brouillon et le releve rectifie partagent la teinte neutre, mais pas
+ * l'icone : l'un n'est pas encore engage, l'autre ne l'est plus.
+ */
+export const STATUT_RELEVE: Record<
+  'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'RECTIFIE',
+  { libelle: string; couleur: string; icone: LucideIcon; definition: string }
+> = {
+  BROUILLON: {
+    libelle: 'Brouillon',
+    couleur: 'var(--etat-neant)',
+    icone: Icone.modifier,
+    definition: 'En cours de saisie, pas encore transmis au conducteur de travaux.',
+  },
+  SOUMIS: {
+    libelle: 'Soumis',
+    couleur: 'var(--etat-cours)',
+    icone: Icone.enAttente,
+    definition: 'Transmis, en attente de validation. Pas encore compté dans les indicateurs.',
+  },
+  VALIDE: {
+    libelle: 'Validé',
+    couleur: 'var(--etat-acheve)',
+    icone: Icone.valide,
+    definition: 'Validé et gelé. Compté dans les indicateurs du projet.',
+  },
+  RECTIFIE: {
+    libelle: 'Rectifié',
+    couleur: 'var(--etat-neant)',
+    icone: Icone.rectifie,
+    definition: 'Remplacé par un relevé rectificatif. Conservé comme trace.',
+  },
+}

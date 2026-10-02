@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +14,7 @@ import {
 import { dbScript } from '@/db/index'
 import { chargerLot } from '@/db/queries/lecture'
 import { ETAT, type Etat } from '@/lib/etats'
-import { exiger } from '@/lib/garde'
+import { exigerPage } from '@/lib/garde'
 import { dateCourte, fcfa, fcfaNu, pourcent, quantite } from '@/lib/format'
 import { Icone } from '@/lib/icones'
 import { teinteSerie } from '@/lib/viz'
@@ -40,7 +41,7 @@ export default async function VueLot({
   params: Promise<{ id: string; lotId: string }>
 }) {
   const { id, lotId } = await params
-  await exiger(id)
+  await exigerPage(id)
 
   const { db, fermer } = dbScript()
   let detail: Awaited<ReturnType<typeof chargerLot>>
@@ -49,6 +50,10 @@ export default async function VueLot({
   } finally {
     await fermer()
   }
+
+  // La garde porte sur le projet de l'adresse : un lot d'un autre projet ne
+  // doit pas se lire en changeant seulement son identifiant.
+  if (detail.projet.id !== id) notFound()
 
   const { lot, projet, taches } = detail
 

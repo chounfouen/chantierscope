@@ -64,6 +64,12 @@ export const VOIT_DONNEES_INTERNES: readonly Role[] = [
   'ADMIN',
 ]
 
+/**
+ * Le journal de chantier porte les effectifs et les heures de chaque journee :
+ * il suit la meme regle que les donnees internes.
+ */
+export const PEUT_CONSULTER_JOURNAL: readonly Role[] = VOIT_DONNEES_INTERNES
+
 export function voitDonneesInternes(role: Role): boolean {
   return VOIT_DONNEES_INTERNES.includes(role)
 }

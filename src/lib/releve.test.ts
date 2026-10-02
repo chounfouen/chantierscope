@@ -313,3 +313,16 @@ describe('erreurs par champ', () => {
     }
   })
 })
+
+describe('libelles', () => {
+  it('chaque type d alea porte un libelle', async () => {
+    const { LIBELLE_TYPE_ALEA } = await import('@/lib/releve')
+    const { typeAlea } = await import('@/db/schema')
+    for (const t of typeAlea.enumValues) expect(LIBELLE_TYPE_ALEA[t]).toBeTruthy()
+  })
+
+  it('chaque gravite de un a quatre porte un libelle', async () => {
+    const { LIBELLE_GRAVITE } = await import('@/lib/releve')
+    for (const g of [1, 2, 3, 4]) expect(LIBELLE_GRAVITE[g]).toBeTruthy()
+  })
+})
