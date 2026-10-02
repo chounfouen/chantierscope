@@ -17,6 +17,7 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '@/db/index'
+import { completerMeteoProjet } from '@/db/mutations/meteo'
 import { recalculerProjet } from '@/db/mutations/releve'
 import { relever } from '@/services/meteo'
 import { env } from '@/lib/env'
@@ -126,19 +127,7 @@ async function completerMeteo(base: ReturnType<typeof db>): Promise<number> {
       derniere.date,
     )
 
-    for (const [date, m] of journees) {
-      const resultat = await base.execute(sql`
-        update releve_journalier
-           set meteo_code = ${m.code},
-               temperature_c = ${m.temperatureMaxC},
-               precipitations_mm = ${m.precipitationsMm},
-               rafales_kmh = ${m.rafalesKmh}
-         where projet_id = ${projetId}::uuid
-           and date = ${date}::date
-           and precipitations_mm is null
-           and not meteo_corrigee`)
-      completes += Array.isArray(resultat) ? resultat.length : 0
-    }
+    completes += await completerMeteoProjet(base, projetId, journees)
   }
   return completes
 }
