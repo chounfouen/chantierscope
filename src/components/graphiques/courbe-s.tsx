@@ -11,9 +11,21 @@ import {
   YAxis,
 } from 'recharts'
 import { dateLongue, fcfa, fcfaCompact, moisCourt } from '@/lib/format'
-import { CHROME, COURBE_S, MARQUE } from '@/lib/viz'
+import { CHROME, COURBE_S, MARQUE, TIRETS_PROJECTION } from '@/lib/viz'
 
 export type PointCourbe = { date: string; vp: number; va: number; cr: number | null }
+
+/** Point au-dela de la date d'analyse : planifie, puis projections. */
+export type PointProjection = { date: string; vp: number | null; va: number; cr: number | null }
+
+type Donnee = {
+  date: string
+  vp: number | null
+  va: number | null
+  cr: number | null
+  vaProjetee: number | null
+  crProjete: number | null
+}
 
 /**
  * Courbe en S.
@@ -28,14 +40,22 @@ export type PointCourbe = { date: string; vp: number; va: number; cr: number | n
  * de jours de retard. C'est la seule lecture de la courbe en S qui donne un
  * retard en jours ; le SPI, lui, est un rapport sans unite, et confondre les
  * deux est une erreur classique.
+ *
+ * Au-dela de la date d'analyse, la valeur planifiee se prolonge en trait
+ * plein — c'est le planning — et la valeur acquise et le cout reel se
+ * prolongent en pointille : ce sont des projections, pas des constats. Le
+ * pointille garde la teinte de sa serie, l'identite ne change pas.
  */
 export function CourbeS({
   points,
+  projection = [],
   bac,
   ecartDelaiJ,
   interne,
 }: {
   points: readonly PointCourbe[]
+  /** Points posterieurs a la date d'analyse, le premier etant cette date. */
+  projection?: readonly PointProjection[]
   /** Budget a l'achevement, trace en reference horizontale. */
   bac: number
   /** Ecart de delai en jours, positif pour un retard. */
@@ -49,11 +69,34 @@ export function CourbeS({
   const rattrapage = points[indiceRattrapage] as PointCourbe
   const retard = Math.round(ecartDelaiJ)
 
+  const donnees: Donnee[] = points.map((p) => ({
+    ...p,
+    vaProjetee: null,
+    crProjete: null,
+  }))
+  const debutProjection = projection[0]
+  if (debutProjection !== undefined) {
+    // Le point du jour porte les deux traces, pour que le pointille parte de
+    // la courbe constatee sans discontinuite.
+    const jour = donnees[donnees.length - 1] as Donnee
+    jour.vaProjetee = jour.va
+    jour.crProjete = interne ? jour.cr : null
+    for (const p of projection.slice(1)) {
+      donnees.push({
+        date: p.date,
+        vp: p.vp,
+        va: null,
+        cr: null,
+        vaProjetee: p.va,
+        crProjete: interne ? p.cr : null,
+      })
+    }
+  }
+  const finProjetee = projection.length > 1 ? projection[projection.length - 1] : undefined
+
   /** Une graduation par mois, quelle que soit la duree affichee. */
-  const graduations = points
-    .filter(
-      (p, i) => i === 0 || p.date.slice(5, 7) !== (points[i - 1] as PointCourbe).date.slice(5, 7),
-    )
+  const graduations = donnees
+    .filter((p, i) => i === 0 || p.date.slice(5, 7) !== (donnees[i - 1] as Donnee).date.slice(5, 7))
     .map((p) => p.date)
 
   const series = [
@@ -66,7 +109,7 @@ export function CourbeS({
     <figure className="m-0">
       <div className="h-[21rem] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...points]} margin={{ top: 16, right: 20, bottom: 4, left: 4 }}>
+          <LineChart data={donnees} margin={{ top: 16, right: 20, bottom: 4, left: 4 }}>
             <CartesianGrid stroke={CHROME.grille} strokeWidth={MARQUE.hairline} vertical={false} />
             <XAxis
               dataKey="date"
@@ -92,7 +135,7 @@ export function CourbeS({
               strokeDasharray="3 4"
               label={{
                 value: `Budget ${fcfaCompact(bac)}`,
-                position: 'insideTopRight',
+                position: 'insideTopLeft',
                 fill: CHROME.encreDiscrete,
                 fontSize: 11,
               }}
@@ -129,6 +172,20 @@ export function CourbeS({
               </>
             )}
 
+            {finProjetee !== undefined && (
+              <ReferenceLine
+                x={dernier.date}
+                stroke={CHROME.ligneBase}
+                strokeWidth={MARQUE.hairline}
+                label={{
+                  value: 'Situation',
+                  position: 'insideTopLeft',
+                  fill: CHROME.encreDiscrete,
+                  fontSize: 11,
+                }}
+              />
+            )}
+
             <Tooltip
               cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
               content={<Infobulle />}
@@ -145,8 +202,25 @@ export function CourbeS({
                 dot={false}
                 activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
                 isAnimationActive={false}
+                connectNulls={false}
               />
             ))}
+            {series
+              .filter((s) => s.cle !== 'vp')
+              .map((s) => (
+                <Line
+                  key={`${s.cle}-projection`}
+                  type="monotone"
+                  dataKey={s.cle === 'va' ? 'vaProjetee' : 'crProjete'}
+                  name={`${s.libelle}, projection`}
+                  stroke={s.couleur}
+                  strokeWidth={MARQUE.trait}
+                  strokeDasharray={TIRETS_PROJECTION}
+                  dot={false}
+                  activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -167,6 +241,22 @@ export function CourbeS({
             </span>
           </span>
         ))}
+        {finProjetee !== undefined && (
+          <span className="text-muted-foreground flex items-center gap-1.5">
+            <svg width="16" height="2" aria-hidden className="shrink-0">
+              <line
+                x1="0"
+                x2="16"
+                y1="1"
+                y2="1"
+                stroke={CHROME.encreSecondaire}
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+            </svg>
+            Projection au rythme constaté, achèvement vers le {dateLongue(finProjetee.date)}
+          </span>
+        )}
       </figcaption>
     </figure>
   )
@@ -181,14 +271,24 @@ type ProprietesInfobulle = {
 function Infobulle({ active, payload, label }: ProprietesInfobulle) {
   if (active !== true || !payload || payload.length === 0 || label === undefined) return null
 
-  const valeur = (cle: string) => payload.find((p) => p.dataKey === cle)?.value ?? 0
-  const ecart = valeur('va') - valeur('vp')
+  const present = payload.filter((p) => p.value !== null && p.value !== undefined)
+  // Le jour de la situation porte la valeur constatee et le depart de la
+  // projection, egaux : on n'affiche que le constat.
+  const affiches = present.filter(
+    (p) =>
+      !(p.dataKey === 'vaProjetee' && present.some((q) => q.dataKey === 'va')) &&
+      !(p.dataKey === 'crProjete' && present.some((q) => q.dataKey === 'cr')),
+  )
+  const lire = (cle: string) => present.find((p) => p.dataKey === cle)?.value
+  const vp = lire('vp')
+  const va = lire('va') ?? lire('vaProjetee')
+  const ecart = vp !== undefined && va !== undefined ? va - vp : null
 
   return (
     <div className="bg-popover text-popover-foreground border-border/80 rounded-lg border px-3 py-2 text-xs shadow-sm">
       <p className="mb-1.5 font-medium">{dateLongue(label)}</p>
       <dl className="chiffres-alignes space-y-0.5">
-        {payload.map((p) => (
+        {affiches.map((p) => (
           <div key={p.dataKey} className="flex items-center justify-between gap-6">
             <dt className="flex items-center gap-1.5">
               <span
@@ -201,13 +301,15 @@ function Infobulle({ active, payload, label }: ProprietesInfobulle) {
             <dd className="font-medium">{fcfa(p.value)}</dd>
           </div>
         ))}
-        <div className="border-border/60 mt-1 flex items-center justify-between gap-6 border-t pt-1">
-          <dt className="text-muted-foreground">Écart de valeur</dt>
-          <dd className={`font-medium ${ecart < 0 ? 'text-etat-retard' : 'text-etat-acheve'}`}>
-            {ecart >= 0 ? '+' : ''}
-            {fcfa(ecart)}
-          </dd>
-        </div>
+        {ecart !== null && (
+          <div className="border-border/60 mt-1 flex items-center justify-between gap-6 border-t pt-1">
+            <dt className="text-muted-foreground">Écart de valeur</dt>
+            <dd className="font-medium">
+              {ecart >= 0 ? '+' : ''}
+              {fcfa(ecart)}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   )

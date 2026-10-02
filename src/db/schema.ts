@@ -701,6 +701,13 @@ export const snapshotAvancement = pgTable(
     spi: numeric({ precision: 10, scale: 6, mode: 'number' }),
     cpi: numeric({ precision: 10, scale: 6, mode: 'number' }),
     dateFinProjetee: date(),
+    /**
+     * Budget au cout, ou debourse previsionnel, du lot ou du projet. Constant
+     * d'une date a l'autre tant que le planning ne change pas ; porte par
+     * chaque instantane pour que le cout estime final se lise dans le cache
+     * sans recharger les affectations.
+     */
+    budgetDebourseXof: bigint({ mode: 'number' }).notNull().default(0),
 
     calculeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

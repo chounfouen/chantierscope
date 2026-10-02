@@ -133,6 +133,7 @@ type Instantane = {
   spi: number | null
   cpi: number | null
   dateFinProjetee: string | null
+  budgetDebourseXof: number
 }
 
 type Calcul = {
@@ -464,6 +465,7 @@ function construireInstantanes(
         spi: vp > 0 ? arrondir(va / vp, 6) : null,
         cpi: cr > 0 ? arrondir((va * (k.parLot.get(lot.id) ?? 1)) / cr, 6) : null,
         dateFinProjetee: null,
+        budgetDebourseXof: k.coutParLot.get(lot.id) ?? 0,
       })
     }
 
@@ -490,6 +492,7 @@ function construireInstantanes(
       spi: spi === null ? null : arrondir(spi, 6),
       cpi: crProjet > 0 ? arrondir((vaTotal * k.projet) / crProjet, 6) : null,
       dateFinProjetee,
+      budgetDebourseXof: k.coutProjet,
     })
   }
 
@@ -558,14 +561,16 @@ async function ecrireInstantanes(
           sql`(${projetId}::uuid, ${s.lotId}::uuid, ${s.date}::date,
                ${s.avancementPct}::numeric, ${s.valeurPlanifieeXof}::bigint,
                ${s.valeurAcquiseXof}::bigint, ${s.coutReelXof}::bigint,
-               ${s.spi}::numeric, ${s.cpi}::numeric, ${s.dateFinProjetee}::date)`,
+               ${s.spi}::numeric, ${s.cpi}::numeric, ${s.dateFinProjetee}::date,
+               ${s.budgetDebourseXof}::bigint)`,
       ),
       sql`, `,
     )
     await executeur.execute(sql`
       insert into snapshot_avancement
         (projet_id, lot_id, date, avancement_pct, valeur_planifiee_xof,
-         valeur_acquise_xof, cout_reel_xof, spi, cpi, date_fin_projetee)
+         valeur_acquise_xof, cout_reel_xof, spi, cpi, date_fin_projetee,
+         budget_debourse_xof)
       values ${valeurs}`)
   }
 }
@@ -579,6 +584,9 @@ export type CoefficientsDebourse = {
   parLot: Map<string, number>
   /** Projet : frais de chantier compris sur la duree contractuelle. */
   projet: number
+  /** Budgets au cout correspondants, en FCFA entiers. */
+  coutParLot: Map<string, number>
+  coutProjet: number
 }
 
 /**
@@ -614,6 +622,7 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
   }
 
   const parLot = new Map<string, number>()
+  const coutParLot = new Map<string, number>()
   let coutProjet = 0
   let venteProjet = 0
   for (const lot of contexte.lots) {
@@ -626,6 +635,7 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
       joursFrais: 0,
     })
     parLot.set(lot.id, coefficientDebourse(cout, vente))
+    coutParLot.set(lot.id, cout)
     coutProjet += cout
     venteProjet += vente
   }
@@ -636,7 +646,12 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
     joursFrais: contexte.projet.dureeContractuelleJ,
   })
 
-  return { parLot, projet: coefficientDebourse(coutProjet, venteProjet) }
+  return {
+    parLot,
+    projet: coefficientDebourse(coutProjet, venteProjet),
+    coutParLot,
+    coutProjet,
+  }
 }
 
 /* -------------------------------------------------------------------------- */

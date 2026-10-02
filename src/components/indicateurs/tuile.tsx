@@ -1,5 +1,6 @@
 import { Icone, type NomIcone } from '@/lib/icones'
 import { cn } from '@/lib/utils'
+import { CHROME, MARQUE, SERIES } from '@/lib/viz'
 
 export type Ton = 'neutre' | 'bon' | 'alerte' | 'critique'
 
@@ -33,12 +34,15 @@ export function Tuile({
   precision,
   icone,
   ton = 'neutre',
+  tendance,
 }: {
   intitule: string
   valeur: string
   precision?: string
   icone: NomIcone
   ton?: Ton
+  /** Evolution sur la fenetre de tendance, et sa lecture en clair. */
+  tendance?: { serie: readonly (number | null)[]; libelle: string; sens: Sens }
 }) {
   const IconeTuile = Icone[icone]
   return (
@@ -51,6 +55,81 @@ export function Tuile({
       {precision !== undefined && (
         <p className="text-muted-foreground mt-2 text-xs leading-snug">{precision}</p>
       )}
+      {tendance !== undefined && (
+        <div className="border-border/60 mt-3 flex items-center gap-3 border-t pt-2.5">
+          <Etincelle serie={tendance.serie} />
+          <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs">
+            <IconeSens sens={tendance.sens} />
+            <span className="chiffres-alignes truncate">{tendance.libelle}</span>
+          </p>
+        </div>
+      )}
     </div>
+  )
+}
+
+export type Sens = 'hausse' | 'baisse' | 'stable'
+
+function IconeSens({ sens }: { sens: Sens }) {
+  const I = Icone[sens]
+  return <I className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+}
+
+/**
+ * Courbe miniature des trente derniers jours.
+ *
+ * Une seule serie, donc le premier emplacement de la palette et aucune
+ * legende : l'intitule de la tuile la nomme. Le dernier point, la valeur du
+ * jour, est marque. L'echelle est propre a chaque tuile : la miniature montre
+ * une forme, la valeur se lit dans le chiffre et dans la variation ecrite a
+ * cote, jamais sur la courbe.
+ */
+function Etincelle({ serie }: { serie: readonly (number | null)[] }) {
+  const L = 88
+  const H = 24
+  const valeurs = serie.filter((v): v is number => v !== null)
+  if (valeurs.length < 2) return <span className="h-6 w-[88px] shrink-0" aria-hidden />
+  const min = Math.min(...valeurs)
+  const max = Math.max(...valeurs)
+  const etendue = max - min || 1
+  const pas = L / (serie.length - 1)
+  const points: [number, number][] = []
+  serie.forEach((v, i) => {
+    if (v !== null) points.push([i * pas, H - 3 - ((v - min) / etendue) * (H - 6)])
+  })
+  const dernier = points[points.length - 1] as [number, number]
+  return (
+    <svg
+      width={L}
+      height={H}
+      viewBox={`0 0 ${L} ${H}`}
+      className="shrink-0 overflow-visible"
+      aria-hidden
+    >
+      <line
+        x1={0}
+        x2={L}
+        y1={H - 0.5}
+        y2={H - 0.5}
+        stroke={CHROME.grille}
+        strokeWidth={MARQUE.hairline}
+      />
+      <polyline
+        points={points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')}
+        fill="none"
+        stroke={SERIES[0]}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <circle
+        cx={dernier[0]}
+        cy={dernier[1]}
+        r={2.5}
+        fill={SERIES[0]}
+        stroke="var(--card)"
+        strokeWidth={1.5}
+      />
+    </svg>
   )
 }
