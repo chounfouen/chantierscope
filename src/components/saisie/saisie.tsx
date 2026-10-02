@@ -14,6 +14,7 @@ import { rectifierAction } from '@/app/(app)/projet/[id]/releve/actions'
 import { FormulaireReleve, type ModeFormulaire } from '@/components/saisie/formulaire-releve'
 import type { ReferentielSaisie } from '@/db/queries/saisie'
 import { envoyerReleve, type IssueEnvoi } from '@/lib/hors-ligne/envoi'
+import { mettreEnFile } from '@/lib/hors-ligne/file'
 import type { EtatFormulaire } from '@/lib/releve-formulaire'
 
 type Communes = {
@@ -22,9 +23,42 @@ type Communes = {
   aujourdhui: string
 }
 
-export function SaisieDirecte(p: Communes & { mode: Exclude<ModeFormulaire, 'rectification'> }) {
+/**
+ * Saisie directe : envoi immediat si possible, sinon mise en file. Un releve
+ * que le serveur n'a pas pu juger, faute de reseau ou de session, n'est
+ * jamais perdu ; un releve qu'il a refuse n'est pas mis en file, puisque le
+ * renvoyer ne changerait rien.
+ */
+export function SaisieDirecte(
+  p: Communes & { mode: Exclude<ModeFormulaire, 'rectification'>; utilisateurId: string },
+) {
+  const { utilisateurId, ...reste } = p
+  const projetId = p.referentiel.projet.id
   return (
-    <FormulaireReleve {...p} envoyer={(releve) => envoyerReleve(p.referentiel.projet.id, releve)} />
+    <FormulaireReleve
+      {...reste}
+      envoyer={async (releve): Promise<IssueEnvoi> => {
+        const issue: IssueEnvoi = navigator.onLine
+          ? await envoyerReleve(projetId, releve)
+          : {
+              issue: 'reporte',
+              cause: 'reseau',
+              message:
+                'Hors ligne : le relevé est gardé sur ce téléphone et partira au retour du réseau.',
+            }
+        if (issue.issue !== 'reporte') return issue
+        try {
+          await mettreEnFile(projetId, utilisateurId, releve, issue.message)
+        } catch {
+          return {
+            issue: 'refuse',
+            message:
+              'Envoi impossible et stockage local indisponible sur ce navigateur : réessayer avec du réseau.',
+          }
+        }
+        return issue
+      }}
+    />
   )
 }
 

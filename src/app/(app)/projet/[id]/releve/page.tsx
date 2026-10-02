@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FilAriane } from '@/components/coquille/fil-ariane'
+import { FileAttente } from '@/components/saisie/file-attente'
 import { PastilleStatut } from '@/components/saisie/statut-releve'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/index'
@@ -105,6 +106,8 @@ export default async function JournalDeChantier({
           </Button>
         )}
       </header>
+
+      {peutSaisir && <FileAttente projetId={id} utilisateurId={utilisateur.id} />}
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-2" aria-label="Filtres">
         <label className="grid gap-1 text-xs">

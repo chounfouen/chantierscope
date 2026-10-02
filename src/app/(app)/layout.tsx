@@ -3,9 +3,12 @@ import { redirect } from 'next/navigation'
 import { BasculeTheme } from '@/components/bascule-theme'
 import { MenuUtilisateur } from '@/components/coquille/menu-utilisateur'
 import { Navigation, type Groupe } from '@/components/coquille/navigation'
+import { IndicateurReseau } from '@/components/saisie/file-attente'
+import { EnregistrementServiceWorker } from '@/components/saisie/service-worker'
 import { dbScript } from '@/db/index'
 import { compteValide, projetsAccessibles } from '@/db/queries/lecture'
-import { utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
+import { habilite, PEUT_SAISIR, utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
+import { enDeveloppement } from '@/lib/env'
 import { Icone } from '@/lib/icones'
 
 /**
@@ -86,6 +89,7 @@ export default async function CoquilleApplication({
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <EnregistrementServiceWorker actif={!enDeveloppement()} />
       <header className="bg-background/80 border-border/70 sticky top-0 z-30 border-b backdrop-blur-xl">
         <div className="flex h-[3.25rem] items-center gap-3 px-4 sm:px-5">
           <Link href="/" className="flex shrink-0 items-center gap-2.5">
@@ -110,6 +114,9 @@ export default async function CoquilleApplication({
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {projet && habilite(utilisateur.role, PEUT_SAISIR) && (
+              <IndicateurReseau projetId={projet.id} utilisateurId={utilisateur.id} />
+            )}
             <BasculeTheme />
             <span aria-hidden className="bg-border mx-1 h-5 w-px" />
             <MenuUtilisateur utilisateur={utilisateur} />

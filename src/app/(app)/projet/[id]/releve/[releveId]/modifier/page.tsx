@@ -42,6 +42,7 @@ export default async function ModifierReleve({
       />
       <div className="mt-4">
         <SaisieDirecte
+          utilisateurId={utilisateur.id}
           mode="modification"
           referentiel={referentiel}
           aujourdhui={aujourdhui()}

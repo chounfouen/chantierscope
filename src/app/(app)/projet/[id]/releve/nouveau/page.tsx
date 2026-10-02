@@ -18,7 +18,7 @@ export default async function NouveauReleve({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { id } = await params
-  await exigerPage(id, PEUT_SAISIR)
+  const utilisateur = await exigerPage(id, PEUT_SAISIR)
   const recherche = await searchParams
 
   const referentiel = await chargerReferentielSaisie(db(), id)
@@ -40,6 +40,7 @@ export default async function NouveauReleve({
       />
       <div className="mt-4">
         <SaisieDirecte
+          utilisateurId={utilisateur.id}
           mode="creation"
           referentiel={referentiel}
           aujourdhui={jour}
