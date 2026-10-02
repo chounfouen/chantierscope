@@ -30,6 +30,8 @@ export interface Stockage {
   urlLecture(chemin: string): Promise<string>
   /** Taille du fichier depose, nulle s'il n'existe pas. */
   taille(chemin: string): Promise<number | null>
+  /** Contenu du fichier, lu par le serveur ; nul s'il n'existe pas. */
+  lire(chemin: string): Promise<Uint8Array | null>
 }
 
 /** Duree de validite d'une URL de depot : le temps d'un envoi sur reseau lent. */
@@ -135,6 +137,7 @@ export function piloteLocal(secret: string): Stockage {
         return null
       }
     },
+    lire: lireLocal,
   }
 }
 
@@ -198,6 +201,12 @@ export function piloteSupabase(
       const info = (await r.json()) as { size?: number; metadata?: { size?: number } }
       return info.size ?? info.metadata?.size ?? null
     },
+    async lire(chemin) {
+      const r = await transport(`${api}/object/authenticated/${compartiment}/${chemin}`, {
+        headers: entetes,
+      })
+      return r.ok ? new Uint8Array(await r.arrayBuffer()) : null
+    },
   }
 }
 
@@ -220,6 +229,24 @@ export function stockage(): Stockage {
  */
 export async function urlAffichage(chemin: string): Promise<string> {
   return chemin.startsWith('/') ? chemin : stockage().urlLecture(chemin)
+}
+
+const RACINE_PUBLIQUE = resolve(process.cwd(), 'public')
+
+/**
+ * Contenu d'une photo, lu par le serveur : pour le rapport PDF, qui embarque
+ * les images. Meme partage que `urlAffichage` : planche statique publique ou
+ * fichier du magasin.
+ */
+export async function lireFichier(chemin: string): Promise<Uint8Array | null> {
+  if (!chemin.startsWith('/')) return stockage().lire(chemin)
+  const complet = resolve(RACINE_PUBLIQUE, `.${chemin}`)
+  if (!complet.startsWith(RACINE_PUBLIQUE + sep)) return null
+  try {
+    return await readFile(complet)
+  } catch {
+    return null
+  }
 }
 
 /** Pour les tests : le chemin disque d'un fichier du magasin local. */

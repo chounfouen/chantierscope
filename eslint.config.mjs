@@ -37,8 +37,15 @@ const eslintConfig = [
   },
   {
     // La palette et les jetons d'etat portent les valeurs hexadecimales
-    // validees : c'est leur role. Le peuplement porte les teintes de lot.
-    files: ['src/lib/viz.ts', 'src/lib/etats.ts', 'src/db/seed/**/*.ts'],
+    // validees : c'est leur role. Le peuplement porte les teintes de lot. La
+    // palette d'impression reprend le theme clair pour le PDF, verifiee par
+    // test contre la feuille de style.
+    files: [
+      'src/lib/viz.ts',
+      'src/lib/etats.ts',
+      'src/lib/viz-impression.ts',
+      'src/db/seed/**/*.ts',
+    ],
     rules: { 'no-restricted-syntax': 'off' },
   },
   {

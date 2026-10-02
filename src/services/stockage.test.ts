@@ -114,8 +114,33 @@ describe('pilote Supabase', () => {
     expect(JSON.parse(String(appels[0]?.init?.body))).toEqual({ expiresIn: 3600 })
   })
 
+  it('lit un fichier par le serveur, avec la cle de service', async () => {
+    const { t, appels } = transport({ '/object/authenticated/': { ok: 1 } })
+    const octets = await piloteSupabase('https://x.supabase.co', 'cle', 'photos', t).lire(
+      'p/a.webp',
+    )
+    expect(new TextDecoder().decode(octets ?? new Uint8Array())).toBe('{"ok":1}')
+    expect(appels[0]?.url).toBe(
+      'https://x.supabase.co/storage/v1/object/authenticated/photos/p/a.webp',
+    )
+  })
+
+  it('un fichier absent se lit nul', async () => {
+    const { t } = transport({})
+    expect(await piloteSupabase('https://x.supabase.co', 'cle', 'photos', t).lire('a')).toBeNull()
+  })
+
   it('un fichier absent a une taille nulle', async () => {
     const { t } = transport({})
     expect(await piloteSupabase('https://x.supabase.co', 'cle', 'photos', t).taille('a')).toBeNull()
+  })
+})
+
+describe('lecture serveur des planches publiques', () => {
+  it('lit une planche du dossier public et refuse d en sortir', async () => {
+    const { lireFichier } = await import('@/services/stockage')
+    expect(await lireFichier('/uploads/demo/pdv1-2026-03-29.svg')).not.toBeNull()
+    expect(await lireFichier('/../package.json')).toBeNull()
+    expect(await lireFichier('/uploads/absente.svg')).toBeNull()
   })
 })

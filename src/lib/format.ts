@@ -248,3 +248,13 @@ export const LIBELLE_NATURE: Record<Nature, string> = {
 export function nombre(valeur: number, decimales = 0): string {
   return arrondi(valeur, decimales)
 }
+
+/**
+ * Un ecart de fraction signe : `+2,4 %`, `-6,2 %`. Un ecart qui s'arrondit a
+ * zero s'ecrit `0,0 %`, jamais `-0,0 %`.
+ */
+export function pourcentSigne(fraction: number, decimales = 1): string {
+  const arrondi = Number((fraction * 100).toFixed(decimales)) / 100
+  if (arrondi === 0) return pourcent(0, decimales)
+  return `${arrondi > 0 ? '+' : ''}${pourcent(arrondi, decimales)}`
+}

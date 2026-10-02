@@ -1,4 +1,4 @@
-import { pourcent } from '@/lib/format'
+import { pourcent, pourcentSigne } from '@/lib/format'
 import { teinteSerie } from '@/lib/viz'
 
 /**
@@ -61,8 +61,7 @@ export function BarreAvancement({
           enRetard ? 'text-etat-retard font-medium' : 'text-muted-foreground'
         }`}
       >
-        {ecart >= 0 ? '+' : ''}
-        {pourcent(ecart)}
+        {pourcentSigne(ecart)}
       </span>
     </div>
   )

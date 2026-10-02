@@ -59,8 +59,8 @@ export default async function CoquilleApplication({
         ...(interne
           ? [{ libelle: 'Saisie journalière', href: `${base}/releve`, icone: 'releve' as const }]
           : []),
-        { libelle: 'Plan interactif', href: `${base}/plan`, icone: 'plan', aVenir: true },
-        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos', aVenir: true },
+        { libelle: 'Plan interactif', href: `${base}/plan`, icone: 'plan' },
+        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
       ],
     },
     {
@@ -75,7 +75,7 @@ export default async function CoquilleApplication({
               },
             ]
           : []),
-        { libelle: 'Rapports', href: `${base}/rapports`, icone: 'rapports', aVenir: true },
+        { libelle: 'Rapports', href: `${base}/rapports`, icone: 'rapports' },
       ],
     },
   ]
@@ -120,10 +120,6 @@ export default async function CoquilleApplication({
       <div className="flex flex-1">
         <aside className="bg-sidebar border-border/70 sticky top-[3.25rem] hidden h-[calc(100dvh-3.25rem)] w-[15rem] shrink-0 overflow-y-auto border-r px-2.5 py-5 md:block">
           <Navigation groupes={groupes} />
-          <p className="text-muted-foreground/60 mt-8 px-3 text-[0.6875rem] leading-relaxed">
-            Les entrées grisées correspondent aux écrans prévus dans les sprints suivants du plan
-            d&apos;implémentation.
-          </p>
         </aside>
 
         <main className="min-w-0 flex-1">{children}</main>

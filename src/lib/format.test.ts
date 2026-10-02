@@ -15,6 +15,7 @@ import {
   jours,
   moisCourt,
   pourcent,
+  pourcentSigne,
   quantite,
 } from '@/lib/format'
 
@@ -102,6 +103,12 @@ describe('quantites', () => {
 })
 
 describe('pourcentages et indices', () => {
+  it('ecrit un ecart signe, sans zero negatif', () => {
+    expect(normaliser(pourcentSigne(0.024))).toBe('+2,4 %')
+    expect(normaliser(pourcentSigne(-0.062))).toBe('-6,2 %')
+    expect(normaliser(pourcentSigne(-0.0001))).toBe('0,0 %')
+  })
+
   it('formate une fraction en pourcentage', () => {
     expect(normaliser(pourcent(0.4035))).toBe('40,4 %')
   })
