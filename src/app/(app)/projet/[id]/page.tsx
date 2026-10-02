@@ -54,7 +54,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
       )
     : 0
   const glissementFin =
-    global?.dateFinProjetee != null
+    global?.dateFinProjetee !== undefined && global.dateFinProjetee !== null
       ? ecartJours(projet.dateFinContractuelle, global.dateFinProjetee)
       : null
 

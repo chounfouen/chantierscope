@@ -513,13 +513,18 @@ async function ecrireInstantanes(
   calcul: Calcul,
 ): Promise<void> {
   /**
-   * Remplacement integral de la plage recalculee. Un `insert ... on conflict`
-   * laisserait subsister les instantanes de journees devenues vides, par
-   * exemple apres l'annulation d'un releve.
+   * Remplacement integral des instantanes du projet. Un `insert ... on
+   * conflict` laisserait subsister les instantanes de journees devenues
+   * vides, par exemple apres l'annulation d'un releve.
+   *
+   * L'effacement couvre aussi les dates POSTERIEURES a la date d'analyse : le
+   * calcul repart toujours du premier jour, et un instantane situe au-dela
+   * de la date d'analyse ne serait reconstruit par aucun recalcul a cette
+   * date. Le conserver laisserait un cache que `recompute()` ne sait pas
+   * reproduire.
    */
   await executeur.execute(sql`
-    delete from snapshot_avancement
-     where projet_id = ${projetId} and date <= ${calcul.dateAnalyse}`)
+    delete from snapshot_avancement where projet_id = ${projetId}`)
 
   if (calcul.instantanes.length === 0) return
 

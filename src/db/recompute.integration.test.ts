@@ -286,14 +286,20 @@ describe('coherence du cache : incremental contre integral', () => {
     expect(aValider).toBeDefined()
 
     // Chemin incremental : validation, qui declenche le recalcul.
-    await validerReleve(db, aValider?.id as string, conducteur?.id as string)
+    const validation = await validerReleve(db, aValider?.id as string, conducteur?.id as string)
+    expect(validation.recalcul).not.toBeNull()
+    const incrementalRecalcul = validation.recalcul as NonNullable<typeof validation.recalcul>
     const incremental = await empreinteCache()
 
     // Chemin integral : on efface tout le cache et on repart de zero.
     await client`update tache set avancement_pct = 0, poids_budgetaire_xof = 0,
                                    marge_libre_j = null, marge_totale_j = null, critique = false`
     await client`delete from snapshot_avancement`
-    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+    // Meme date d'analyse que le chemin incremental, qui recalcule a la date
+    // du jour. Figer ici une date differente ferait comparer deux plages
+    // d'instantanes distinctes : le test ne passerait que le jour ou la date
+    // figee coincide avec la date courante.
+    await recompute(db, projetId, { dateAnalyse: incrementalRecalcul.dateAnalyse })
     const integral = await empreinteCache()
 
     expect(integral).toEqual(incremental)

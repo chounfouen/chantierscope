@@ -131,7 +131,7 @@ export function CourbeS({
 
             <Tooltip
               cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
-              content={<Infobulle interne={interne} />}
+              content={<Infobulle />}
             />
 
             {series.map((s) => (
@@ -178,12 +178,7 @@ type ProprietesInfobulle = {
   label?: string
 }
 
-function Infobulle({
-  active,
-  payload,
-  label,
-  interne,
-}: ProprietesInfobulle & { interne: boolean }) {
+function Infobulle({ active, payload, label }: ProprietesInfobulle) {
   if (active !== true || !payload || payload.length === 0 || label === undefined) return null
 
   const valeur = (cle: string) => payload.find((p) => p.dataKey === cle)?.value ?? 0

@@ -844,3 +844,54 @@ la conception tient : aucune incoherence n'est definitive.
   choix de precalculer plutot que d'agreger a l'affichage.
 - La justification du perimetre des releves pris en compte, et son effet
   mesure sur les indicateurs.
+
+
+### Sprint 4 — Authentification et coquille applicative : termine
+
+Commit `298db6b` puis correctifs. Critere d'achevement atteint : les cinq
+comptes de demonstration se connectent sur la construction de production et
+voient exactement ce que la matrice prevoit ; le test de non-fuite pour le
+role `MOA` passe. `npm run verifier` est au vert avec 321 tests.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/auth.ts` | Auth.js v5, identifiants, sessions JWT de douze heures, role et projets portes par le jeton |
+| `src/lib/droits.ts` | Matrice des droits en logique pure, groupes de roles nommes par ce qu'ils autorisent |
+| `src/lib/garde.ts` | `exiger(projetId, roles)`, appliquee a la session courante |
+| `src/db/queries/lecture.ts` | Lectures de la vue projet et de la vue lot, colonnes internes selectionnees selon le role |
+| `src/app/(app)/` | Coquille : navigation laterale, fil d'Ariane, menu utilisateur, tableau de bord, vue lot, etats de chargement et d'erreur |
+| `src/components/graphiques/courbe-s.tsx` | Courbe en S, serie du cout reel absente pour le maitre d'ouvrage |
+
+#### Verification a l'ecran
+
+Parcours automatise sur `next start` : connexion de chacun des cinq comptes,
+ouverture du tableau de bord puis d'un lot. Le conducteur voit le CPI, la
+serie du cout reel et le cout reel reconstitue ; le maitre d'ouvrage voit
+l'avancement, le SPI et la date de fin projetee, mais ni CPI ni cout reel,
+et aucune cle de cout dans la charge utile.
+
+#### Deux defauts trouves a la cloture
+
+| Defaut | Correction |
+|---|---|
+| Le test de coherence du cache comparait un recalcul incremental a la date du jour avec un recalcul integral a la date figee du 30 septembre. Il ne passait que ce jour-la | Le chemin integral reprend la date d'analyse effectivement employee par le chemin incremental |
+| `recompute()` n'effacait que les instantanes anterieurs a la date d'analyse. Un recalcul a une date plus ancienne laissait subsister des instantanes posterieurs qu'aucun recalcul a cette date ne savait reproduire | L'effacement couvre tous les instantanes du projet ; le calcul repartant du premier jour, rien n'est perdu |
+
+Le second defaut violait directement la regle selon laquelle tout cache doit
+etre reconstructible par `recompute()`. C'est le test de cache detruit puis
+reconstruit qui l'a revele, une fois le premier corrige : un test qui ne
+passe que par coincidence de date masque les autres.
+
+Deux erreurs ESLint, un parametre inutilise dans l'infobulle de la courbe en
+S et une comparaison non stricte, empechaient aussi `npm run verifier` de
+passer.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le filtrage par selection de colonnes plutot que par masquage, et sa preuve
+  par inspection de la charge utile serialisee.
+- La separation des roles : le chef de chantier saisit, le conducteur valide.
+- L'episode du test dependant de la date, exemple d'un test vert qui ne
+  prouvait rien.
