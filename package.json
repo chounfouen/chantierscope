@@ -20,13 +20,17 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:dump": "bash scripts/sauvegarder.sh",
+    "db:restaurer": "bash scripts/restaurer.sh",
+    "db:verifier-restauration": "bash scripts/verifier-restauration.sh",
     "db:seed": "tsx --env-file=.env.local src/db/seed/index.ts",
     "db:reset": "tsx scripts/reinitialiser.ts && npm run db:migrate && npm run db:seed && npm run db:recalcul",
     "db:check": "tsx --env-file=.env.local src/db/verifier.ts",
     "db:meteo": "tsx --env-file=.env.local src/db/seed/meteo.ts",
     "db:empreinte": "tsx --env-file=.env.local scripts/empreinte.ts",
     "db:recalcul": "tsx --env-file=.env.local scripts/recalculer.ts",
-    "test:e2e": "next build && playwright test"
+    "reference:tableur": "python3 scripts/reference/tableur.py",
+    "test:e2e": "next build && playwright test",
+    "compte:mot-de-passe": "tsx --env-file=.env.local scripts/changer-mot-de-passe.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

@@ -138,7 +138,7 @@ export const utilisateur = pgTable(
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('utilisateur_email_unique').on(sql`lower(${t.email})`)],
-)
+).enableRLS()
 
 /**
  * Acces d'un utilisateur a un projet.
@@ -161,7 +161,7 @@ export const accesProjet = pgTable(
     primaryKey({ columns: [t.utilisateurId, t.projetId] }),
     index('acces_projet_projet_idx').on(t.projetId),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Projet, lots, taches                                                      */
@@ -206,7 +206,7 @@ export const projet = pgTable(
     ),
     check('projet_fin_apres_debut', sql`${t.dateFinContractuelle} > ${t.dateOrdreService}`),
   ],
-)
+).enableRLS()
 
 export const lot = pgTable(
   'lot',
@@ -234,7 +234,7 @@ export const lot = pgTable(
     check('lot_budget_positif', sql`${t.budgetXof} >= 0`),
     check('lot_rang_couleur_borne', sql`${t.rangCouleur} between 0 and 7`),
   ],
-)
+).enableRLS()
 
 export const tache = pgTable(
   'tache',
@@ -286,7 +286,7 @@ export const tache = pgTable(
     check('tache_avancement_fraction', sql`${t.avancementPct} between 0 and 1`),
     check('tache_pas_son_propre_parent', sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`),
   ],
-)
+).enableRLS()
 
 /**
  * Liaison entre deux taches du reseau.
@@ -315,7 +315,7 @@ export const liaison = pgTable(
     index('liaison_aval_idx').on(t.tacheAvalId),
     check('liaison_pas_reflexive', sql`${t.tacheAmontId} <> ${t.tacheAvalId}`),
   ],
-)
+).enableRLS()
 
 export const ligneQuantitatif = pgTable(
   'ligne_quantitatif',
@@ -341,7 +341,7 @@ export const ligneQuantitatif = pgTable(
     check('ligne_quantite_positive', sql`${t.quantitePrevue} > 0`),
     check('ligne_prix_positif', sql`${t.prixUnitaireXof} >= 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Releves journaliers                                                       */
@@ -416,7 +416,7 @@ export const releveJournalier = pgTable(
       sql`${t.statut} <> 'VALIDE' or (${t.valideParId} is not null and ${t.valideLe} is not null)`,
     ),
   ],
-)
+).enableRLS()
 
 export const releveQuantite = pgTable(
   'releve_quantite',
@@ -437,7 +437,7 @@ export const releveQuantite = pgTable(
     index('releve_quantite_ligne_idx').on(t.ligneQuantitatifId),
     check('releve_quantite_positive', sql`${t.quantiteRealisee} >= 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Zones, photos, jalons, aleas, ressources                                  */
@@ -459,7 +459,7 @@ export const zone = pgTable(
     unique('zone_unique').on(t.projetId, t.nom),
     index('zone_niveau_idx').on(t.projetId, t.niveau),
   ],
-)
+).enableRLS()
 
 /** Rattachement des taches aux zones du plan. Table de liaison. */
 export const zoneTache = pgTable(
@@ -476,7 +476,7 @@ export const zoneTache = pgTable(
     primaryKey({ columns: [t.zoneId, t.tacheId] }),
     index('zone_tache_tache_idx').on(t.tacheId),
   ],
-)
+).enableRLS()
 
 /**
  * Cadrage photographique de reference.
@@ -505,7 +505,7 @@ export const pointDeVue = pgTable(
       sql`${t.capDegres} is null or ${t.capDegres} between 0 and 359`,
     ),
   ],
-)
+).enableRLS()
 
 export const photo = pgTable(
   'photo',
@@ -537,7 +537,7 @@ export const photo = pgTable(
     index('photo_projet_idx').on(t.projetId, t.priseLe),
     check('photo_octets_positif', sql`${t.octets} is null or ${t.octets} > 0`),
   ],
-)
+).enableRLS()
 
 export const jalon = pgTable(
   'jalon',
@@ -560,7 +560,7 @@ export const jalon = pgTable(
     index('jalon_date_idx').on(t.projetId, t.datePrevue),
     check('jalon_penalite_positive', sql`${t.penaliteXof} >= 0`),
   ],
-)
+).enableRLS()
 
 export const alea = pgTable(
   'alea',
@@ -598,7 +598,7 @@ export const alea = pgTable(
     check('alea_resolution_coherente', sql`${t.statut} <> 'SOLDE' or ${t.resoluLe} is not null`),
     check('alea_resolution_apres_fait', sql`${t.resoluLe} is null or ${t.resoluLe} >= ${t.date}`),
   ],
-)
+).enableRLS()
 
 /**
  * Scenario de simulation enregistre, pour etre presente en reunion de
@@ -624,7 +624,7 @@ export const scenarioSimulation = pgTable(
     index('scenario_projet_idx').on(t.projetId, t.creeLe),
     check('scenario_nom_non_vide', sql`length(trim(${t.nom})) > 0`),
   ],
-)
+).enableRLS()
 
 export const ressource = pgTable(
   'ressource',
@@ -643,7 +643,7 @@ export const ressource = pgTable(
     unique('ressource_unique').on(t.projetId, t.nom),
     check('ressource_cout_positif', sql`${t.coutUnitaireXof} >= 0`),
   ],
-)
+).enableRLS()
 
 export const affectation = pgTable(
   'affectation',
@@ -665,7 +665,7 @@ export const affectation = pgTable(
     check('affectation_fin_apres_debut', sql`${t.dateFin} >= ${t.dateDebut}`),
     check('affectation_quantite_positive', sql`${t.quantite} > 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Cache de precalcul                                                        */
@@ -730,7 +730,7 @@ export const snapshotAvancement = pgTable(
       sql`${t.valeurPlanifieeXof} >= 0 and ${t.valeurAcquiseXof} >= 0 and ${t.coutReelXof} >= 0`,
     ),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Audit                                                                     */
@@ -764,7 +764,7 @@ export const journalAudit = pgTable(
     index('audit_horodatage_idx').on(t.horodatage),
     index('audit_utilisateur_idx').on(t.utilisateurId),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Types deduits                                                             */

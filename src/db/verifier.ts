@@ -338,6 +338,19 @@ async function main(): Promise<void> {
       `${gel[0]?.n} declencheurs de gel`,
     )
 
+    // Refus general : toute table du schema applicatif porte la RLS. Une table
+    // ajoutee sans `.enableRLS()` dans le schema serait lisible par les roles
+    // de l'API Supabase.
+    const sansRls = await client<{ nom: string }[]>`
+      select c.relname as nom from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity`
+    verifier(
+      'Toutes les tables refusent par defaut les roles non proprietaires (RLS)',
+      sansRls.length === 0,
+      sansRls.length === 0 ? 'aucune exception' : sansRls.map((t) => t.nom).join(', '),
+    )
+
     /* --- Rendu --------------------------------------------------------------------- */
 
     console.log('Verifications')

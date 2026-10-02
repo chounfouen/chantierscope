@@ -13,6 +13,7 @@
 import bcrypt from 'bcryptjs'
 import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns'
 import { sql } from 'drizzle-orm'
+import { env } from '@/lib/env'
 import { dbScript } from '@/db/index'
 import * as t from '@/db/schema'
 import {
@@ -82,6 +83,20 @@ async function peupler(): Promise<void> {
     console.log('Simulation de l’execution du chantier...')
     const e = simulerExecution()
     const { planning } = e
+
+    // Peuplement unique en production : sur une base distante, le vidage
+    // n'est permis que si elle ne contient encore aucun projet. Relance par
+    // erreur apres la mise en service, il effacerait le chantier reel.
+    const hote = new URL(env().DIRECT_URL).hostname
+    if (hote !== 'localhost' && hote !== '127.0.0.1') {
+      const [existant] = await client<{ n: number }[]>`select count(*)::int as n from projet`
+      if ((existant?.n ?? 0) > 0) {
+        throw new Error(
+          `Refus de repeupler une base distante deja peuplee (${hote}) : ` +
+            'le peuplement de production est unique. Restaurer une sauvegarde au besoin.',
+        )
+      }
+    }
 
     console.log('Vidage des tables...')
     await client.unsafe(`truncate ${TABLES_A_VIDER.join(', ')} restart identity cascade`)

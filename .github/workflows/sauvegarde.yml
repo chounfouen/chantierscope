@@ -1,0 +1,62 @@
+# Sauvegarde quotidienne de la base de production (conception, section 11.12).
+#
+# L'offre gratuite Supabase n'a ni sauvegarde automatique ni restauration a
+# un instant donne. Chaque nuit, pg_dump lit la base par la connexion
+# DIRECTE ; l'archive compressee est conservee trente jours comme artefact.
+# Le declenchement manuel sert avant chaque migration de production.
+#
+# Secret attendu dans les reglages du depot : DIRECT_URL, connexion directe
+# Supabase, port 5432.
+
+name: Sauvegarde de la base
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+jobs:
+  sauvegarder:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Installer le client PostgreSQL 17
+        # pg_dump doit etre au moins de la version du serveur.
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Exporter la base
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          test -n "$DIRECT_URL" || { echo "Secret DIRECT_URL absent."; exit 1; }
+          FICHIER="chantierscope-$(date -u +%Y-%m-%d-%H%M).sql.gz"
+          /usr/lib/postgresql/17/bin/pg_dump "$DIRECT_URL" \
+            --schema=public --schema=drizzle --no-owner --no-privileges --clean --if-exists \
+            | gzip -9 > "$FICHIER"
+          # Une archive vide ou tronquee n'est pas une sauvegarde.
+          gunzip -t "$FICHIER"
+          test "$(gunzip -c "$FICHIER" | grep -c '^COPY public\.')" -ge 20
+          echo "FICHIER=$FICHIER" >> "$GITHUB_ENV"
+          ls -lh "$FICHIER"
+
+      - name: Conserver l'archive trente jours
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FICHIER }}
+          path: ${{ env.FICHIER }}
+          retention-days: 30
+          if-no-files-found: error
