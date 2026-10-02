@@ -32,6 +32,7 @@ import {
   YAxis,
 } from 'recharts'
 import { dateCourte, dateLongue, moisCourt, nombre, pourcent } from '@/lib/format'
+import { Differe } from '@/components/graphiques/differe'
 import { CHROME, MARQUE, SERIES } from '@/lib/viz'
 
 const AXE = { fill: CHROME.encreDiscrete, fontSize: 11 }
@@ -170,55 +171,67 @@ export function HistogrammeEffectifs({
   return (
     <figure className="m-0">
       <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
-            data={[...points]}
-            margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
-            barCategoryGap={1}
-          >
-            <CartesianGrid stroke={CHROME.grille} strokeWidth={MARQUE.hairline} vertical={false} />
-            <XAxis
-              dataKey="date"
-              ticks={graduationsMensuelles(points.map((p) => p.date))}
-              tickFormatter={moisCourt}
-              tick={AXE}
-              tickLine={false}
-              axisLine={{ stroke: CHROME.ligneBase }}
-            />
-            <YAxis tick={AXE} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
-            <ReferenceLine
-              x={dateAnalyse}
-              stroke={CHROME.ligneBase}
-              strokeWidth={MARQUE.hairline}
-            />
-            <Tooltip
-              cursor={{ fill: CHROME.grille, opacity: 0.5 }}
-              content={({ active, payload, label }) => (
-                <Infobulle
-                  active={active}
-                  payload={payload as unknown as readonly Charge[]}
-                  titre={typeof label === 'string' ? dateLongue(label) : ''}
-                  format={(v) => `${nombre(v)} ouvriers`}
-                />
-              )}
-            />
-            <Bar
-              dataKey="reel"
-              name={series[0]!.libelle}
-              fill={SERIES[0]}
-              isAnimationActive={false}
-            />
-            <Line
-              dataKey="prevu"
-              name={series[1]!.libelle}
-              type="stepAfter"
-              stroke={SERIES[1]}
-              strokeWidth={MARQUE.trait}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <Differe className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={[...points]}
+              margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+              barCategoryGap={1}
+            >
+              <CartesianGrid
+                stroke={CHROME.grille}
+                strokeWidth={MARQUE.hairline}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="date"
+                ticks={graduationsMensuelles(points.map((p) => p.date))}
+                tickFormatter={moisCourt}
+                tick={AXE}
+                tickLine={false}
+                axisLine={{ stroke: CHROME.ligneBase }}
+              />
+              <YAxis
+                tick={AXE}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+                allowDecimals={false}
+              />
+              <ReferenceLine
+                x={dateAnalyse}
+                stroke={CHROME.ligneBase}
+                strokeWidth={MARQUE.hairline}
+              />
+              <Tooltip
+                cursor={{ fill: CHROME.grille, opacity: 0.5 }}
+                content={({ active, payload, label }) => (
+                  <Infobulle
+                    active={active}
+                    payload={payload as unknown as readonly Charge[]}
+                    titre={typeof label === 'string' ? dateLongue(label) : ''}
+                    format={(v) => `${nombre(v)} ouvriers`}
+                  />
+                )}
+              />
+              <Bar
+                dataKey="reel"
+                name={series[0]!.libelle}
+                fill={SERIES[0]}
+                isAnimationActive={false}
+              />
+              <Line
+                dataKey="prevu"
+                name={series[1]!.libelle}
+                type="stepAfter"
+                stroke={SERIES[1]}
+                strokeWidth={MARQUE.trait}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </Differe>
       </div>
       <Legende series={series} />
       <VueTableau
@@ -273,51 +286,57 @@ export function ConsommationMateriau({
         )}
       </figcaption>
       <div className="h-44 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...points]} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke={CHROME.grille} strokeWidth={MARQUE.hairline} vertical={false} />
-            <XAxis
-              dataKey="date"
-              ticks={graduationsMensuelles(points.map((p) => p.date))}
-              tickFormatter={moisCourt}
-              tick={AXE}
-              tickLine={false}
-              axisLine={{ stroke: CHROME.ligneBase }}
-              minTickGap={16}
-            />
-            <YAxis
-              tick={AXE}
-              tickLine={false}
-              axisLine={false}
-              width={44}
-              tickFormatter={(v: number) => nombre(v)}
-            />
-            <Tooltip
-              cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
-              content={({ active, payload, label }) => (
-                <Infobulle
-                  active={active}
-                  payload={payload as unknown as readonly Charge[]}
-                  titre={typeof label === 'string' ? dateLongue(label) : ''}
-                  format={(v) => `${nombre(v, decimales)} ${unite}`}
-                />
-              )}
-            />
-            {(['prevu', 'realise'] as const).map((cle, i) => (
-              <Line
-                key={cle}
-                dataKey={cle}
-                name={series[i]!.libelle}
-                type="monotone"
-                stroke={SERIES[i]}
-                strokeWidth={MARQUE.trait}
-                dot={false}
-                activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
-                isAnimationActive={false}
+        <Differe className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={[...points]} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+              <CartesianGrid
+                stroke={CHROME.grille}
+                strokeWidth={MARQUE.hairline}
+                vertical={false}
               />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+              <XAxis
+                dataKey="date"
+                ticks={graduationsMensuelles(points.map((p) => p.date))}
+                tickFormatter={moisCourt}
+                tick={AXE}
+                tickLine={false}
+                axisLine={{ stroke: CHROME.ligneBase }}
+                minTickGap={16}
+              />
+              <YAxis
+                tick={AXE}
+                tickLine={false}
+                axisLine={false}
+                width={44}
+                tickFormatter={(v: number) => nombre(v)}
+              />
+              <Tooltip
+                cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
+                content={({ active, payload, label }) => (
+                  <Infobulle
+                    active={active}
+                    payload={payload as unknown as readonly Charge[]}
+                    titre={typeof label === 'string' ? dateLongue(label) : ''}
+                    format={(v) => `${nombre(v, decimales)} ${unite}`}
+                  />
+                )}
+              />
+              {(['prevu', 'realise'] as const).map((cle, i) => (
+                <Line
+                  key={cle}
+                  dataKey={cle}
+                  name={series[i]!.libelle}
+                  type="monotone"
+                  stroke={SERIES[i]}
+                  strokeWidth={MARQUE.trait}
+                  dot={false}
+                  activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </Differe>
       </div>
       <Legende series={series} />
       <VueTableau
@@ -376,76 +395,78 @@ export function BarresHorizontales({
   return (
     <figure className="m-0">
       <div className="w-full" style={{ height: hauteur }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={[...barres]}
-            layout="vertical"
-            margin={{ top: reference === undefined ? 4 : 20, right: 56, bottom: 4, left: 0 }}
-            barCategoryGap={8}
-          >
-            <CartesianGrid
-              stroke={CHROME.grille}
-              strokeWidth={MARQUE.hairline}
-              horizontal={false}
-            />
-            <XAxis
-              type="number"
-              tick={AXE}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={format}
-            />
-            <YAxis
-              type="category"
-              dataKey="libelle"
-              tick={{ ...AXE, fill: CHROME.encreSecondaire }}
-              tickLine={false}
-              axisLine={{ stroke: CHROME.ligneBase }}
-              width={168}
-            />
-            {reference !== undefined && (
-              <ReferenceLine
-                x={reference}
-                stroke={CHROME.encreSecondaire}
-                strokeDasharray="3 3"
-                label={{
-                  value: libelleReference ?? '',
-                  position: 'top',
-                  fill: CHROME.encreDiscrete,
-                  fontSize: 11,
+        <Differe className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={[...barres]}
+              layout="vertical"
+              margin={{ top: reference === undefined ? 4 : 20, right: 56, bottom: 4, left: 0 }}
+              barCategoryGap={8}
+            >
+              <CartesianGrid
+                stroke={CHROME.grille}
+                strokeWidth={MARQUE.hairline}
+                horizontal={false}
+              />
+              <XAxis
+                type="number"
+                tick={AXE}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={format}
+              />
+              <YAxis
+                type="category"
+                dataKey="libelle"
+                tick={{ ...AXE, fill: CHROME.encreSecondaire }}
+                tickLine={false}
+                axisLine={{ stroke: CHROME.ligneBase }}
+                width={168}
+              />
+              {reference !== undefined && (
+                <ReferenceLine
+                  x={reference}
+                  stroke={CHROME.encreSecondaire}
+                  strokeDasharray="3 3"
+                  label={{
+                    value: libelleReference ?? '',
+                    position: 'top',
+                    fill: CHROME.encreDiscrete,
+                    fontSize: 11,
+                  }}
+                />
+              )}
+              <Tooltip
+                cursor={{ fill: CHROME.grille, opacity: 0.5 }}
+                content={({ active, payload, label }) => {
+                  const b = (payload?.[0] as { payload?: Barre } | undefined)?.payload
+                  return (
+                    <Infobulle
+                      active={active}
+                      payload={payload as unknown as readonly Charge[]}
+                      titre={String(label ?? '')}
+                      format={(v) => (b?.detail ? `${format(v)}, ${b.detail}` : format(v))}
+                    />
+                  )
                 }}
               />
-            )}
-            <Tooltip
-              cursor={{ fill: CHROME.grille, opacity: 0.5 }}
-              content={({ active, payload, label }) => {
-                const b = (payload?.[0] as { payload?: Barre } | undefined)?.payload
-                return (
-                  <Infobulle
-                    active={active}
-                    payload={payload as unknown as readonly Charge[]}
-                    titre={String(label ?? '')}
-                    format={(v) => (b?.detail ? `${format(v)}, ${b.detail}` : format(v))}
-                  />
-                )
-              }}
-            />
-            <Bar
-              dataKey="valeur"
-              name={titre}
-              fill={SERIES[0]}
-              radius={[0, MARQUE.arrondi, MARQUE.arrondi, 0]}
-              isAnimationActive={false}
-            >
-              <LabelList
+              <Bar
                 dataKey="valeur"
-                position="right"
-                formatter={(v) => format(Number(v))}
-                style={{ fill: CHROME.encrePrimaire, fontSize: 11 }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+                name={titre}
+                fill={SERIES[0]}
+                radius={[0, MARQUE.arrondi, MARQUE.arrondi, 0]}
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="valeur"
+                  position="right"
+                  formatter={(v) => format(Number(v))}
+                  style={{ fill: CHROME.encrePrimaire, fontSize: 11 }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Differe>
       </div>
       <VueTableau titre={titre} colonnes={colonnes} lignes={lignesTableau} />
     </figure>
@@ -462,42 +483,54 @@ export function JoursPerdus({ points }: { points: readonly { date: string; cumul
   return (
     <figure className="m-0">
       <div className="h-44 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...points]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke={CHROME.grille} strokeWidth={MARQUE.hairline} vertical={false} />
-            <XAxis
-              dataKey="date"
-              ticks={graduationsMensuelles(points.map((p) => p.date))}
-              tickFormatter={moisCourt}
-              tick={AXE}
-              tickLine={false}
-              axisLine={{ stroke: CHROME.ligneBase }}
-              minTickGap={16}
-            />
-            <YAxis tick={AXE} tickLine={false} axisLine={false} width={32} allowDecimals={false} />
-            <Tooltip
-              cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
-              content={({ active, payload, label }) => (
-                <Infobulle
-                  active={active}
-                  payload={payload as unknown as readonly Charge[]}
-                  titre={typeof label === 'string' ? dateLongue(label) : ''}
-                  format={(v) => `${nombre(v)} jours`}
-                />
-              )}
-            />
-            <Line
-              dataKey="cumul"
-              name="Jours perdus cumulés"
-              type="stepAfter"
-              stroke={SERIES[0]}
-              strokeWidth={MARQUE.trait}
-              dot={false}
-              activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <Differe className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={[...points]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <CartesianGrid
+                stroke={CHROME.grille}
+                strokeWidth={MARQUE.hairline}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="date"
+                ticks={graduationsMensuelles(points.map((p) => p.date))}
+                tickFormatter={moisCourt}
+                tick={AXE}
+                tickLine={false}
+                axisLine={{ stroke: CHROME.ligneBase }}
+                minTickGap={16}
+              />
+              <YAxis
+                tick={AXE}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
+                content={({ active, payload, label }) => (
+                  <Infobulle
+                    active={active}
+                    payload={payload as unknown as readonly Charge[]}
+                    titre={typeof label === 'string' ? dateLongue(label) : ''}
+                    format={(v) => `${nombre(v)} jours`}
+                  />
+                )}
+              />
+              <Line
+                dataKey="cumul"
+                name="Jours perdus cumulés"
+                type="stepAfter"
+                stroke={SERIES[0]}
+                strokeWidth={MARQUE.trait}
+                dot={false}
+                activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Differe>
       </div>
       <VueTableau
         titre="Jours perdus cumulés"

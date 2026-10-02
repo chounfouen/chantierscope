@@ -61,9 +61,29 @@ export default async function JournalDeChantier({
   const peutSaisir = habilite(utilisateur.role, PEUT_SAISIR)
   const filtre = Object.values(filtres).some((v) => v !== undefined)
 
+  /*
+   * Une page tronquee s'arrete sur une journee COMPLETE : la derniere
+   * journee, peut-etre coupee, est laissee a la page suivante, qui commence
+   * par elle.
+   */
+  const derniereDate = entrees[entrees.length - 1]?.date
+  const affichees =
+    tronque && entrees.some((e) => e.date !== derniereDate)
+      ? entrees.filter((e) => e.date !== derniereDate)
+      : entrees
+  const suite = new URLSearchParams()
+  for (const [cle, valeur] of [
+    ['lot', filtres.lotId],
+    ['du', filtres.du],
+    ['statut', filtres.statut],
+    ['au', derniereDate],
+  ] as const) {
+    if (valeur) suite.set(cle, valeur)
+  }
+
   /* Regroupement par journee, la plus recente d'abord. */
   const parDate = new Map<string, typeof entrees>()
-  for (const e of entrees) {
+  for (const e of affichees) {
     const liste = parDate.get(e.date) ?? []
     liste.push(e)
     parDate.set(e.date, liste)
@@ -189,7 +209,7 @@ export default async function JournalDeChantier({
                           : `Arrêt : ${e.motifArret ?? ''}`}
                       </span>
                       {e.aAlea && (
-                        <span className="text-etat-retard flex items-center gap-1 text-xs">
+                        <span className="[&>svg]:text-etat-retard flex items-center gap-1 text-xs">
                           <Icone.alerte className="size-3.5" aria-hidden />
                           Aléa
                         </span>
@@ -204,10 +224,14 @@ export default async function JournalDeChantier({
         </ol>
       )}
 
-      {tronque && (
-        <p className="text-muted-foreground mt-4 text-sm">
-          Affichage limité aux relevés les plus récents : restreindre la période pour remonter plus
-          loin.
+      {tronque && derniereDate !== undefined && (
+        <p className="mt-4 text-sm">
+          <Link
+            href={`/projet/${id}/releve?${suite.toString()}`}
+            className="text-foreground font-medium underline underline-offset-4"
+          >
+            Relevés antérieurs, à partir du {dateLongue(derniereDate)}
+          </Link>
         </p>
       )}
     </div>

@@ -51,9 +51,7 @@ export function ProchainsJalons({
                   )}
                 </p>
                 {j.menace && (
-                  <p
-                    className={`mt-1 flex items-center gap-1 text-xs font-medium ${ETAT.CRITIQUE.teinte}`}
-                  >
+                  <p className="[&>svg]:text-etat-critique mt-1 flex items-center gap-1 text-xs font-medium">
                     <Menace className="size-3.5" strokeWidth={1.75} aria-hidden />
                     Menacé, {j.glissementJ} j de glissement
                   </p>

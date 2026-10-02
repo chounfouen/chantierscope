@@ -25,6 +25,7 @@ import { dateDuJour } from '@/db/compute/gantt'
 import { typeLiaison, type TypeLiaison } from '@/db/schema'
 import { dateCourte, fcfa, pourcent } from '@/lib/format'
 import { LIBELLE_LIAISON, type DonneesGantt } from '@/lib/gantt-donnees'
+import { ETAT } from '@/lib/etats'
 import { Icone } from '@/lib/icones'
 
 const CHAMP =
@@ -136,7 +137,13 @@ function Panneau({
     const autre = parId.get(autreId)
     return (
       <li key={l.id} className="flex items-start justify-between gap-2">
-        <span className={l.critique ? 'text-etat-critique' : ''}>
+        <span className={l.critique ? 'font-medium' : ''}>
+          {l.critique && (
+            <ETAT.CRITIQUE.icone
+              className={`mr-1 inline size-3.5 align-[-2px] ${ETAT.CRITIQUE.teinte}`}
+              aria-label="Liaison critique"
+            />
+          )}
           <span className="text-muted-foreground mr-1 font-mono text-xs">{autre?.codeWbs}</span>
           {autre?.nom}
           <span className="text-muted-foreground block text-xs">
@@ -164,7 +171,12 @@ function Panneau({
       <div>
         <p className="text-muted-foreground font-mono text-xs">{e.codeWbs}</p>
         <h2 className="font-medium">{e.nom}</h2>
-        {e.critique && <p className="text-etat-critique text-xs">Sur le chemin critique</p>}
+        {e.critique && (
+          <p className="[&>svg]:text-etat-critique flex items-center gap-1 text-xs">
+            <ETAT.CRITIQUE.icone className="size-3.5" aria-hidden />
+            Sur le chemin critique
+          </p>
+        )}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">

@@ -104,7 +104,10 @@ export default async function VueLot({
                   </CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
                     {t.critique && (
-                      <Badge variant="outline" className="text-etat-critique gap-1 font-normal">
+                      <Badge
+                        variant="outline"
+                        className="[&>svg]:text-etat-critique gap-1 font-normal"
+                      >
                         <Icone.alerte className="size-3" />
                         Chemin critique
                       </Badge>

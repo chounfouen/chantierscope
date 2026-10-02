@@ -43,7 +43,7 @@ export default function Erreur({
       </p>
 
       {error.digest !== undefined && (
-        <p className="text-muted-foreground/70 mt-2 font-mono text-xs">référence {error.digest}</p>
+        <p className="text-muted-foreground mt-2 font-mono text-xs">référence {error.digest}</p>
       )}
 
       {!refus && (

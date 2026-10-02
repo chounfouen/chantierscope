@@ -224,7 +224,7 @@ export default async function FicheReleve({
       {r.alea && (
         <Card className="mt-4">
           <CardHeader>
-            <CardTitle className="text-etat-retard flex items-center gap-2 text-sm font-medium">
+            <CardTitle className="[&>svg]:text-etat-retard flex items-center gap-2 text-sm font-medium">
               <Icone.alerte className="size-4" aria-hidden />
               Aléa déclaré : {LIBELLE_TYPE_ALEA[r.alea.type]}
             </CardTitle>

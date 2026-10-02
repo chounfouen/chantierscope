@@ -49,7 +49,10 @@ export function FormulaireConnexion() {
       </div>
 
       {etat.erreur !== null && (
-        <p role="alert" className="text-etat-critique flex items-start gap-2 text-sm">
+        <p
+          role="alert"
+          className="[&>svg]:text-etat-critique flex items-start gap-2 text-sm font-medium"
+        >
           <Icone.alerte className="mt-0.5 size-4 shrink-0" />
           {etat.erreur}
         </p>

@@ -162,7 +162,7 @@ export function IndicateurReseau({
       role="status"
       className={cn(
         'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
-        !enLigne ? 'text-etat-retard border-current/40' : 'text-muted-foreground',
+        !enLigne ? 'border-etat-retard/60 [&>svg]:text-etat-retard' : 'text-muted-foreground',
       )}
     >
       <IconeEtat className="size-3.5" aria-hidden />

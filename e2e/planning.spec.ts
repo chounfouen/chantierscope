@@ -33,7 +33,7 @@ async function idTache(code: string): Promise<string> {
 test('le chemin critique affiche est celui calcule en base', async ({ page }) => {
   const projet = await connecter(page, 'conducteur')
   await page.goto(`/projet/${projet}/planning`)
-  await expect(page.getByRole('img', { name: /Diagramme de Gantt/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /Diagramme de Gantt/ })).toBeVisible()
 
   // La virtualisation ne joue pas sous cent lignes : toutes les barres sont rendues.
   const affichees = await page
@@ -139,7 +139,7 @@ test('le conducteur modifie une duree, le planning se recale, puis revient', asy
 test('le maitre d ouvrage consulte le planning sans le modifier ni simuler', async ({ page }) => {
   const projet = await connecter(page, 'moa')
   await page.goto(`/projet/${projet}/planning`)
-  await expect(page.getByRole('img', { name: /Diagramme de Gantt/ })).toBeVisible()
+  await expect(page.getByRole('group', { name: /Diagramme de Gantt/ })).toBeVisible()
   await page.getByRole('button', { name: 'Béton de propreté', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Recaler le planning' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Ajouter la liaison' })).toHaveCount(0)

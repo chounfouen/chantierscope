@@ -678,14 +678,20 @@ function EtapeQuantites({
                 )}${l.cumulEnAttente > 0 ? ` (+ ${quantite(l.cumulEnAttente, l.unite)} en attente)` : ''} · reste ${quantite(c.resteAvant, l.unite)}`}
               />
               {c.niveau === 'depassement' && (
-                <p role="status" className="text-etat-retard flex items-start gap-1.5 text-sm">
+                <p
+                  role="status"
+                  className="[&>svg]:text-etat-retard flex items-start gap-1.5 text-sm"
+                >
                   <Icone.alerte className="mt-0.5 size-4 shrink-0" />
                   Dépasse la quantité prévue de {quantite(c.depassement, l.unite)}. Vérifier la
                   saisie ; si elle est juste, le préciser en commentaire.
                 </p>
               )}
               {c.niveau === 'solde' && (
-                <p role="status" className="text-etat-acheve flex items-center gap-1.5 text-sm">
+                <p
+                  role="status"
+                  className="[&>svg]:text-etat-acheve flex items-center gap-1.5 text-sm"
+                >
                   <Icone.valide className="size-4 shrink-0" />
                   Cette saisie solde la ligne.
                 </p>

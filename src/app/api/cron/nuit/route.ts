@@ -20,6 +20,7 @@ import { db } from '@/db/index'
 import { completerMeteoProjet } from '@/db/mutations/meteo'
 import { recalculerProjet } from '@/db/mutations/releve'
 import { relever } from '@/services/meteo'
+import { invaliderDepuisRoute } from '@/lib/cache'
 import { env } from '@/lib/env'
 
 /** Jamais mise en cache : elle ecrit. */
@@ -51,6 +52,7 @@ export async function GET(requete: Request): Promise<Response> {
     const rapportProjets: Rapport['projets'] = []
     for (const p of projets) {
       const r = await recalculerProjet(base, p.id)
+      invaliderDepuisRoute(p.id)
       rapportProjets.push({
         code: p.code,
         instantanes: r.instantanes,

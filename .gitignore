@@ -49,3 +49,6 @@ next-env.d.ts
 /scripts/bac
 /public/uploads
 /.stockage
+
+# fichiers de travail jetables
+*.tmp.*

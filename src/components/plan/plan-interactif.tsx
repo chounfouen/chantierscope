@@ -231,10 +231,12 @@ export function PlanInteractif({
                         {t.nom}
                       </Link>
                       <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
-                        <span
-                          className={`flex items-center gap-1 font-medium ${ETAT[etat].teinte}`}
-                        >
-                          <I className="size-3.5" strokeWidth={1.75} aria-hidden />
+                        <span className="flex items-center gap-1 font-medium">
+                          <I
+                            className={`size-3.5 ${ETAT[etat].teinte}`}
+                            strokeWidth={1.75}
+                            aria-hidden
+                          />
                           {ETAT[etat].libelle}
                         </span>
                         <span className="chiffres-alignes">

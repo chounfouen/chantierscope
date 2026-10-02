@@ -25,6 +25,7 @@ import { simuler, type ContexteSimulation } from '@/db/compute/simulation'
 import type { ScenarioEnregistre } from '@/db/queries/planning'
 import { dateCourte, dateLongue, fcfa, instant } from '@/lib/format'
 import { fantomesDe, ganttSimule, type DonneesGantt } from '@/lib/gantt-donnees'
+import { ETAT } from '@/lib/etats'
 import { Icone } from '@/lib/icones'
 
 type Ligne = { cle: number; tacheId: string; decalageJ: string; allongementJ: string }
@@ -324,7 +325,7 @@ export function Simulation({
                       </td>
                       <td
                         className={`chiffres-alignes py-1.5 text-right ${
-                          j.glissementJ > 0 && j.contractuel ? 'text-etat-critique font-medium' : ''
+                          j.glissementJ > 0 && j.contractuel ? 'font-semibold' : ''
                         }`}
                       >
                         {j.glissementJ > 0 ? `+${j.glissementJ} j` : '—'}
@@ -334,7 +335,7 @@ export function Simulation({
                 </tbody>
               </table>
               {resultat.jalonsMenaces.length > 0 && (
-                <p className="text-etat-critique mt-2 flex items-center gap-1.5 text-xs">
+                <p className="[&>svg]:text-etat-critique mt-2 flex items-center gap-1.5 text-xs font-medium">
                   <Icone.alerte className="size-3.5" aria-hidden />
                   {resultat.jalonsMenaces.length} jalon
                   {resultat.jalonsMenaces.length > 1
@@ -356,7 +357,13 @@ export function Simulation({
                 <div className="mt-2 space-y-3 text-sm">
                   {resultat.devenuesCritiques.length > 0 && (
                     <div>
-                      <p className="text-etat-critique text-xs font-medium">Deviennent critiques</p>
+                      <p className="flex items-center gap-1 text-xs font-medium">
+                        <ETAT.CRITIQUE.icone
+                          className={`size-3.5 ${ETAT.CRITIQUE.teinte}`}
+                          aria-hidden
+                        />
+                        Deviennent critiques
+                      </p>
                       <ul className="mt-1 space-y-0.5">
                         {resultat.devenuesCritiques.map((id) => (
                           <li key={id}>{nomDe.get(id)}</li>

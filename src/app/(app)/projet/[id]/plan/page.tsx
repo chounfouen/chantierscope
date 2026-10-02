@@ -4,6 +4,7 @@ import { PlanInteractif, type Releve3 } from '@/components/plan/plan-interactif'
 import { joursEchantillonnes, rejouerZones } from '@/db/compute/plan'
 import { dateApres, jourDepuis } from '@/db/compute/tableau'
 import { db } from '@/db/index'
+import { enCacheProjet } from '@/lib/cache'
 import { chargerPlan } from '@/db/queries/plan'
 import { exigerPage } from '@/lib/garde'
 import { dateLongue } from '@/lib/format'
@@ -13,7 +14,8 @@ export const metadata: Metadata = { title: 'Plan interactif' }
 export default async function Plan({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   await exigerPage(id)
-  const d = await chargerPlan(db(), id)
+  // Le plan ne porte aucune donnee interne : une seule entree pour tous.
+  const d = await enCacheProjet('plan', id, false, () => chargerPlan(db(), id))
 
   if (d.dateAnalyse === null || d.zones.length === 0) {
     return (

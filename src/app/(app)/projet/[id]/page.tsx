@@ -7,6 +7,7 @@ import { Tuile, type Sens, type Ton } from '@/components/indicateurs/tuile'
 import { PanneauAlertes } from '@/components/tableau/panneau-alertes'
 import { ProchainsJalons } from '@/components/tableau/prochains-jalons'
 import { db } from '@/db/index'
+import { enCacheProjet } from '@/lib/cache'
 import { chargerSynthese } from '@/db/queries/lecture'
 import { chargerTableau } from '@/db/queries/tableau'
 import { exigerPage, voitDonneesInternes } from '@/lib/garde'
@@ -56,8 +57,8 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
 
   const base = db()
   const [synthese, donnees] = await Promise.all([
-    chargerSynthese(base, id, interne),
-    chargerTableau(base, id, interne),
+    enCacheProjet('synthese', id, interne, () => chargerSynthese(base, id, interne)),
+    enCacheProjet('tableau', id, interne, () => chargerTableau(base, id, interne)),
   ])
 
   const { projet, global, lots, dateAnalyse } = synthese
@@ -110,7 +111,8 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                   {lot.tachesCritiques > 0 && (
                     <>
                       <span className="mx-1.5 opacity-40">·</span>
-                      <span className="text-etat-critique font-medium">
+                      <span className="text-foreground [&>svg]:text-etat-critique inline-flex items-center gap-1 font-medium">
+                        <Icone.nonConformite className="size-3" strokeWidth={2} aria-hidden />
                         {lot.tachesCritiques} critiques
                       </span>
                     </>

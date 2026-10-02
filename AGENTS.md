@@ -51,6 +51,7 @@ npm run db:generate  genere une migration depuis le schema
 npm run db:migrate   applique les migrations
 npm run db:studio    explorateur de base
 npm run db:dump      sauvegarde manuelle
+npm run db:verifier-restauration  sauvegarde, restaure, compare
 ```
 
 ## Base locale

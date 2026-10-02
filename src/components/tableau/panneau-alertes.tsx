@@ -84,9 +84,7 @@ export function PanneauAlertes({
                 />
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-baseline gap-x-2">
-                    <span
-                      className={`text-[0.6875rem] font-semibold tracking-wide uppercase ${n.teinte}`}
-                    >
+                    <span className="text-[0.6875rem] font-semibold tracking-wide uppercase">
                       {n.libelle}
                     </span>
                     {href === null ? (

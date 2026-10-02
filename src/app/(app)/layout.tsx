@@ -47,9 +47,19 @@ export default async function CoquilleApplication({
     {
       titre: 'Pilotage',
       entrees: [
-        { libelle: 'Tableau de bord', href: base, icone: 'tableauBord' },
-        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning' },
-        { libelle: 'Analyses', href: `${base}/analyses`, icone: 'analyses' },
+        { libelle: 'Tableau de bord', href: base, prechargement: 'complet', icone: 'tableauBord' },
+        {
+          libelle: 'Planning',
+          href: `${base}/planning`,
+          prechargement: 'complet',
+          icone: 'planning',
+        },
+        {
+          libelle: 'Analyses',
+          href: `${base}/analyses`,
+          prechargement: 'complet',
+          icone: 'analyses',
+        },
       ],
     },
     {
@@ -59,7 +69,12 @@ export default async function CoquilleApplication({
         ...(interne
           ? [{ libelle: 'Saisie journalière', href: `${base}/releve`, icone: 'releve' as const }]
           : []),
-        { libelle: 'Plan interactif', href: `${base}/plan`, icone: 'plan' },
+        {
+          libelle: 'Plan interactif',
+          href: `${base}/plan`,
+          prechargement: 'complet',
+          icone: 'plan',
+        },
         { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
       ],
     },
@@ -75,7 +90,12 @@ export default async function CoquilleApplication({
               },
             ]
           : []),
-        { libelle: 'Rapports', href: `${base}/rapports`, icone: 'rapports' },
+        {
+          libelle: 'Rapports',
+          href: `${base}/rapports`,
+          prechargement: 'complet',
+          icone: 'rapports',
+        },
       ],
     },
   ]

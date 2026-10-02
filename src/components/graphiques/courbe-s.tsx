@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 import { dateLongue, fcfa, fcfaCompact, moisCourt } from '@/lib/format'
+import { Differe } from '@/components/graphiques/differe'
 import { CHROME, COURBE_S, MARQUE, TIRETS_PROJECTION } from '@/lib/viz'
 
 export type PointCourbe = { date: string; vp: number; va: number; cr: number | null }
@@ -108,121 +109,127 @@ export function CourbeS({
   return (
     <figure className="m-0">
       <div className="h-[21rem] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={donnees} margin={{ top: 16, right: 20, bottom: 4, left: 4 }}>
-            <CartesianGrid stroke={CHROME.grille} strokeWidth={MARQUE.hairline} vertical={false} />
-            <XAxis
-              dataKey="date"
-              ticks={graduations}
-              tickFormatter={moisCourt}
-              tick={{ fill: CHROME.encreDiscrete, fontSize: 11 }}
-              tickLine={false}
-              axisLine={{ stroke: CHROME.ligneBase }}
-              minTickGap={8}
-            />
-            <YAxis
-              tickFormatter={(v: number) => fcfaCompact(v)}
-              tick={{ fill: CHROME.encreDiscrete, fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              width={58}
-            />
-
-            {/* Budget a l achevement : la cible que la courbe planifiee rejoint. */}
-            <ReferenceLine
-              y={bac}
-              stroke={CHROME.ligneBase}
-              strokeDasharray="3 4"
-              label={{
-                value: `Budget ${fcfaCompact(bac)}`,
-                position: 'insideTopLeft',
-                fill: CHROME.encreDiscrete,
-                fontSize: 11,
-              }}
-            />
-
-            {/* Lecture horizontale de l ecart de delai.
-                Le trait vertical marque la date a laquelle le planifie valait
-                ce que le realise vaut aujourd hui ; le segment horizontal
-                mesure l ecart, et porte sa valeur en clair. */}
-            {retard > 0 && (
-              <>
-                <ReferenceLine
-                  x={rattrapage.date}
-                  stroke={CHROME.grille}
-                  strokeWidth={1}
-                  strokeDasharray="2 4"
-                />
-                <ReferenceLine
-                  segment={[
-                    { x: rattrapage.date, y: dernier.va },
-                    { x: dernier.date, y: dernier.va },
-                  ]}
-                  stroke={CHROME.encreSecondaire}
-                  strokeWidth={1.5}
-                  label={{
-                    value: `${retard} jours de retard`,
-                    position: 'left',
-                    fill: CHROME.encreSecondaire,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    offset: 10,
-                  }}
-                />
-              </>
-            )}
-
-            {finProjetee !== undefined && (
-              <ReferenceLine
-                x={dernier.date}
-                stroke={CHROME.ligneBase}
+        <Differe className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={donnees} margin={{ top: 16, right: 20, bottom: 4, left: 4 }}>
+              <CartesianGrid
+                stroke={CHROME.grille}
                 strokeWidth={MARQUE.hairline}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="date"
+                ticks={graduations}
+                tickFormatter={moisCourt}
+                tick={{ fill: CHROME.encreDiscrete, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: CHROME.ligneBase }}
+                minTickGap={8}
+              />
+              <YAxis
+                tickFormatter={(v: number) => fcfaCompact(v)}
+                tick={{ fill: CHROME.encreDiscrete, fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={58}
+              />
+
+              {/* Budget a l achevement : la cible que la courbe planifiee rejoint. */}
+              <ReferenceLine
+                y={bac}
+                stroke={CHROME.ligneBase}
+                strokeDasharray="3 4"
                 label={{
-                  value: 'Situation',
+                  value: `Budget ${fcfaCompact(bac)}`,
                   position: 'insideTopLeft',
                   fill: CHROME.encreDiscrete,
                   fontSize: 11,
                 }}
               />
-            )}
 
-            <Tooltip
-              cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
-              content={<Infobulle />}
-            />
+              {/* Lecture horizontale de l ecart de delai.
+                Le trait vertical marque la date a laquelle le planifie valait
+                ce que le realise vaut aujourd hui ; le segment horizontal
+                mesure l ecart, et porte sa valeur en clair. */}
+              {retard > 0 && (
+                <>
+                  <ReferenceLine
+                    x={rattrapage.date}
+                    stroke={CHROME.grille}
+                    strokeWidth={1}
+                    strokeDasharray="2 4"
+                  />
+                  <ReferenceLine
+                    segment={[
+                      { x: rattrapage.date, y: dernier.va },
+                      { x: dernier.date, y: dernier.va },
+                    ]}
+                    stroke={CHROME.encreSecondaire}
+                    strokeWidth={1.5}
+                    label={{
+                      value: `${retard} jours de retard`,
+                      position: 'left',
+                      fill: CHROME.encreSecondaire,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      offset: 10,
+                    }}
+                  />
+                </>
+              )}
 
-            {series.map((s) => (
-              <Line
-                key={s.cle}
-                type="monotone"
-                dataKey={s.cle}
-                name={s.libelle}
-                stroke={s.couleur}
-                strokeWidth={MARQUE.trait}
-                dot={false}
-                activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
-                isAnimationActive={false}
-                connectNulls={false}
+              {finProjetee !== undefined && (
+                <ReferenceLine
+                  x={dernier.date}
+                  stroke={CHROME.ligneBase}
+                  strokeWidth={MARQUE.hairline}
+                  label={{
+                    value: 'Situation',
+                    position: 'insideTopLeft',
+                    fill: CHROME.encreDiscrete,
+                    fontSize: 11,
+                  }}
+                />
+              )}
+
+              <Tooltip
+                cursor={{ stroke: CHROME.ligneBase, strokeWidth: 1 }}
+                content={<Infobulle />}
               />
-            ))}
-            {series
-              .filter((s) => s.cle !== 'vp')
-              .map((s) => (
+
+              {series.map((s) => (
                 <Line
-                  key={`${s.cle}-projection`}
+                  key={s.cle}
                   type="monotone"
-                  dataKey={s.cle === 'va' ? 'vaProjetee' : 'crProjete'}
-                  name={`${s.libelle}, projection`}
+                  dataKey={s.cle}
+                  name={s.libelle}
                   stroke={s.couleur}
                   strokeWidth={MARQUE.trait}
-                  strokeDasharray={TIRETS_PROJECTION}
                   dot={false}
                   activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
                   isAnimationActive={false}
+                  connectNulls={false}
                 />
               ))}
-          </LineChart>
-        </ResponsiveContainer>
+              {series
+                .filter((s) => s.cle !== 'vp')
+                .map((s) => (
+                  <Line
+                    key={`${s.cle}-projection`}
+                    type="monotone"
+                    dataKey={s.cle === 'va' ? 'vaProjetee' : 'crProjete'}
+                    name={`${s.libelle}, projection`}
+                    stroke={s.couleur}
+                    strokeWidth={MARQUE.trait}
+                    strokeDasharray={TIRETS_PROJECTION}
+                    dot={false}
+                    activeDot={{ r: MARQUE.point, strokeWidth: 2, stroke: 'var(--card)' }}
+                    isAnimationActive={false}
+                  />
+                ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </Differe>
       </div>
 
       {/* Legende toujours presente : l identite ne repose jamais sur la seule

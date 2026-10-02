@@ -20,6 +20,7 @@ import {
 } from '@/db/compute/analyses'
 import { dateApres } from '@/db/compute/tableau'
 import { db } from '@/db/index'
+import { enCacheProjet } from '@/lib/cache'
 import { chargerAnalyses } from '@/db/queries/analyses'
 import { chargerTableau } from '@/db/queries/tableau'
 import { exigerPage, voitDonneesInternes } from '@/lib/garde'
@@ -68,8 +69,8 @@ export default async function Analyses({ params }: { params: Promise<{ id: strin
 
   const base = db()
   const [donnees, tableauLu] = await Promise.all([
-    chargerAnalyses(base, id, interne),
-    chargerTableau(base, id, interne),
+    enCacheProjet('analyses', id, interne, () => chargerAnalyses(base, id, interne)),
+    enCacheProjet('tableau', id, interne, () => chargerTableau(base, id, interne)),
   ])
   const tableau = construireTableau(tableauLu)
   const { origine, jourAnalyse, dateAnalyse } = donnees

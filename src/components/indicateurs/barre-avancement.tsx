@@ -1,3 +1,4 @@
+import { ETAT } from '@/lib/etats'
 import { pourcent, pourcentSigne } from '@/lib/format'
 import { teinteSerie } from '@/lib/viz'
 
@@ -57,10 +58,17 @@ export function BarreAvancement({
         {pourcent(realise)}
       </span>
       <span
-        className={`chiffres-alignes w-14 shrink-0 text-right text-xs ${
-          enRetard ? 'text-etat-retard font-medium' : 'text-muted-foreground'
+        className={`chiffres-alignes flex w-16 shrink-0 items-center justify-end gap-1 text-xs ${
+          enRetard ? 'text-foreground font-medium' : 'text-muted-foreground'
         }`}
       >
+        {enRetard && (
+          <ETAT.EN_RETARD.icone
+            className={`size-3.5 ${ETAT.EN_RETARD.teinte}`}
+            strokeWidth={2}
+            aria-label="En retard"
+          />
+        )}
         {pourcentSigne(ecart)}
       </span>
     </div>

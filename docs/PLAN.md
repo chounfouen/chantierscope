@@ -1198,3 +1198,98 @@ en attente, et d'autres suites d'integration les valident.
   lignes d'une requete SQL.
 - La projection du reseau depuis la situation, et pourquoi les dates
   prevues ne suffisent pas a dire qu'un jalon est menace.
+
+### Sprint 8 — Photos, plan, rapports et mise en ligne : livre, en attente de mise en ligne effective
+
+Tout ce qui se fait depuis le depot est fait et verifie. La mise en ligne
+elle-meme demande trois comptes que l'environnement de developpement n'a pas
+— projet Supabase, projet Vercel, secret GitHub — : elle est preparee pas a
+pas dans le `README.md` et reste a executer.
+
+Critere d'achevement :
+
+| Exigence | Etat | Mesure |
+|---|---|---|
+| Application accessible en ligne | a faire, comptes requis | construction, migrations, cron, RLS et sauvegardes prets |
+| Premier rendu utile sous 1,5 s en 4G | atteint en local | 644 ms, profil mobile de Lighthouse (150 ms, 1,6 Mbit/s, processeur ×4) |
+| Navigation sous 400 ms | atteint | 9 a 74 ms, du clic a l'image qui suit l'affichage |
+| Soumission d'un releve sous 1 s | atteint en local | 171 ms en 4G bridee |
+| Rapport hebdomadaire en PDF | atteint | genere en 320 a 420 ms |
+| Sauvegarde restauree avec succes | atteint | vingt et une tables identiques ligne a ligne, `db:check` vert sur la copie |
+
+Les mesures sont faites sur la construction de production servie en local :
+en ligne s'ajoutera la latence entre Abidjan et Francfort, a mesurer une fois
+le deploiement fait.
+
+`npm run verifier` passe avec 683 tests, `npm run test:e2e` avec 40 parcours,
+`npm run db:check` avec 32 verifications.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/photos.ts`, `src/components/photos/`, ecran `photos` | Timeline : groupes par point de vue, curseur temporel, comparateur a volet, grille par date, filtres par l'adresse |
+| `src/db/compute/plan.ts`, `src/components/plan/`, ecran `plan` | Plan par niveau, zones a l'etat de leurs taches, rejeu hebdomadaire, detail au clic ou au clavier |
+| `src/db/compute/rapport.ts`, `src/services/rapport/`, route `api/projet/[id]/rapport`, ecran `rapports` | Rapport hebdomadaire PDF, faits marquants ecrits depuis les donnees |
+| `src/lib/viz-impression.ts` | Palette d'impression, verifiee par test contre la feuille de style |
+| `drizzle/0007` | Row Level Security en refus general sur les vingt tables |
+| `scripts/construire.sh`, `vercel.json`, `next.config.ts` | Migration avant construction, en production seulement ; fichiers embarques par la route du rapport |
+| `.github/workflows/sauvegarde.yml` | Sauvegarde nocturne et a la demande, archive conservee trente jours |
+| `scripts/restaurer.sh`, `scripts/verifier-restauration.sh` | Restauration locale, et sa preuve |
+| `scripts/changer-mot-de-passe.ts` | Mots de passe des comptes de demonstration, publics |
+| `src/lib/cache.ts` | Cache par etiquette des lectures de synthese |
+| `e2e/livrables.spec.ts`, `e2e/performance.spec.ts`, `e2e/accessibilite.spec.ts` | Parcours des livrables, mesures de performance, audit WCAG 2.1 AA en clair et en sombre |
+| `README.md` | Installation, mise en ligne, reprise |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Une zone du plan prend un ETAT de la palette d'etats, jamais une teinte de serie | Il n'existe pas de rampe sequentielle validee ; les etats le sont, et disent ce qui compte : en retard, critique, acheve |
+| Une zone n'est critique que si une tache critique y est elle-meme en retard | Sinon une zone dont seule une tache a marge est en retard etait annoncee comme retardant le chantier |
+| Le rapport est calcule a la demande, jamais stocke | Meme regle que la simulation : un calcul sur la source de verite, refait a l'identique |
+| Ses indicateurs sont confrontes au calcul de reference au tableur | Le rapport doit dire ce que dit l'ecran ; la meme reference les tient tous deux |
+| Photos converties en JPEG par `sharp` pour le PDF | Le moteur PDF ne lit ni le WebP des photos de chantier ni le SVG des planches de demonstration |
+| Police Liberation Sans embarquee, espaces fines remplacees | L'Helvetica integree au PDF n'a pas l'espace fine insecable des formats francais |
+| RLS declaree dans le schema, `.enableRLS()` sur chaque table | La migration en decoule ; `db:check` refuse une table qui y echapperait |
+| Migration au deploiement de production seulement | Une previsualisation de branche ne doit jamais toucher la base de production |
+| Peuplement refuse sur une base distante deja peuplee | Il commence par vider les tables : relance par erreur, il effacerait le chantier |
+| Plus de squelette de chargement commun aux ecrans du projet ; un point d'attente sur le lien clique | React retient l'affichage d'un contenu trois cents millisecondes apres son squelette : toutes les navigations en payaient le prix |
+| Prechargement complet des ecrans legers | Le code de leurs composants clients est charge d'avance ; sinon React suspend la navigation le temps de le charger |
+| Le journal est pagine par journees completes de quatre-vingts releves | Quatre cents releves pesaient sept cents kilooctets |
+| Les teintes d'etat ne colorent plus de texte, seulement des icones et des marques | Comme couleur de texte, seule la teinte critique atteint 4,5:1, et en clair seulement |
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| Toutes les navigations duraient plus de 800 ms alors que le serveur repondait en 20 a 70 ms | Diagnostic au protocole de debogage de Chrome : delai de revelation de React apres le squelette commun, puis chargement tardif du code des graphiques. Squelette retire, prechargement complet |
+| La mesure de navigation de Playwright comptait le dessin des graphiques qui suit l'affichage | Mesure faite dans la page, du clic a l'image suivante |
+| Les titres de groupe de la navigation, a 70 % d'opacite, manquaient de contraste | Encre secondaire pleine |
+| Le Gantt etait declare image alors qu'il contient des elements manipulables | Role de groupe |
+| Les noms des taches critiques du Gantt etaient ecrits en rouge d'etat | Nom a l'encre, icone d'etat libellee |
+| Un ecart arrondi a zero s'ecrivait « -0,0 % » | Format d'ecart signe dedie |
+| L'environnement refuse la publication d'etiquettes Git | L'etiquette `sprint-7` existe en local, a publier depuis un poste |
+
+#### Limites assumees
+
+- La mise en ligne n'est pas faite : elle demande des comptes que seul le
+  porteur du projet peut ouvrir. Le `README.md` en donne les etapes.
+- Les mesures de performance sont locales. La latence reseau reelle entre
+  Abidjan et Francfort reste a mesurer sur le deploiement, avec l'onglet
+  reseau du navigateur, pour le memoire.
+- Le cache par etiquette garde une heure au plus une entree qu'une
+  invalidation aurait oubliee.
+- Le prechargement complet sert, pendant cinq minutes au plus, les donnees
+  d'un ecran tel qu'il etait quand le lien est apparu, si un autre utilisateur
+  les a modifiees entre-temps. Ses propres ecritures, elles, sont vues aussitot.
+- L'audit automatique d'accessibilite ne remplace pas une revue humaine, au
+  lecteur d'ecran.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- La chasse aux 800 ms : un serveur qui repond en 20 ms, et une navigation
+  qui en prend 850 ; la methode de mesure compte autant que le correctif.
+- Le refus general de la RLS, prouve en jouant le role d'un client de l'API.
+- La restauration prouvee, table par table.
+- Le rapport PDF dont les chiffres concordent avec le tableur.

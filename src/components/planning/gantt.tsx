@@ -424,14 +424,22 @@ export function Gantt({
                     <span className="text-muted-foreground shrink-0 font-mono text-[0.6875rem]">
                       {e.codeWbs}
                     </span>
+                    {/* L'etat critique est porte par une marque, le nom reste a
+                        l'encre : le rouge d'etat est trop peu contraste pour
+                        un texte courant. */}
+                    {e.critique && (
+                      <ETAT.CRITIQUE.icone
+                        className={cn('size-3 shrink-0', ETAT.CRITIQUE.teinte)}
+                        strokeWidth={2}
+                        role="img"
+                        aria-label="Critique"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => surSelection?.(e.id)}
-                      className={cn(
-                        'min-w-0 truncate text-left',
-                        e.critique && 'text-etat-critique',
-                      )}
-                      title={e.nom}
+                      className={cn('min-w-0 truncate text-left', e.critique && 'font-medium')}
+                      title={e.critique ? `${e.nom}, sur le chemin critique` : e.nom}
                     >
                       {e.nom}
                     </button>
@@ -443,7 +451,9 @@ export function Gantt({
             <svg
               width={largeur}
               height={hauteurCorps}
-              role="img"
+              // Groupe et non image : les barres se manipulent, et une image
+              // ne peut pas contenir d'elements interactifs.
+              role="group"
               aria-label={`Diagramme de Gantt : ${donnees.elements.filter((e) => e.genre === 'tache').length} tâches, dont ${critiques} critiques`}
               onPointerMove={poursuivreGlisse}
               onPointerUp={terminerGlisse}
@@ -754,7 +764,12 @@ function Infobulle({
         <span className="text-muted-foreground mr-1.5 font-mono">{e.codeWbs}</span>
         {e.nom}
       </p>
-      {e.critique && <p className="text-etat-critique mt-0.5">Sur le chemin critique</p>}
+      {e.critique && (
+        <p className="mt-0.5 flex items-center gap-1">
+          <ETAT.CRITIQUE.icone className={cn('size-3.5', ETAT.CRITIQUE.teinte)} aria-hidden />
+          Sur le chemin critique
+        </p>
+      )}
       <dl className="mt-1.5 space-y-0.5">
         {ligne(
           'Prévu',

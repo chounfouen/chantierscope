@@ -144,8 +144,12 @@ export type EntreeJournal = {
   auteur: string | null
 }
 
-/** Plafond d'affichage : un trimestre de chantier, tous lots confondus. */
-export const LIMITE_JOURNAL = 400
+/**
+ * Taille d'une page du journal : une dizaine de journees, tous lots
+ * confondus. Quatre cents releves d'un coup pesaient sept cents kilooctets,
+ * soit plusieurs secondes sur le reseau d'un chantier.
+ */
+export const LIMITE_JOURNAL = 80
 
 export async function chargerJournal(
   db: Db,

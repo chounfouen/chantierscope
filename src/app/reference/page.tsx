@@ -80,7 +80,7 @@ export default function Accueil() {
               <dt className="text-muted-foreground">Avancement global</dt>
               <dd className="text-right font-medium">{pourcent(0.433)}</dd>
               <dt className="text-muted-foreground">Écart de délai</dt>
-              <dd className="text-etat-retard text-right font-medium">{jours(-18)}</dd>
+              <dd className="text-right font-medium">{jours(-18)}</dd>
               <dt className="text-muted-foreground">SPI</dt>
               <dd className="text-right font-medium">{indice(0.873)}</dd>
               <dt className="text-muted-foreground">CPI</dt>

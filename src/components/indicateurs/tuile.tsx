@@ -1,14 +1,20 @@
+import { ETAT, type Etat } from '@/lib/etats'
 import { Icone, type NomIcone } from '@/lib/icones'
 import { cn } from '@/lib/utils'
 import { CHROME, MARQUE, SERIES } from '@/lib/viz'
 
 export type Ton = 'neutre' | 'bon' | 'alerte' | 'critique'
 
-const ENCRE: Record<Ton, string> = {
-  neutre: 'text-foreground',
-  bon: 'text-etat-acheve',
-  alerte: 'text-etat-retard',
-  critique: 'text-etat-critique',
+/**
+ * Repere d'etat a cote du chiffre : une icone de la palette d'etats, avec son
+ * libelle pour les lecteurs d'ecran. Le chiffre reste a l'encre : comme
+ * texte, les teintes d'etat n'atteignent pas le contraste requis dans les deux
+ * themes.
+ */
+const REPERE: Record<Exclude<Ton, 'neutre'>, { etat: Etat; libelle: string }> = {
+  bon: { etat: 'ACHEVE', libelle: 'conforme' },
+  alerte: { etat: 'EN_RETARD', libelle: 'à surveiller' },
+  critique: { etat: 'CRITIQUE', libelle: 'critique' },
 }
 
 const FILET: Record<Ton, string> = {
@@ -51,7 +57,10 @@ export function Tuile({
         <span className="text-[0.6875rem] font-medium tracking-wide uppercase">{intitule}</span>
         <IconeTuile className="size-3.5 shrink-0 opacity-60" strokeWidth={1.75} aria-hidden />
       </div>
-      <p className={cn('mt-2 text-[1.75rem] leading-none font-semibold', ENCRE[ton])}>{valeur}</p>
+      <p className="mt-2 flex items-center gap-2 text-[1.75rem] leading-none font-semibold">
+        <span>{valeur}</span>
+        {ton !== 'neutre' && <Repere {...REPERE[ton]} />}
+      </p>
       {precision !== undefined && (
         <p className="text-muted-foreground mt-2 text-xs leading-snug">{precision}</p>
       )}
@@ -65,6 +74,16 @@ export function Tuile({
         </div>
       )}
     </div>
+  )
+}
+
+function Repere({ etat, libelle }: { etat: Etat; libelle: string }) {
+  const I = ETAT[etat].icone
+  return (
+    <span className="flex">
+      <I className={cn('size-5', ETAT[etat].teinte)} strokeWidth={2} aria-hidden />
+      <span className="sr-only">, {libelle}</span>
+    </span>
   )
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icone, type NomIcone } from '@/lib/icones'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,16 @@ export type Entree = {
   icone: NomIcone
   /** Ecran pas encore livre : visible mais inactif, pour situer la suite. */
   aVenir?: boolean
+  /**
+   * Prechargement complet de l'ecran des que le lien est visible, donnees et
+   * code compris. Sans lui, le code des composants clients n'est connu qu'a
+   * l'arrivee de la page, et React retient l'affichage le temps de le
+   * charger : trois cents millisecondes de plus a chaque navigation. Reserve
+   * aux ecrans legers : le journal, lourd, et les photos, dont chaque
+   * prechargement signerait des dizaines d'adresses, gardent le
+   * prechargement partiel par defaut.
+   */
+  prechargement?: 'complet'
 }
 
 export type Groupe = { titre: string; entrees: readonly Entree[] }
@@ -29,7 +39,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
     <nav aria-label="Navigation principale" className="space-y-6">
       {groupes.map((groupe) => (
         <div key={groupe.titre}>
-          <p className="text-muted-foreground/70 mb-1.5 px-3 text-[0.6875rem] font-medium tracking-wider uppercase">
+          <p className="text-muted-foreground mb-1.5 px-3 text-[0.6875rem] font-medium tracking-wider uppercase">
             {groupe.titre}
           </p>
           <ul className="space-y-px">
@@ -64,6 +74,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
                   )}
                   <Link
                     href={e.href}
+                    prefetch={e.prechargement === 'complet' ? true : 'auto'}
                     aria-current={actif ? 'page' : undefined}
                     className={cn(
                       'flex items-center gap-2.5 rounded-lg px-3 py-[0.4375rem] text-sm transition-colors duration-150',
@@ -77,6 +88,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
                       strokeWidth={actif ? 2 : 1.75}
                     />
                     {e.libelle}
+                    <Attente />
                   </Link>
                 </li>
               )
@@ -85,5 +97,27 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
         </div>
       ))}
     </nav>
+  )
+}
+
+/**
+ * Retour discret pendant le chargement d'un ecran.
+ *
+ * Il n'y a pas de squelette de chargement commun aux ecrans du projet : React
+ * retient l'affichage d'un contenu au moins trois cents millisecondes apres
+ * son squelette, ce qui ralentissait toutes les navigations, meme rapides.
+ * Le lien clique porte a la place un point qui pulse, n'apparaissant qu'apres
+ * cent cinquante millisecondes : une navigation rapide ne clignote pas.
+ */
+function Attente() {
+  const { pending } = useLinkStatus()
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'bg-foreground/60 ml-auto size-1.5 shrink-0 rounded-full opacity-0',
+        pending && 'animate-pulse opacity-100 transition-opacity delay-150',
+      )}
+    />
   )
 }

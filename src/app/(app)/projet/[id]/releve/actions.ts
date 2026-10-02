@@ -15,7 +15,7 @@
  * sait rejouer.
  */
 
-import { revalidatePath } from 'next/cache'
+import { invaliderDepuisAction } from '@/lib/cache'
 import { db } from '@/db/index'
 import { RefusMetier } from '@/db/mutations/erreurs'
 import {
@@ -49,7 +49,7 @@ function echec(e: unknown): ResultatAction {
 }
 
 function rafraichir(projetId: string): void {
-  revalidatePath(`/projet/${projetId}`, 'layout')
+  invaliderDepuisAction(projetId)
 }
 
 export async function soumettreAction(releveId: string): Promise<ResultatAction> {

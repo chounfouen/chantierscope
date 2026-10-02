@@ -21,6 +21,7 @@
 import { db } from '@/db/index'
 import { RefusMetier } from '@/db/mutations/erreurs'
 import { enregistrerReleve } from '@/db/mutations/releve'
+import { invaliderDepuisRoute } from '@/lib/cache'
 import { exiger, NonAuthentifie, NonAutorise, PEUT_SAISIR } from '@/lib/garde'
 import { ReleveSaisi, erreursParChamp } from '@/lib/releve'
 
@@ -70,6 +71,8 @@ export async function POST(requete: Request, ctx: { params: Promise<{ id: string
 
   try {
     const r = await enregistrerReleve(db(), projetId, saisie.data, utilisateurId)
+    // Un releve en attente figure parmi les alertes du tableau de bord.
+    invaliderDepuisRoute(projetId)
     const corps: ReponseEnvoi = { ok: true, ...r }
     return Response.json(corps)
   } catch (e) {

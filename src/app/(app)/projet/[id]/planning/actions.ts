@@ -7,7 +7,7 @@
  * appliquees par les mutations.
  */
 
-import { revalidatePath } from 'next/cache'
+import { invaliderDepuisAction } from '@/lib/cache'
 import { z } from 'zod'
 import { db } from '@/db/index'
 import { RefusMetier } from '@/db/mutations/erreurs'
@@ -55,7 +55,7 @@ export async function modifierTacheAction(brut: unknown): Promise<ResultatPlanni
       },
       u.id,
     )
-    revalidatePath(`/projet/${m.data.projetId}`, 'layout')
+    invaliderDepuisAction(m.data.projetId)
     return { ok: true, message: message(r.dureeReseauJ, r.avertissement) }
   } catch (e) {
     return echec(e)
@@ -77,7 +77,7 @@ export async function ajouterLiaisonAction(brut: unknown): Promise<ResultatPlann
     const u = await exiger(l.data.projetId, PEUT_PLANIFIER)
     const { projetId, ...liaison } = l.data
     const r = await ajouterLiaison(db(), projetId, liaison, u.id)
-    revalidatePath(`/projet/${projetId}`, 'layout')
+    invaliderDepuisAction(projetId)
     return { ok: true, message: message(r.dureeReseauJ, null) }
   } catch (e) {
     return echec(e)
@@ -90,7 +90,7 @@ export async function supprimerLiaisonAction(brut: unknown): Promise<ResultatPla
   try {
     const u = await exiger(s.data.projetId, PEUT_PLANIFIER)
     const r = await supprimerLiaison(db(), s.data.projetId, s.data.liaisonId, u.id)
-    revalidatePath(`/projet/${s.data.projetId}`, 'layout')
+    invaliderDepuisAction(s.data.projetId)
     return { ok: true, message: message(r.dureeReseauJ, null) }
   } catch (e) {
     return echec(e)
