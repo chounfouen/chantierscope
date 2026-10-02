@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { IssueEnvoi } from '@/lib/hors-ligne/envoi'
 import { lister, mettreEnFile, retirer, synchroniser, viderPourTest } from '@/lib/hors-ligne/file'
 import type { ReleveSaisi } from '@/lib/releve'
+import type { IssuePhoto, PhotoAEnvoyer } from '@/lib/photos/televersement'
+import { listerPhotos, mettrePhotoEnFile, synchroniserPhotos } from '@/lib/hors-ligne/file'
 
 const P = 'projet-1'
 const CHEF = 'chef'
@@ -131,5 +133,55 @@ describe('synchronisation', () => {
     )
     expect(bilan.interrompue).toBe(true)
     expect(await lister(P, CHEF)).toHaveLength(1)
+  })
+})
+
+describe('photos en file', () => {
+  const photo = (id: string, releveId: string) =>
+    ({ id, releveId, image: new Blob(['i']), vignette: new Blob(['v']) }) as PhotoAEnvoyer
+
+  function serveurPhotos(issues: Record<string, IssuePhoto> = {}) {
+    const recus: string[] = []
+    const envoyer = async (_p: string, ph: PhotoAEnvoyer): Promise<IssuePhoto> => {
+      recus.push(ph.id)
+      return issues[ph.id] ?? { issue: 'enregistre' }
+    }
+    return { envoyer, recus }
+  }
+
+  it('une photo attend que son releve soit parti', async () => {
+    await mettreEnFile(P, CHEF, releve('r1'))
+    await mettrePhotoEnFile(P, CHEF, photo('ph1', 'r1'))
+    const s = serveurPhotos()
+    await synchroniserPhotos(P, CHEF, s.envoyer)
+    expect(s.recus).toEqual([])
+
+    await synchroniser(P, CHEF, serveur().envoyer)
+    await synchroniserPhotos(P, CHEF, s.envoyer)
+    expect(s.recus).toEqual(['ph1'])
+    expect(await listerPhotos(P, CHEF)).toEqual([])
+  })
+
+  it('conserve les fichiers de la photo jusqu a son envoi', async () => {
+    await mettrePhotoEnFile(P, CHEF, photo('ph2', 'r-deja-envoye'))
+    const [p] = await listerPhotos(P, CHEF)
+    expect(p?.image).toBeInstanceOf(Blob)
+  })
+
+  it('une coupure garde la photo, un refus la marque', async () => {
+    await mettrePhotoEnFile(P, CHEF, photo('a', 'r'), 1)
+    await mettrePhotoEnFile(P, CHEF, photo('b', 'r'), 2)
+    const bilan = await synchroniserPhotos(
+      P,
+      CHEF,
+      serveurPhotos({
+        a: { issue: 'refuse', message: 'Relevé introuvable.' },
+        b: { issue: 'reporte', cause: 'reseau', message: 'Pas de réseau.' },
+      }).envoyer,
+    )
+    expect(bilan).toEqual({ envoyes: 0, refuses: 1, restants: 1, interrompue: true })
+    const [a, b] = await listerPhotos(P, CHEF)
+    expect(a).toMatchObject({ etat: 'refuse', motif: 'Relevé introuvable.' })
+    expect(b).toMatchObject({ etat: 'en_attente' })
   })
 })

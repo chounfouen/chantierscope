@@ -14,7 +14,9 @@ import { rectifierAction } from '@/app/(app)/projet/[id]/releve/actions'
 import { FormulaireReleve, type ModeFormulaire } from '@/components/saisie/formulaire-releve'
 import type { ReferentielSaisie } from '@/db/queries/saisie'
 import { envoyerReleve, type IssueEnvoi } from '@/lib/hors-ligne/envoi'
-import { mettreEnFile } from '@/lib/hors-ligne/file'
+import { mettreEnFile, mettrePhotoEnFile } from '@/lib/hors-ligne/file'
+import { televerserPhoto, type PhotoAEnvoyer } from '@/lib/photos/televersement'
+import { toast } from 'sonner'
 import type { EtatFormulaire } from '@/lib/releve-formulaire'
 
 type Communes = {
@@ -37,7 +39,7 @@ export function SaisieDirecte(
   return (
     <FormulaireReleve
       {...reste}
-      envoyer={async (releve): Promise<IssueEnvoi> => {
+      envoyer={async (releve, photos): Promise<IssueEnvoi> => {
         const issue: IssueEnvoi = navigator.onLine
           ? await envoyerReleve(projetId, releve)
           : {
@@ -46,9 +48,14 @@ export function SaisieDirecte(
               message:
                 'Hors ligne : le relevé est gardé sur ce téléphone et partira au retour du réseau.',
             }
-        if (issue.issue !== 'reporte') return issue
+        if (issue.issue === 'refuse') return issue
         try {
-          await mettreEnFile(projetId, utilisateurId, releve, issue.message)
+          if (issue.issue === 'reporte') {
+            await mettreEnFile(projetId, utilisateurId, releve, issue.message)
+            for (const p of photos) await mettrePhotoEnFile(projetId, utilisateurId, p)
+          } else {
+            await envoyerPhotos(projetId, utilisateurId, photos)
+          }
         } catch {
           return {
             issue: 'refuse',
@@ -60,6 +67,25 @@ export function SaisieDirecte(
       }}
     />
   )
+}
+
+/**
+ * Envoi des photos d'un releve enregistre. Une photo que le reseau empeche
+ * d'envoyer est mise en file ; une photo refusee est signalee.
+ */
+async function envoyerPhotos(projetId: string, utilisateurId: string, photos: PhotoAEnvoyer[]) {
+  let enFile = 0
+  for (const p of photos) {
+    const r = await televerserPhoto(projetId, p)
+    if (r.issue === 'reporte') {
+      await mettrePhotoEnFile(projetId, utilisateurId, p)
+      enFile++
+    } else if (r.issue === 'refuse') {
+      toast.error(`Photo non enregistrée : ${r.message}`)
+    }
+  }
+  if (enFile > 0)
+    toast.info(`${enFile} photo${enFile > 1 ? 's partiront' : ' partira'} au retour du réseau.`)
 }
 
 export function SaisieRectification(p: Communes & { ancienId: string }) {

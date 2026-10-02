@@ -230,6 +230,7 @@ export type DetailReleve = {
   /** Releve que celui-ci a remplace, s'il est un rectificatif. */
   remplace: { id: string; date: string } | null
   quantites: QuantiteDetail[]
+  photos: { id: string; chemin: string; cheminVignette: string; legende: string | null }[]
   alea: {
     type: TypeAlea
     gravite: number
@@ -240,7 +241,7 @@ export type DetailReleve = {
 }
 
 export async function chargerReleve(db: Db, releveId: string): Promise<DetailReleve | null> {
-  const [entetes, quantites, aleas, remplace] = await Promise.all([
+  const [entetes, quantites, aleas, remplace, photos] = await Promise.all([
     db.execute<
       Omit<DetailReleve, 'lot' | 'quantites' | 'alea' | 'remplace' | 'remplacePar'> & {
         lotId: string
@@ -286,6 +287,9 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
         from alea where releve_journalier_id = ${releveId}::uuid`),
     db.execute<{ id: string; date: string }>(sql`
       select id, date from releve_journalier where remplace_par = ${releveId}::uuid`),
+    db.execute<DetailReleve['photos'][number]>(sql`
+      select id, chemin, chemin_vignette as "cheminVignette", legende
+        from photo where releve_journalier_id = ${releveId}::uuid order by prise_le`),
   ])
 
   const e = entetes[0]
@@ -301,6 +305,7 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
         : null,
     remplace: remplace[0] ?? null,
     quantites: [...quantites],
+    photos: [...photos],
     alea: aleas[0] ?? null,
   }
 }

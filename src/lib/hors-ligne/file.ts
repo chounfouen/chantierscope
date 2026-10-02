@@ -22,6 +22,7 @@
 
 import Dexie, { type EntityTable } from 'dexie'
 import { envoyerReleve, type IssueEnvoi } from '@/lib/hors-ligne/envoi'
+import { televerserPhoto, type IssuePhoto, type PhotoAEnvoyer } from '@/lib/photos/televersement'
 import type { ReleveSaisi } from '@/lib/releve'
 
 export type EntreeFile = {
@@ -38,13 +39,27 @@ export type EntreeFile = {
   motif: string | null
 }
 
+/** Photo en attente : ses fichiers compresses voyagent avec elle. */
+export type PhotoEnFile = PhotoAEnvoyer & {
+  projetId: string
+  utilisateurId: string
+  misEnFileLe: number
+  etat: 'en_attente' | 'refuse'
+  motif: string | null
+}
+
 class BaseHorsLigne extends Dexie {
   releves!: EntityTable<EntreeFile, 'id'>
+  photos!: EntityTable<PhotoEnFile, 'id'>
 
   constructor() {
     super('chantierscope-hors-ligne')
     this.version(1).stores({
       releves: 'id, [utilisateurId+projetId], etat, misEnFileLe',
+    })
+    this.version(2).stores({
+      releves: 'id, [utilisateurId+projetId], etat, misEnFileLe',
+      photos: 'id, [utilisateurId+projetId], releveId, misEnFileLe',
     })
   }
 }
@@ -152,7 +167,81 @@ export async function synchroniser(
   return bilan
 }
 
+/* -------------------------------------------------------------------------- */
+/* Photos                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export async function mettrePhotoEnFile(
+  projetId: string,
+  utilisateurId: string,
+  photo: PhotoAEnvoyer,
+  maintenant: number = Date.now(),
+): Promise<void> {
+  await bd().photos.put({
+    ...photo,
+    projetId,
+    utilisateurId,
+    misEnFileLe: maintenant,
+    etat: 'en_attente',
+    motif: null,
+  })
+  signaler()
+}
+
+export async function listerPhotos(
+  projetId: string,
+  utilisateurId: string,
+): Promise<PhotoEnFile[]> {
+  const p = await bd()
+    .photos.where('[utilisateurId+projetId]')
+    .equals([utilisateurId, projetId])
+    .toArray()
+  return p.sort((a, b) => a.misEnFileLe - b.misEnFileLe)
+}
+
+/**
+ * Envoie les photos en attente. Une photo dont le releve est encore en file
+ * attend : le serveur la refuserait, faute de releve auquel la rattacher.
+ */
+export async function synchroniserPhotos(
+  projetId: string,
+  utilisateurId: string,
+  envoyer: (projetId: string, p: PhotoAEnvoyer) => Promise<IssuePhoto> = televerserPhoto,
+): Promise<BilanSynchronisation> {
+  const bilan: BilanSynchronisation = { envoyes: 0, refuses: 0, restants: 0, interrompue: false }
+  const relevesEnFile = new Set(
+    (await lister(projetId, utilisateurId)).filter((e) => e.etat === 'en_attente').map((e) => e.id),
+  )
+  const photos = (await listerPhotos(projetId, utilisateurId)).filter(
+    (p) => p.etat === 'en_attente' && !relevesEnFile.has(p.releveId),
+  )
+
+  for (const [i, p] of photos.entries()) {
+    const issue = await envoyer(projetId, p)
+    if (issue.issue === 'enregistre') {
+      await bd().photos.delete(p.id)
+      bilan.envoyes++
+    } else if (issue.issue === 'refuse') {
+      await bd().photos.update(p.id, { etat: 'refuse', motif: issue.message })
+      bilan.refuses++
+    } else {
+      await bd().photos.update(p.id, { motif: issue.message })
+      bilan.interrompue = true
+      bilan.restants = photos.length - i
+      break
+    }
+  }
+  signaler()
+  return bilan
+}
+
+export async function retirerPhoto(id: string): Promise<void> {
+  await bd().photos.delete(id)
+  signaler()
+}
+
 /** Pour les tests : repart d'une base vide. */
 export async function viderPourTest(): Promise<void> {
   await bd().releves.clear()
+  await bd().photos.clear()
 }

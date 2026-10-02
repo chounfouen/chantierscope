@@ -15,9 +15,11 @@ import { Button } from '@/components/ui/button'
 import { dateLongue } from '@/lib/format'
 import {
   lister,
+  listerPhotos,
   retirer,
   surChangementFile,
   synchroniser,
+  synchroniserPhotos,
   type EntreeFile,
 } from '@/lib/hors-ligne/file'
 import { useEnLigne } from '@/lib/hors-ligne/reseau'
@@ -26,14 +28,28 @@ import { cn } from '@/lib/utils'
 
 const INTERVALLE_MS = 60_000
 
-/** File de ce telephone, tenue a jour a chaque changement. */
-function useFile(projetId: string, utilisateurId: string): EntreeFile[] {
-  const [file, setFile] = useState<EntreeFile[]>([])
+/**
+ * File de ce telephone, tenue a jour a chaque changement : les releves, et le
+ * nombre de photos en attente, qui peuvent rester seules en file quand leur
+ * releve est parti mais pas elles.
+ */
+function useFile(
+  projetId: string,
+  utilisateurId: string,
+): { releves: EntreeFile[]; photos: number } {
+  const [etat, setEtat] = useState<{ releves: EntreeFile[]; photos: number }>({
+    releves: [],
+    photos: 0,
+  })
   useEffect(() => {
     let actif = true
     const relire = () => {
-      lister(projetId, utilisateurId)
-        .then((f) => actif && setFile(f))
+      Promise.all([lister(projetId, utilisateurId), listerPhotos(projetId, utilisateurId)])
+        .then(([releves, photos]) => {
+          if (actif) {
+            setEtat({ releves, photos: photos.filter((p) => p.etat === 'en_attente').length })
+          }
+        })
         .catch(() => {
           // IndexedDB indisponible, navigation privee par exemple : la file
           // reste vide, la saisie directe fonctionne toujours.
@@ -46,7 +62,7 @@ function useFile(projetId: string, utilisateurId: string): EntreeFile[] {
       desabonner()
     }
   }, [projetId, utilisateurId])
-  return file
+  return etat
 }
 
 /** Pastille de l'en-tete : reseau, et nombre de releves en attente. */
@@ -60,7 +76,7 @@ export function IndicateurReseau({
   const router = useRouter()
   const enLigne = useEnLigne()
   const file = useFile(projetId, utilisateurId)
-  const enAttente = file.filter((e) => e.etat === 'en_attente').length
+  const enAttente = file.releves.filter((e) => e.etat === 'en_attente').length + file.photos
   const enCours = useRef(false)
 
   const lancer = useCallback(async () => {
@@ -68,6 +84,7 @@ export function IndicateurReseau({
     enCours.current = true
     try {
       const bilan = await synchroniser(projetId, utilisateurId)
+      if (!bilan.interrompue) await synchroniserPhotos(projetId, utilisateurId)
       if (bilan.envoyes > 0) {
         toast.success(
           bilan.envoyes === 1
@@ -122,16 +139,21 @@ export function FileAttente({
   projetId: string
   utilisateurId: string
 }) {
-  const file = useFile(projetId, utilisateurId)
+  const { releves: file, photos } = useFile(projetId, utilisateurId)
   const enLigne = useEnLigne()
   const router = useRouter()
   const [envoi, setEnvoi] = useState(false)
 
-  if (file.length === 0) return null
+  if (file.length === 0 && photos === 0) return null
 
   async function envoyerMaintenant() {
     setEnvoi(true)
-    const bilan = await synchroniser(projetId, utilisateurId).finally(() => setEnvoi(false))
+    const bilan = await synchroniser(projetId, utilisateurId)
+      .then(async (b) => {
+        if (!b.interrompue) await synchroniserPhotos(projetId, utilisateurId)
+        return b
+      })
+      .finally(() => setEnvoi(false))
     if (bilan.envoyes > 0) router.refresh()
     if (bilan.interrompue) toast.info('Le serveur reste injoignable. Nouvel essai automatique.')
   }
@@ -146,12 +168,17 @@ export function FileAttente({
           <Icone.enFile className="size-4" aria-hidden />
           Sur ce téléphone, en attente d’envoi
         </h2>
-        {enLigne && file.some((e) => e.etat === 'en_attente') && (
+        {enLigne && (photos > 0 || file.some((e) => e.etat === 'en_attente')) && (
           <Button variant="outline" className="h-9" disabled={envoi} onClick={envoyerMaintenant}>
             Envoyer maintenant
           </Button>
         )}
       </div>
+      {photos > 0 && (
+        <p className="text-muted-foreground mt-1 text-xs">
+          {photos} photo{photos > 1 ? 's' : ''} en attente d’envoi.
+        </p>
+      )}
       <ul className="mt-2 space-y-2">
         {file.map((e) => (
           <li key={e.id} className="flex flex-wrap items-start justify-between gap-2 text-sm">

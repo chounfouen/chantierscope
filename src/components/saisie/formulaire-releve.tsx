@@ -42,7 +42,9 @@ import {
 } from '@/lib/releve-formulaire'
 import { cn } from '@/lib/utils'
 import { teinteSerie } from '@/lib/viz'
+import type { PhotoAEnvoyer } from '@/lib/photos/televersement'
 import { Bascule, Champ, ChampNombre, CLASSE_CHAMP } from './champs'
+import { EtapePhotos } from './etape-photos'
 
 export type ModeFormulaire = 'creation' | 'modification' | 'rectification'
 
@@ -56,14 +58,24 @@ type Proprietes = {
    * Envoi du releve analyse. Fourni par la page : saisie directe ou file hors
    * ligne pour une creation, action de rectification pour une rectification.
    */
-  envoyer: (releve: ReleveSaisi) => Promise<IssueEnvoi>
+  envoyer: (releve: ReleveSaisi, photos: PhotoAEnvoyer[]) => Promise<IssueEnvoi>
 }
 
-/** Les etapes du schema, plus le recapitulatif final, qui n'a pas de schema. */
-type Etape = CleEtape | 'envoi'
-const ORDRE: Etape[] = [...ETAPES.map((e) => e.cle), 'envoi']
+/**
+ * Les etapes du schema, plus deux etapes sans schema : les photos, qui ne
+ * font pas partie du releve mais l'accompagnent, et le recapitulatif final.
+ */
+type Etape = CleEtape | 'photos' | 'envoi'
+const CLES = ETAPES.map((e) => e.cle)
+const ORDRE: Etape[] = [
+  ...CLES.slice(0, CLES.indexOf('quantites') + 1),
+  'photos',
+  ...CLES.slice(CLES.indexOf('quantites') + 1),
+  'envoi',
+]
 const TITRES: Record<Etape, string> = {
   ...(Object.fromEntries(ETAPES.map((e) => [e.cle, e.titre])) as Record<CleEtape, string>),
+  photos: 'Photos',
   envoi: 'Récapitulatif et envoi',
 }
 
@@ -76,6 +88,7 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
   )
   const [indice, setIndice] = useState(mode === 'creation' ? 0 : 1)
   const [erreurs, setErreurs] = useState<Record<string, string>>({})
+  const [photos, setPhotos] = useState<PhotoAEnvoyer[]>([])
   const [enCours, demarrer] = useTransition()
   const [meteo, setMeteo] = useState<'inutile' | 'chargement' | 'chargee' | 'indisponible'>(
     initial.precipitationsMm === '' ? 'inutile' : 'chargee',
@@ -126,7 +139,7 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
   /* --- Navigation ---------------------------------------------------------- */
 
   function validerEtape(cle: Etape): boolean {
-    if (cle === 'envoi') return true
+    if (cle === 'envoi' || cle === 'photos') return true
     const schema = ETAPES.find((e) => e.cle === cle)?.schema
     if (!schema) return true
     const r = schema.safeParse(versReleve(etat, false))
@@ -168,7 +181,7 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
     }
 
     demarrer(async () => {
-      const issue = await envoyer(analyse.data)
+      const issue = await envoyer(analyse.data, photos)
       if (issue.issue === 'enregistre') {
         toast.success(
           mode === 'rectification'
@@ -247,6 +260,10 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
             />
           )}
 
+          {etape === 'photos' && (
+            <EtapePhotos releveId={etat.id} photos={photos} surChangement={setPhotos} />
+          )}
+
           {etape === 'observations' && (
             <Champ
               libelle="Observations"
@@ -268,7 +285,12 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
           {etape === 'alea' && <EtapeAlea etat={etat} erreurs={erreurs} modifier={modifier} />}
 
           {etape === 'envoi' && (
-            <Recapitulatif etat={etat} referentiel={referentiel} lotNom={lot?.nom ?? ''} />
+            <Recapitulatif
+              etat={etat}
+              referentiel={referentiel}
+              lotNom={lot?.nom ?? ''}
+              photos={photos.length}
+            />
           )}
         </fieldset>
 
@@ -824,10 +846,12 @@ function Recapitulatif({
   etat,
   referentiel,
   lotNom,
+  photos,
 }: {
   etat: EtatFormulaire
   referentiel: ReferentielSaisie
   lotNom: string
+  photos: number
 }) {
   const lignes = new Map(referentiel.taches.flatMap((t) => t.lignes.map((l) => [l.id, l])))
   const saisies = Object.entries(etat.quantites).filter(([, q]) => q.quantite.trim() !== '')
@@ -864,6 +888,7 @@ function Recapitulatif({
           </ul>
         )}
       </Ligne>
+      <Ligne terme="Photos">{photos === 0 ? 'Aucune' : photos}</Ligne>
       {etat.observations.trim() !== '' && <Ligne terme="Observations">{etat.observations}</Ligne>}
       <Ligne terme="Aléa">
         {etat.aleaDeclare

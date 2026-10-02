@@ -12,6 +12,7 @@ import { dateLongue, fcfa, instant, libelleMeteo, quantite } from '@/lib/format'
 import { Icone } from '@/lib/icones'
 import { LIBELLE_GRAVITE, LIBELLE_TYPE_ALEA } from '@/lib/releve'
 import { teinteSerie } from '@/lib/viz'
+import { urlAffichage } from '@/services/stockage'
 
 export const metadata: Metadata = { title: 'Relevé journalier' }
 
@@ -29,6 +30,13 @@ export default async function FicheReleve({
   if (!r || r.projetId !== id) notFound()
 
   const actions = actionsSurReleve(r.statut, utilisateur.role)
+  const photos = await Promise.all(
+    r.photos.map(async (p) => ({
+      ...p,
+      url: await urlAffichage(p.chemin),
+      vignette: await urlAffichage(p.cheminVignette),
+    })),
+  )
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
@@ -170,6 +178,37 @@ export default async function FicheReleve({
           )}
         </CardContent>
       </Card>
+
+      {photos.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Icone.photos className="size-4" aria-hidden />
+              Photos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {photos.map((p) => (
+                <li key={p.id}>
+                  <a href={p.url} target="_blank" rel="noreferrer" className="block">
+                    {/* URL signee a duree de vie courte : l'optimiseur d'images
+                        de Next la mettrait en cache au-dela de sa validite. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.vignette}
+                      alt={p.legende ?? 'Photo du relevé'}
+                      loading="lazy"
+                      className="aspect-[4/3] w-full rounded-lg object-cover"
+                    />
+                  </a>
+                  {p.legende && <p className="text-muted-foreground mt-1 text-xs">{p.legende}</p>}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {r.observations && (
         <Card className="mt-4">
