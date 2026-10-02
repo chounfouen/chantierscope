@@ -22,8 +22,8 @@ export default async function Accueil() {
       <Icone.projet className="text-muted-foreground mx-auto size-10" />
       <h1 className="mt-4 text-lg font-semibold">Aucun projet accessible</h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Votre compte n&apos;est rattache a aucun chantier. Demandez a l&apos;administrateur de vous
-        donner acces a une operation.
+        Votre compte n&apos;est rattaché à aucun chantier. Demandez à l&apos;administrateur de vous
+        donner accès à une opération.
       </p>
     </div>
   )

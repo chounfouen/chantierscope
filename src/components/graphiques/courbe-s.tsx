@@ -202,7 +202,7 @@ function Infobulle({ active, payload, label }: ProprietesInfobulle) {
           </div>
         ))}
         <div className="border-border/60 mt-1 flex items-center justify-between gap-6 border-t pt-1">
-          <dt className="text-muted-foreground">Ecart de valeur</dt>
+          <dt className="text-muted-foreground">Écart de valeur</dt>
           <dd className={`font-medium ${ecart < 0 ? 'text-etat-retard' : 'text-etat-acheve'}`}>
             {ecart >= 0 ? '+' : ''}
             {fcfa(ecart)}

@@ -72,9 +72,9 @@ export async function validerReleve(
         select projet_id as "projetId", date, statut::text as statut
           from releve_journalier where id = ${releveId}::uuid`)
       const releve = existant[0]
-      if (!releve) throw new Error(`Releve introuvable : ${releveId}.`)
+      if (!releve) throw new Error(`Relevé introuvable : ${releveId}.`)
       if (releve.statut === 'BROUILLON') {
-        throw new Error('Un releve en brouillon doit d abord etre soumis avant validation.')
+        throw new Error('Un relevé en brouillon doit d’abord être soumis avant validation.')
       }
       return {
         modifie: false,

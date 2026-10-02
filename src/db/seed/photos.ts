@@ -77,7 +77,7 @@ function planche(nom: string, date: string, avancement: number, niveaux: number)
 
   const hauteurGrue = solY - niveaux * hauteurNiveau - 90
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${LARGEUR}" height="${HAUTEUR}" viewBox="0 0 ${LARGEUR} ${HAUTEUR}" role="img" aria-label="Image de demonstration : ${nom}, ${date}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${LARGEUR}" height="${HAUTEUR}" viewBox="0 0 ${LARGEUR} ${HAUTEUR}" role="img" aria-label="Image de démonstration : ${nom}, ${date}">
   <defs>
     <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${CIEL_HAUT}" />
@@ -96,9 +96,9 @@ function planche(nom: string, date: string, avancement: number, niveaux: number)
   <g font-family="system-ui, sans-serif" fill="${ENCRE}">
     <rect x="0" y="0" width="${LARGEUR}" height="72" fill="#ffffff" opacity="0.82" />
     <text x="32" y="34" font-size="22" font-weight="600">${echapper(nom)}</text>
-    <text x="32" y="58" font-size="18" opacity="0.7">${date} — gros oeuvre ${Math.round(avancement * 100)} %</text>
-    <text x="${LARGEUR - 32}" y="34" font-size="15" text-anchor="end" opacity="0.6">Image de demonstration</text>
-    <text x="${LARGEUR - 32}" y="56" font-size="15" text-anchor="end" opacity="0.6">generee, non photographique</text>
+    <text x="32" y="58" font-size="18" opacity="0.7">${date} — gros œuvre ${Math.round(avancement * 100)} %</text>
+    <text x="${LARGEUR - 32}" y="34" font-size="15" text-anchor="end" opacity="0.6">Image de démonstration</text>
+    <text x="${LARGEUR - 32}" y="56" font-size="15" text-anchor="end" opacity="0.6">générée, non photographique</text>
   </g>
 </svg>
 `
@@ -130,7 +130,7 @@ export function fabriquerPlanches(
         largeur: LARGEUR,
         hauteur: HAUTEUR,
         octets: Buffer.byteLength(svg),
-        legende: `${nom} — etat au ${date}`,
+        legende: `${nom} — état au ${date}`,
       })
     })
   })

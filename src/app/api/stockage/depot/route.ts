@@ -24,9 +24,9 @@ export async function PUT(requete: Request) {
     Number(q.get('exp')),
     q.get('sig') ?? '',
   )
-  if (!ok) return new Response('Signature invalide ou echue.', { status: 403 })
+  if (!ok) return new Response('Signature invalide ou échue.', { status: 403 })
   if (requete.headers.get('content-type') !== 'image/webp') {
-    return new Response('Seules les images WebP sont acceptees.', { status: 415 })
+    return new Response('Seules les images WebP sont acceptées.', { status: 415 })
   }
   const contenu = new Uint8Array(await requete.arrayBuffer())
   if (contenu.byteLength === 0 || contenu.byteLength > TAILLE_MAX) {

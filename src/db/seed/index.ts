@@ -73,14 +73,14 @@ async function peupler(): Promise<void> {
   const { db, client, fermer } = dbScript()
 
   try {
-    console.log('Simulation de l execution du chantier...')
+    console.log('Simulation de l’execution du chantier...')
     const e = simulerExecution()
     const { planning } = e
 
     console.log('Vidage des tables...')
     await client.unsafe(`truncate ${TABLES_A_VIDER.join(', ')} restart identity cascade`)
 
-    console.log('Desactivation des declencheurs d audit...')
+    console.log('Désactivation des déclencheurs d’audit...')
     for (const table of TABLES_AUDITEES) {
       await client.unsafe(`alter table ${table} disable trigger user`)
     }
@@ -221,7 +221,7 @@ async function peupler(): Promise<void> {
     await db.insert(t.jalon).values(
       JALONS.map((j) => {
         const declencheur = planning.taches.find((x) => x.code === j.declencheur)
-        if (!declencheur) throw new Error(`Jalon sans tache declenchante : ${j.declencheur}`)
+        if (!declencheur) throw new Error(`Jalon sans tâche déclenchante : ${j.declencheur}`)
         const reel = e.reelles.get(j.declencheur)
         return {
           projetId,
@@ -276,7 +276,7 @@ async function peupler(): Promise<void> {
         if (x.nature === 'LEVAGE') {
           affectations.push({
             ...commun,
-            ressourceId: idRessource.get('Grue a tour 40 metres') as string,
+            ressourceId: idRessource.get('Grue à tour 40 mètres') as string,
             quantite: 1,
           })
         }
@@ -304,7 +304,7 @@ async function peupler(): Promise<void> {
 
     /* --- Releves journaliers ------------------------------------------------ */
 
-    console.log(`Chargement de ${e.releves.length} releves journaliers...`)
+    console.log(`Chargement de ${e.releves.length} relevés journaliers...`)
 
     const dernierJourReleve = DATE_ANALYSE
     const troisJoursAvant = formatISO(addDays(parseISO(DATE_ANALYSE), -3), {
@@ -362,7 +362,7 @@ async function peupler(): Promise<void> {
       )
     })
 
-    console.log(`Chargement de ${quantitesAInserer.length} lignes de quantite realisee...`)
+    console.log(`Chargement de ${quantitesAInserer.length} lignes de quantité réalisée...`)
     for (const paquet of paquets(quantitesAInserer, 1000)) {
       await db.insert(t.releveQuantite).values(paquet)
     }
@@ -452,7 +452,7 @@ async function peupler(): Promise<void> {
     console.log(`  quantites         ${quantitesAInserer.length}`)
     console.log(`  aleas             ${e.aleas.length}`)
     console.log(`  photos            ${planches.length}`)
-    console.log(`  duree calculee    ${dureeContractuelle} jours`)
+    console.log(`  durée calculée    ${dureeContractuelle} jours`)
   } finally {
     await fermer()
   }

@@ -1012,3 +1012,19 @@ comme limite dans le memoire.
   hors ligne honnete.
 - Le double comptage des aleas, trouve par un test d'integration de la
   saisie et non par une relecture.
+
+
+### Entre les sprints 5 et 6 — corrections
+
+| Correction | Effet |
+|---|---|
+| Le CPI compare le cout reel au cout budgete, voir la section du sprint 5 | CPI du projet de 1,034 a 0,892, lecture causale de la derive de cout |
+| La tache nocturne compte reellement la meteo completee | Le rapport annoncait toujours zero, faute de clause `returning` |
+| Les pages passent par le client applicatif `db()` | Plus de connexion directe par rendu, qui aurait contourne le pooler en production |
+| Libelles accentues dans toute l'interface et dans le jeu de demonstration | Conformite a la regle de langue ; l'empreinte metier du jeu change en consequence |
+
+Les accents ont ete poses par un outil qui s'appuie sur l'arbre syntaxique de
+TypeScript : seuls les litteraux de chaine, les gabarits hors expressions et
+les textes JSX sont touches, jamais un identifiant, une requete SQL, une
+classe CSS ou une cle. Les cas que seul le sens tranche, « a » ou « à »,
+« equipe » ou « équipé », « relevé d’étanchéité », ont ete corriges a la main.

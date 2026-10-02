@@ -64,7 +64,7 @@ export default async function CoquilleApplication({
       ],
     },
     {
-      titre: 'Decision',
+      titre: 'Décision',
       entrees: [
         ...(interne
           ? [
@@ -122,8 +122,8 @@ export default async function CoquilleApplication({
         <aside className="bg-sidebar border-border/70 sticky top-[3.25rem] hidden h-[calc(100dvh-3.25rem)] w-[15rem] shrink-0 overflow-y-auto border-r px-2.5 py-5 md:block">
           <Navigation groupes={groupes} />
           <p className="text-muted-foreground/60 mt-8 px-3 text-[0.6875rem] leading-relaxed">
-            Les entrees grisees correspondent aux ecrans prevus dans les sprints suivants du plan
-            d&apos;implementation.
+            Les entrées grisées correspondent aux écrans prévus dans les sprints suivants du plan
+            d&apos;implémentation.
           </p>
         </aside>
 

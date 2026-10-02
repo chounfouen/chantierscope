@@ -44,7 +44,7 @@ function echec(e: unknown): ResultatAction {
     return { ok: false, message: 'Session expirée : se reconnecter.' }
   if (e instanceof NonAutorise)
     return { ok: false, message: 'Action non autorisée pour ce compte.' }
-  console.error('Echec d une action sur un releve', e)
+  console.error('Échec d’une action sur un relevé', e)
   return { ok: false, message: 'Action impossible pour le moment. Réessayer plus tard.' }
 }
 

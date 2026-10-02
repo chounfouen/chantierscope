@@ -58,7 +58,7 @@ test('deux saisies sur le meme lot et le meme jour : la seconde est refusee clai
   page,
   browser,
 }) => {
-  const [date] = (await journeesLibres('Second oeuvre', 1)) as [string]
+  const [date] = (await journeesLibres('Second œuvre', 1)) as [string]
   const projet = await connecter(page, 'chef')
   const autre = await browser.newPage()
   await connecter(autre, 'conducteur')
@@ -66,10 +66,10 @@ test('deux saisies sur le meme lot et le meme jour : la seconde est refusee clai
   // Les deux formulaires sont ouverts avant le premier envoi.
   await page.goto(`/projet/${projet}/releve/nouveau`)
   await autre.goto(`/projet/${projet}/releve/nouveau`)
-  await saisirReleve(page, { lot: 'Second oeuvre', date, ouvriers: 4 })
+  await saisirReleve(page, { lot: 'Second œuvre', date, ouvriers: 4 })
   await page.waitForURL(/\/releve\/[0-9a-f-]{36}$/)
 
-  await saisirReleve(autre, { lot: 'Second oeuvre', date, ouvriers: 7 })
+  await saisirReleve(autre, { lot: 'Second œuvre', date, ouvriers: 7 })
   await expect(autre.getByText(/existe déjà pour ce lot/)).toBeVisible()
   await expect(autre).toHaveURL(/nouveau/)
 
@@ -77,7 +77,7 @@ test('deux saisies sur le meme lot et le meme jour : la seconde est refusee clai
   const [n] = await sql<
     { n: number }[]
   >`select count(*)::int as n from releve_journalier r join lot l on l.id = r.lot_id
-                         where r.date = ${date}::date and l.nom = 'Second oeuvre'`
+                         where r.date = ${date}::date and l.nom = 'Second œuvre'`
   expect(n?.n).toBe(1)
   await sql.end()
   await autre.close()
@@ -87,7 +87,7 @@ test('hors ligne : deux saisies en file arrivent en base au retour du reseau', a
   page,
   context,
 }) => {
-  const dates = await journeesLibres('Gros oeuvre', 2)
+  const dates = await journeesLibres('Gros œuvre', 2)
   const projet = await connecter(page, 'chef')
   const journal = `/projet/${projet}/releve`
 
@@ -102,14 +102,14 @@ test('hors ligne : deux saisies en file arrivent en base au retour du reseau', a
     const [n] = await sql<
       { n: number }[]
     >`select count(*)::int as n from releve_journalier r join lot l on l.id = r.lot_id
-                           where l.nom = 'Gros oeuvre' and r.date = any(${dates}::date[])`
+                           where l.nom = 'Gros œuvre' and r.date = any(${dates}::date[])`
     return Number(n?.n)
   }
 
   await context.setOffline(true)
   for (const date of dates) {
     await page.goto(`${journal}/nouveau`)
-    await saisirReleve(page, { lot: 'Gros oeuvre', date, ouvriers: 9 })
+    await saisirReleve(page, { lot: 'Gros œuvre', date, ouvriers: 9 })
     await page.waitForURL((u) => !u.pathname.endsWith('/nouveau'))
   }
   expect(await compter()).toBe(0)

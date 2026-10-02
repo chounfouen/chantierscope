@@ -35,7 +35,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
                   <li key={e.libelle}>
                     <span
                       aria-disabled
-                      title="Ecran prevu dans un sprint ulterieur"
+                      title="Écran prévu dans un sprint ultérieur"
                       className="text-muted-foreground/45 flex items-center gap-2.5 rounded-lg px-3 py-[0.4375rem] text-sm"
                     >
                       <IconeEntree className="size-[1.0625rem] shrink-0" strokeWidth={1.75} />

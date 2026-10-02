@@ -35,7 +35,7 @@ type Rapport = {
 export async function GET(requete: Request): Promise<Response> {
   const attendu = `Bearer ${env().CRON_SECRET}`
   if (requete.headers.get('authorization') !== attendu) {
-    return Response.json({ erreur: 'Non autorise' }, { status: 401 })
+    return Response.json({ erreur: 'Non autorisé' }, { status: 401 })
   }
 
   const debut = Date.now()
@@ -66,9 +66,9 @@ export async function GET(requete: Request): Promise<Response> {
     }
     return Response.json(rapport)
   } catch (erreur) {
-    console.error('Echec de la tache nocturne', erreur)
+    console.error('Échec de la tâche nocturne', erreur)
     return Response.json(
-      { erreur: erreur instanceof Error ? erreur.message : 'Echec inconnu' },
+      { erreur: erreur instanceof Error ? erreur.message : 'Échec inconnu' },
       { status: 500 },
     )
   }

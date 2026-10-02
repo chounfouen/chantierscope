@@ -122,7 +122,7 @@ describe('verification d acces', () => {
   it('refuse un projet non rattache, meme a un role habilite', () => {
     // Un conducteur de travaux d une autre operation n a rien a voir ici.
     expect(() => verifierAcces(utilisateur('CONDUCTEUR', ['p2']), 'p1', PEUT_VALIDER)).toThrow(
-      /n est pas accessible/,
+      /n’est pas accessible/,
     )
   })
 
@@ -137,7 +137,7 @@ describe('verification d acces', () => {
       verifierAcces(utilisateur('MOA', ['p2']), 'p1', PEUT_VALIDER)
       expect.unreachable('l acces aurait du etre refuse')
     } catch (e) {
-      expect((e as Error).message).toContain('n est pas habilite')
+      expect((e as Error).message).toContain('n’est pas habilité')
     }
   })
 

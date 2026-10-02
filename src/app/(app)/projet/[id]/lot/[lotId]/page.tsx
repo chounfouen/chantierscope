@@ -76,13 +76,13 @@ export default async function VueLot({
           <div>
             <h1 className="text-xl font-semibold tracking-tight">{lot.nom}</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Lot {lot.code} — {taches.length} taches, budget {fcfa(lot.budgetXof)}
+              Lot {lot.code} — {taches.length} tâches, budget {fcfa(lot.budgetXof)}
             </p>
           </div>
         </div>
         <Badge variant="outline" className="gap-1.5 font-normal">
           <Icone.tableauBord className="size-3.5" />
-          {pourcent(budget > 0 ? acquis / budget : 0)} realises
+          {pourcent(budget > 0 ? acquis / budget : 0)} réalisés
         </Badge>
       </header>
 
@@ -122,16 +122,16 @@ export default async function VueLot({
 
                 <dl className="text-muted-foreground mt-1 flex flex-wrap gap-x-6 gap-y-1 text-xs">
                   <div className="flex gap-1.5">
-                    <dt>Prevu</dt>
+                    <dt>Prévu</dt>
                     <dd className="text-foreground">
                       {dateCourte(t.dateDebutPrevue)} au {dateCourte(t.dateFinPrevue)}
                     </dd>
                   </div>
                   <div className="flex gap-1.5">
-                    <dt>Reel</dt>
+                    <dt>Réel</dt>
                     <dd className="text-foreground">
                       {t.dateDebutReelle === null
-                        ? 'non demarre'
+                        ? 'non démarré'
                         : `${dateCourte(t.dateDebutReelle)} au ${
                             t.dateFinReelle === null ? '...' : dateCourte(t.dateFinReelle)
                           }`}
@@ -154,9 +154,9 @@ export default async function VueLot({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Designation</TableHead>
-                      <TableHead className="text-right">Prevu</TableHead>
-                      <TableHead className="text-right">Realise</TableHead>
+                      <TableHead>Désignation</TableHead>
+                      <TableHead className="text-right">Prévu</TableHead>
+                      <TableHead className="text-right">Réalisé</TableHead>
                       <TableHead className="text-right">Reste</TableHead>
                       <TableHead className="text-right">Avancement</TableHead>
                       <TableHead className="text-right">Prix unitaire</TableHead>
@@ -191,7 +191,7 @@ export default async function VueLot({
                       )
                     })}
                     <TableRow className="border-t-2 font-medium">
-                      <TableCell colSpan={6}>Total de la tache</TableCell>
+                      <TableCell colSpan={6}>Total de la tâche</TableCell>
                       <TableCell className="text-right">{fcfaNu(t.poidsBudgetaireXof)}</TableCell>
                       <TableCell className="text-right">
                         {fcfaNu(Math.round(acquisTache))}
@@ -200,7 +200,7 @@ export default async function VueLot({
                   </TableBody>
                 </Table>
                 <p className="text-muted-foreground mt-2 text-xs">
-                  Montants en FCFA. Seuls les releves valides sont comptes.
+                  Montants en FCFA. Seuls les relevés validés sont comptés.
                 </p>
               </CardContent>
             </Card>

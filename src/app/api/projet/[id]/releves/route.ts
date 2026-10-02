@@ -74,7 +74,7 @@ export async function POST(requete: Request, ctx: { params: Promise<{ id: string
     return Response.json(corps)
   } catch (e) {
     if (e instanceof RefusMetier) return refus(409, e.code, e.message)
-    console.error('Echec de l enregistrement d un releve', e)
+    console.error('Échec de l’enregistrement d’un relevé', e)
     return refus(500, 'ERREUR', 'Enregistrement impossible pour le moment. Nouvel essai plus tard.')
   }
 }

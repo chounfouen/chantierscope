@@ -50,19 +50,19 @@ const EXTERIEUR: readonly Nature[] = [
 export const SEUILS: readonly Seuil[] = [
   {
     cause: 'PLUIE_FORTE',
-    libelle: 'Pluie forte, plus de 25 mm sur la journee',
+    libelle: 'Pluie forte, plus de 25 mm sur la journée',
     atteint: (m) => m.precipitationsMm > 25,
     natures: EXTERIEUR,
   },
   {
     cause: 'VENT_GRUE',
-    libelle: 'Rafales superieures a 72 km/h, arret de grue obligatoire',
+    libelle: 'Rafales supérieures à 72 km/h, arrêt de grue obligatoire',
     atteint: (m) => m.rafalesKmh > 72,
     natures: ['LEVAGE', 'CHARPENTE'],
   },
   {
     cause: 'PLUIE',
-    libelle: 'Pluie, plus de 10 mm sur la journee',
+    libelle: 'Pluie, plus de 10 mm sur la journée',
     // Le betonnage structurel ne figure PAS ici : on coule sous pluie legere
     // avec bachage et cure adaptee. Seule la pluie forte, au seuil de 25 mm,
     // l'interdit. Les terrassements, les VRD, l'etancheite et les enduits
@@ -72,19 +72,19 @@ export const SEUILS: readonly Seuil[] = [
   },
   {
     cause: 'VENT_LEVAGE',
-    libelle: 'Rafales superieures a 50 km/h, levage suspendu',
+    libelle: 'Rafales supérieures à 50 km/h, levage suspendu',
     atteint: (m) => m.rafalesKmh > 50,
     natures: ['LEVAGE'],
   },
   {
     cause: 'CHALEUR',
-    libelle: 'Temperature superieure a 40 degres, betonnage sans cure renforcee',
+    libelle: 'Température supérieure à 40 degrés, bétonnage sans cure renforcée',
     atteint: (m) => m.temperatureMaxC > 40,
     natures: ['BETONNAGE'],
   },
   {
     cause: 'FROID',
-    libelle: 'Temperature inferieure a 5 degres, betonnage et enduits interdits',
+    libelle: 'Température inférieure à 5 degrés, bétonnage et enduits interdits',
     atteint: (m) => m.temperatureMinC < 5,
     natures: ['BETONNAGE', 'ENDUIT'],
   },

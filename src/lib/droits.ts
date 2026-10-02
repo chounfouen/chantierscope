@@ -30,7 +30,7 @@ export class NonAuthentifie extends Error {
 /** Levee quand l'utilisateur est connu mais n'a pas le droit demande. */
 export class NonAutorise extends Error {
   constructor(motif: string) {
-    super(`Acces refuse : ${motif}`)
+    super(`Accès refusé : ${motif}`)
     this.name = 'NonAutorise'
   }
 }
@@ -96,10 +96,10 @@ export function verifierAcces(
   rolesAutorises: readonly Role[],
 ): void {
   if (!habilite(utilisateur.role, rolesAutorises)) {
-    throw new NonAutorise(`le role ${utilisateur.role} n est pas habilite pour cette operation`)
+    throw new NonAutorise(`le rôle ${utilisateur.role} n’est pas habilité pour cette opération`)
   }
   if (!rattacheAuProjet(utilisateur, projetId)) {
-    throw new NonAutorise('ce projet n est pas accessible a cet utilisateur')
+    throw new NonAutorise('ce projet n’est pas accessible à cet utilisateur')
   }
 }
 
@@ -136,7 +136,7 @@ export function actionsSurReleve(statut: StatutReleve, role: Role): ActionReleve
 export const LIBELLE_ROLE: Record<Role, string> = {
   CHEF_CHANTIER: 'Chef de chantier',
   CONDUCTEUR: 'Conducteur de travaux',
-  MOE: 'Maitrise d oeuvre',
-  MOA: 'Maitrise d ouvrage',
+  MOE: 'Maîtrise d’œuvre',
+  MOA: 'Maîtrise d’ouvrage',
   ADMIN: 'Administration',
 }

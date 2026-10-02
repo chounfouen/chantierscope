@@ -32,7 +32,7 @@ export function BarreAvancement({
       <div
         className="bg-muted relative h-1.5 flex-1 overflow-hidden rounded-full"
         role="img"
-        aria-label={`${intitule} : ${pourcent(realise)} realises pour ${pourcent(prevu)} prevus`}
+        aria-label={`${intitule} : ${pourcent(realise)} réalisés pour ${pourcent(prevu)} prévus`}
       >
         <div
           className="h-full rounded-full transition-[width] duration-500"
@@ -50,7 +50,7 @@ export function BarreAvancement({
             left: `calc(${Math.min(100, prevu * 100)}% - 1px)`,
             background: 'var(--encre-secondaire)',
           }}
-          title={`Prevu : ${pourcent(prevu)}`}
+          title={`Prévu : ${pourcent(prevu)}`}
         />
       </div>
 

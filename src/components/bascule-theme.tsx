@@ -12,7 +12,7 @@ export function BasculeTheme() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label={sombre ? 'Passer en theme clair' : 'Passer en theme sombre'}
+      aria-label={sombre ? 'Passer en thème clair' : 'Passer en thème sombre'}
       onClick={() => setTheme(sombre ? 'light' : 'dark')}
     >
       {sombre ? <Sun className="size-4" /> : <Moon className="size-4" />}

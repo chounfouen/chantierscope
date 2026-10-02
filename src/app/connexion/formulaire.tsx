@@ -25,7 +25,7 @@ export function FormulaireConnexion() {
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">Adresse electronique</Label>
+        <Label htmlFor="email">Adresse électronique</Label>
         <Input
           id="email"
           name="email"

@@ -38,7 +38,7 @@ export function teinteSerie(rang: number): string {
   if (teinte === undefined) {
     throw new Error(
       `Rang de couleur ${rang} hors de la palette (0 a ${NOMBRE_SERIES - 1}). ` +
-        'Au-dela de huit entites, replier dans un groupe « Autres » ou facetter.',
+        'Au-delà de huit entités, replier dans un groupe « Autres » ou facetter.',
     )
   }
   return teinte
@@ -49,9 +49,9 @@ export function teinteSerie(rang: number): string {
  * les seuls qui valident en mode toutes-paires, dans les deux themes.
  */
 export const COURBE_S = {
-  valeurPlanifiee: { couleur: 'var(--serie-1)', libelle: 'Valeur planifiee' },
+  valeurPlanifiee: { couleur: 'var(--serie-1)', libelle: 'Valeur planifiée' },
   valeurAcquise: { couleur: 'var(--serie-2)', libelle: 'Valeur acquise' },
-  coutReel: { couleur: 'var(--serie-3)', libelle: 'Cout reel' },
+  coutReel: { couleur: 'var(--serie-3)', libelle: 'Coût réel' },
 } as const
 
 /** Encre et chrome, pour les axes, la grille et les etiquettes d'un graphique. */

@@ -68,7 +68,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
         {dateAnalyse !== null && (
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <Icone.calendrier className="size-3.5" strokeWidth={1.75} />
-            Situation arretee au {dateLongue(dateAnalyse)}
+            Situation arrêtée au {dateLongue(dateAnalyse)}
           </p>
         )}
       </header>
@@ -81,7 +81,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
           />
           <p className="mt-3 font-medium">Aucun indicateur disponible</p>
           <p className="text-muted-foreground mx-auto mt-1.5 max-w-sm text-sm">
-            Le cache n&apos;a pas encore ete calcule pour ce chantier. Lancer{' '}
+            Le cache n&apos;a pas encore été calculé pour ce chantier. Lancer{' '}
             <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
               npm run db:recalcul
             </code>
@@ -90,34 +90,34 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
         </div>
       ) : (
         <>
-          <section aria-label="Indicateurs de synthese" className="mt-5">
+          <section aria-label="Indicateurs de synthèse" className="mt-5">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Tuile
                 intitule="Avancement"
                 valeur={pourcent(global.avancement)}
-                precision={`${pourcent(global.avancementPrevu)} prevus a cette date, soit ${
+                precision={`${pourcent(global.avancementPrevu)} prévus à cette date, soit ${
                   ecart >= 0 ? '+' : ''
                 }${pourcent(ecart)}`}
                 icone="tableauBord"
                 ton={tonEcart(ecart)}
               />
               <Tuile
-                intitule="Ecart de delai"
+                intitule="Écart de délai"
                 valeur={jours(-Math.round(retardJ))}
                 precision="lecture horizontale de la courbe en S"
                 icone="planning"
                 ton={retardJ > 20 ? 'critique' : retardJ > 5 ? 'alerte' : 'bon'}
               />
               <Tuile
-                intitule="SPI — delai"
+                intitule="SPI — délai"
                 valeur={global.spi === null ? '—' : indice(global.spi)}
-                precision="valeur acquise sur valeur planifiee"
+                precision="valeur acquise sur valeur planifiée"
                 icone="hausse"
                 ton={tonIndice(global.spi)}
               />
               {interne ? (
                 <Tuile
-                  intitule="CPI — cout"
+                  intitule="CPI — coût"
                   valeur={global.cpi === null ? '—' : indice(global.cpi)}
                   precision="valeur acquise au coût budgété sur coût réel"
                   icone="cout"
@@ -125,7 +125,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                 />
               ) : (
                 <Tuile
-                  intitule="Fin projetee"
+                  intitule="Fin projetée"
                   valeur={
                     global.dateFinProjetee === null
                       ? '—'
@@ -155,7 +155,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                   Courbe en S
                 </h2>
                 <p className="text-muted-foreground text-xs">
-                  Valeurs cumulees depuis l&apos;ordre de service, en FCFA
+                  Valeurs cumulées depuis l&apos;ordre de service, en FCFA
                 </p>
               </div>
               <CourbeS
@@ -167,17 +167,17 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
             </div>
           </section>
 
-          <section aria-label="Situation budgetaire" className="mt-4">
+          <section aria-label="Situation budgétaire" className="mt-4">
             <div className="surface divide-border/70 grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
               {[
-                { cle: 'Montant du marche', valeur: fcfa(projet.montantMarcheXof) },
-                { cle: 'Valeur planifiee', valeur: fcfa(global.valeurPlanifieeXof) },
+                { cle: 'Montant du marché', valeur: fcfa(projet.montantMarcheXof) },
+                { cle: 'Valeur planifiée', valeur: fcfa(global.valeurPlanifieeXof) },
                 { cle: 'Valeur acquise', valeur: fcfa(global.valeurAcquiseXof) },
                 ...(interne && global.coutReelXof !== null
-                  ? [{ cle: 'Cout reel reconstitue', valeur: fcfa(global.coutReelXof) }]
+                  ? [{ cle: 'Coût réel reconstitué', valeur: fcfa(global.coutReelXof) }]
                   : [
                       {
-                        cle: 'Reste a realiser',
+                        cle: 'Reste à réaliser',
                         valeur: fcfa(projet.montantMarcheXof - global.valeurAcquiseXof),
                       },
                     ]),
@@ -212,7 +212,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               Avancement par lot
             </h2>
             <p className="text-muted-foreground text-xs">
-              Le repere vertical marque l&apos;avancement prevu
+              Le repère vertical marque l&apos;avancement prévu
             </p>
           </div>
 
@@ -230,7 +230,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                   <span className="text-muted-foreground chiffres-alignes text-xs">
                     {fcfaCompact(lot.budgetXof)}
                     <span className="mx-1.5 opacity-40">·</span>
-                    {lot.nombreTaches} taches
+                    {lot.nombreTaches} tâches
                     {lot.tachesCritiques > 0 && (
                       <>
                         <span className="mx-1.5 opacity-40">·</span>
@@ -253,20 +253,20 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      <section aria-label="Donnees du marche" className="mt-4 mb-2">
+      <section aria-label="Données du marché" className="mt-4 mb-2">
         <div className="surface px-5 py-4">
-          <h2 className="mb-3 text-sm font-medium">Le marche</h2>
+          <h2 className="mb-3 text-sm font-medium">Le marché</h2>
           <dl className="grid gap-x-10 gap-y-2.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {[
               ['Code', projet.code],
               ['Entreprise', projet.entreprise],
-              ['Maitrise d oeuvre', projet.maitreOeuvre],
+              ['Maîtrise d’œuvre', projet.maitreOeuvre],
               ['Ordre de service', dateLongue(projet.dateOrdreService)],
               ['Fin contractuelle', dateLongue(projet.dateFinContractuelle)],
-              ['Duree contractuelle', `${projet.dureeContractuelleJ} jours calendaires`],
+              ['Durée contractuelle', `${projet.dureeContractuelleJ} jours calendaires`],
               [
-                'Penalite de retard',
-                `${pourcent(projet.tauxPenaliteJournaliere, 2)} du marche par jour`,
+                'Pénalité de retard',
+                `${pourcent(projet.tauxPenaliteJournaliere, 2)} du marché par jour`,
               ],
             ].map(([cle, valeur]) => (
               <div key={cle} className="flex items-baseline justify-between gap-4">
