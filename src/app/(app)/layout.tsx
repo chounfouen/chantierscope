@@ -5,7 +5,7 @@ import { MenuUtilisateur } from '@/components/coquille/menu-utilisateur'
 import { Navigation, type Groupe } from '@/components/coquille/navigation'
 import { IndicateurReseau } from '@/components/saisie/file-attente'
 import { EnregistrementServiceWorker } from '@/components/saisie/service-worker'
-import { dbScript } from '@/db/index'
+import { db } from '@/db/index'
 import { compteValide, projetsAccessibles } from '@/db/queries/lecture'
 import { habilite, PEUT_SAISIR, utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
 import { enDeveloppement } from '@/lib/env'
@@ -29,17 +29,11 @@ export default async function CoquilleApplication({
   const utilisateur = await utilisateurEventuel()
   if (!utilisateur) redirect('/connexion')
 
-  const { db, fermer } = dbScript()
-  let projets: Awaited<ReturnType<typeof projetsAccessibles>>
-  let valide: boolean
-  try {
-    ;[valide, projets] = await Promise.all([
-      compteValide(db, utilisateur.id),
-      projetsAccessibles(db, utilisateur.id),
-    ])
-  } finally {
-    await fermer()
-  }
+  const connexion = db()
+  const [valide, projets] = await Promise.all([
+    compteValide(connexion, utilisateur.id),
+    projetsAccessibles(connexion, utilisateur.id),
+  ])
 
   // Un compte desactive ou disparu perd l'acces immediatement, sans attendre
   // l'expiration du jeton.

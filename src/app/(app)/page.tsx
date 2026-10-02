@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { dbScript } from '@/db/index'
+import { db } from '@/db/index'
 import { projetsAccessibles } from '@/db/queries/lecture'
 import { utilisateurCourant } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
@@ -12,13 +12,7 @@ import { Icone } from '@/lib/icones'
 export default async function Accueil() {
   const utilisateur = await utilisateurCourant()
 
-  const { db, fermer } = dbScript()
-  let projets: Awaited<ReturnType<typeof projetsAccessibles>>
-  try {
-    projets = await projetsAccessibles(db, utilisateur.id)
-  } finally {
-    await fermer()
-  }
+  const projets = await projetsAccessibles(db(), utilisateur.id)
 
   const premier = projets[0]
   if (premier) redirect(`/projet/${premier.id}`)

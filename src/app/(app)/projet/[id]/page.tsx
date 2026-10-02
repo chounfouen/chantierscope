@@ -4,7 +4,7 @@ import { FilAriane } from '@/components/coquille/fil-ariane'
 import { CourbeS } from '@/components/graphiques/courbe-s'
 import { BarreAvancement } from '@/components/indicateurs/barre-avancement'
 import { Tuile, type Ton } from '@/components/indicateurs/tuile'
-import { dbScript } from '@/db/index'
+import { db } from '@/db/index'
 import { chargerCourbeS, chargerSynthese } from '@/db/queries/lecture'
 import { ecartDelaiJours } from '@/db/compute/evm'
 import { exigerPage, voitDonneesInternes } from '@/lib/garde'
@@ -32,17 +32,11 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
   const utilisateur = await exigerPage(id)
   const interne = voitDonneesInternes(utilisateur.role)
 
-  const { db, fermer } = dbScript()
-  let synthese: Awaited<ReturnType<typeof chargerSynthese>>
-  let courbe: Awaited<ReturnType<typeof chargerCourbeS>>
-  try {
-    ;[synthese, courbe] = await Promise.all([
-      chargerSynthese(db, id, interne),
-      chargerCourbeS(db, id, interne),
-    ])
-  } finally {
-    await fermer()
-  }
+  const base = db()
+  const [synthese, courbe] = await Promise.all([
+    chargerSynthese(base, id, interne),
+    chargerCourbeS(base, id, interne),
+  ])
 
   const { projet, global, lots, dateAnalyse } = synthese
   const ecart = global ? global.avancement - global.avancementPrevu : 0

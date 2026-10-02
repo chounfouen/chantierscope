@@ -18,7 +18,13 @@ import postgres from 'postgres'
 import { urlBase } from '@/lib/env'
 import * as schema from '@/db/schema'
 
-let cache: ReturnType<typeof creer> | undefined
+/**
+ * L'instance est gardee sur l'objet global plutot que dans une variable de
+ * module : en developpement, le rechargement a chaud reevalue les modules,
+ * et chaque reevaluation ouvrirait un nouveau client sans fermer l'ancien.
+ * En production, un module n'est evalue qu'une fois ; c'est equivalent.
+ */
+const globale = globalThis as unknown as { chantierscopeDb?: ReturnType<typeof creer> }
 
 function creer() {
   const client = postgres(urlBase(), {
@@ -32,8 +38,8 @@ function creer() {
 
 /** Instance partagee. Creee paresseusement pour ne pas ouvrir de connexion a l'import. */
 export function db() {
-  cache ??= creer()
-  return cache
+  globale.chantierscopeDb ??= creer()
+  return globale.chantierscopeDb
 }
 
 /**

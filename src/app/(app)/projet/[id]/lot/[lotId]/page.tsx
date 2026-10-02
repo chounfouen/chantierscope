@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { dbScript } from '@/db/index'
+import { db } from '@/db/index'
 import { chargerLot } from '@/db/queries/lecture'
 import { ETAT, type Etat } from '@/lib/etats'
 import { exigerPage } from '@/lib/garde'
@@ -43,13 +43,7 @@ export default async function VueLot({
   const { id, lotId } = await params
   await exigerPage(id)
 
-  const { db, fermer } = dbScript()
-  let detail: Awaited<ReturnType<typeof chargerLot>>
-  try {
-    detail = await chargerLot(db, lotId)
-  } finally {
-    await fermer()
-  }
+  const detail = await chargerLot(db(), lotId)
 
   // La garde porte sur le projet de l'adresse : un lot d'un autre projet ne
   // doit pas se lire en changeant seulement son identifiant.
