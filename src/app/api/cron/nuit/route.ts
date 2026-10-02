@@ -135,7 +135,8 @@ async function completerMeteo(base: ReturnType<typeof db>): Promise<number> {
                rafales_kmh = ${m.rafalesKmh}
          where projet_id = ${projetId}::uuid
            and date = ${date}::date
-           and precipitations_mm is null`)
+           and precipitations_mm is null
+           and not meteo_corrigee`)
       completes += Array.isArray(resultat) ? resultat.length : 0
     }
   }

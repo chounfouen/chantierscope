@@ -364,6 +364,12 @@ export const releveJournalier = pgTable(
     temperatureC: numeric({ precision: 4, scale: 1, mode: 'number' }),
     precipitationsMm: numeric({ precision: 6, scale: 2, mode: 'number' }),
     rafalesKmh: numeric({ precision: 5, scale: 1, mode: 'number' }),
+    /**
+     * Vrai si le chef de chantier a corrige la meteo prechargee. Une
+     * observation de terrain prime sur le modele : la tache nocturne ne la
+     * remplace jamais.
+     */
+    meteoCorrigee: boolean().notNull().default(false),
 
     journeeTravaillee: boolean().notNull().default(true),
     motifArret: text(),
@@ -559,6 +565,12 @@ export const alea = pgTable(
       .references(() => projet.id, { onDelete: 'cascade' }),
     lotId: uuid().references(() => lot.id, { onDelete: 'set null' }),
     tacheId: uuid().references(() => tache.id, { onDelete: 'set null' }),
+    /**
+     * Releve depuis lequel l'alea a ete declare, le cas echeant. Unique : un
+     * releve renvoye apres une coupure reseau met a jour son alea au lieu
+     * d'en creer un second.
+     */
+    releveJournalierId: uuid().references(() => releveJournalier.id, { onDelete: 'set null' }),
     date: date().notNull(),
     type: typeAlea().notNull(),
     /** De 1, mineur, a 4, bloquant. */
@@ -573,6 +585,7 @@ export const alea = pgTable(
   },
   (t) => [
     index('alea_projet_date_idx').on(t.projetId, t.date),
+    uniqueIndex('alea_releve_unique').on(t.releveJournalierId),
     index('alea_statut_idx').on(t.statut),
     check('alea_gravite_borne', sql`${t.gravite} between 1 and 4`),
     check('alea_impact_delai_positif', sql`${t.impactDelaiJ} >= 0`),

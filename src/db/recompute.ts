@@ -349,15 +349,22 @@ function construireInstantanes(
     moyensParDate.set(m.date, liste)
   }
 
-  const aleasParDate = new Map<string, number>()
+  /*
+   * Un alea rattache a un lot entre dans le cout de ce lot, donc dans le
+   * cout du projet par la somme des lots. Seuls les aleas sans lot sont
+   * ajoutes directement au projet : les ajouter tous compterait deux fois
+   * ceux qui sont deja dans un lot.
+   */
+  const aleasSansLotParDate = new Map<string, number>()
   const aleasLotParDate = new Map<string, Map<string, number>>()
   for (const a of contexte.aleas) {
     if (a.date > p.dateAnalyse) continue
-    aleasParDate.set(a.date, (aleasParDate.get(a.date) ?? 0) + a.coutXof)
     if (a.lotId) {
       const parLot = aleasLotParDate.get(a.date) ?? new Map<string, number>()
       parLot.set(a.lotId, (parLot.get(a.lotId) ?? 0) + a.coutXof)
       aleasLotParDate.set(a.date, parLot)
+    } else {
+      aleasSansLotParDate.set(a.date, (aleasSansLotParDate.get(a.date) ?? 0) + a.coutXof)
     }
   }
 
@@ -365,7 +372,7 @@ function construireInstantanes(
   const heuresParLot = new Map<string, number>()
   const encadrementParLot = new Map<string, number>()
   const aleasCumulParLot = new Map<string, number>()
-  let aleasCumulProjet = 0
+  let aleasSansLotCumul = 0
 
   const instantanes: Instantane[] = []
 
@@ -382,7 +389,7 @@ function construireInstantanes(
       encadrementParLot.set(m.lotId, (encadrementParLot.get(m.lotId) ?? 0) + m.encadrement)
     }
 
-    aleasCumulProjet += aleasParDate.get(date) ?? 0
+    aleasSansLotCumul += aleasSansLotParDate.get(date) ?? 0
     for (const [lotId, cout] of aleasLotParDate.get(date) ?? []) {
       aleasCumulParLot.set(lotId, (aleasCumulParLot.get(lotId) ?? 0) + cout)
     }
@@ -446,7 +453,7 @@ function construireInstantanes(
       })
     }
 
-    const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasCumulProjet
+    const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasSansLotCumul
     const spi = vpTotal > 0 ? vaTotal / vpTotal : null
     const dateFinProjetee =
       spi !== null && spi > 0

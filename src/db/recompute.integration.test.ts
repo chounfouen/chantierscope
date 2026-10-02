@@ -10,6 +10,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { dbScript } from '@/db/index'
 import { premierProjetId } from '@/db/queries/contexte'
+import { COUT } from '@/db/compute/evm'
 import { recompute } from '@/db/recompute'
 import { recalculerProjet, validerReleve } from '@/db/mutations/releve'
 
@@ -117,6 +118,26 @@ describe('coherence des agregats', () => {
       having max(case when s.lot_id is null then s.valeur_acquise_xof end)
              <> sum(case when s.lot_id is not null then s.valeur_acquise_xof else 0 end)`
     expect(ecarts).toEqual([])
+  })
+
+  /**
+   * Non-regression : un alea rattache a un lot etait compte dans le cout du
+   * lot ET ajoute une seconde fois au cout du projet.
+   */
+  it('le cout reel du projet est la somme des lots, des frais et des seuls aleas sans lot', async () => {
+    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+    const [r] = await client<{ projet: number; lots: number; jours: number; sansLot: number }[]>`
+      select
+        (select cout_reel_xof from snapshot_avancement
+          where lot_id is null and date = ${DATE_ANALYSE}::date)::float8 as projet,
+        (select sum(cout_reel_xof) from snapshot_avancement
+          where lot_id is not null and date = ${DATE_ANALYSE}::date)::float8 as lots,
+        (${DATE_ANALYSE}::date - (select date_ordre_service from projet limit 1) + 1)::int as jours,
+        (select coalesce(sum(impact_cout_xof), 0) from alea
+          where lot_id is null and date <= ${DATE_ANALYSE}::date)::float8 as "sansLot"`
+    expect(r?.projet).toBe(
+      Number(r?.lots) + Number(r?.jours) * COUT.fraisChantierJour + Number(r?.sansLot),
+    )
   })
 
   it('la valeur acquise ne decroit jamais dans le temps', async () => {
@@ -270,17 +291,9 @@ describe('coherence du cache : incremental contre integral', () => {
     // Etat de depart propre.
     await recalculerProjet(db, projetId, conducteur?.id as string)
 
-    const [releve] = await client<{ id: string }[]>`
-      select id from releve_journalier where statut = 'SOUMIS' order by date limit 1`
-    if (!releve) {
-      // Tous les releves ont deja ete valides par les cas precedents : on en
-      // remet un a l'etat soumis pour disposer d'un cas valide.
-      await client`
-        update releve_journalier set statut = 'SOUMIS', valide_par_id = null, valide_le = null
-         where id = (select id from releve_journalier where statut = 'VALIDE'
-                      order by date desc limit 1)`
-    }
-
+    // Le jeu de demonstration laisse six releves soumis ; les cas precedents
+    // en consomment quatre. Un releve valide ne peut pas etre remis a l'etat
+    // soumis : la base le refuse, c'est le gel.
     const [aValider] = await client<{ id: string }[]>`
       select id from releve_journalier where statut = 'SOUMIS' order by date limit 1`
     expect(aValider).toBeDefined()

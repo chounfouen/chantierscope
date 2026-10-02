@@ -15,6 +15,20 @@
       "when": 1790752211084,
       "tag": "0001_declencheurs_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790907427047,
+      "tag": "0002_meteo_corrigee_alea_releve",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790907430635,
+      "tag": "0003_gel_releve_valide",
+      "breakpoints": true
     }
   ]
 }
