@@ -49,7 +49,7 @@ export default async function CoquilleApplication({
       entrees: [
         { libelle: 'Tableau de bord', href: base, icone: 'tableauBord' },
         { libelle: 'Planning', href: `${base}/planning`, icone: 'planning' },
-        { libelle: 'Analyses', href: `${base}/analyses`, icone: 'analyses', aVenir: true },
+        { libelle: 'Analyses', href: `${base}/analyses`, icone: 'analyses' },
       ],
     },
     {

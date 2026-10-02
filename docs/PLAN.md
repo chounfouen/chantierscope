@@ -1108,3 +1108,93 @@ d'etre exposee dans le memoire.
 - Le recalage par le reseau, et le point fixe qui le rend sur.
 - La tache critique par son seul debut, et la convention de marge totale.
 - La simulation chiffree a la main, du glissement a la penalite en FCFA.
+
+### Sprint 7 — Tableau de bord et analyses : termine
+
+Critere d'achevement atteint :
+
+- les treize indicateurs de la methode de la valeur acquise (VP, VA, CR,
+  ecart de cout, ecart de delai en valeur, CPI, SPI, EAC, ETC, VAC, duree
+  projetee, retard estime, penalite prevue), plus l'avancement et l'ecart de
+  delai lu horizontalement, concordent avec le calcul de reference au
+  tableur aux 15 mai, 31 juillet et 27 septembre 2026 : au franc pres pour
+  les montants, a 1e-9 pour les indices, au jour pres pour les durees ;
+- le tableau de bord se charge en 667 ms sur la construction de production,
+  mesure faite par le parcours Playwright, pour une cible d'une seconde.
+
+`npm run verifier` passe avec 651 tests, `npm run test:e2e` avec 26 parcours.
+
+#### Le calcul de reference au tableur
+
+`scripts/reference/tableur.py` extrait de la base les seules donnees
+sources — quantitatif, dates prevues, methodes, releves valides, moyens,
+aleas, equipes affectees —, sans lire aucune valeur derivee. Il ecrit un
+classeur dont chaque grandeur est une formule de tableur redigee d'apres
+les sections 4.1 a 4.3 de la conception, et non d'apres le code : avancement
+selon la methode de chaque tache, valeur planifiee lineaire, debourse
+previsionnel jour par jour et par lot, cout reel, puis les indicateurs. La
+lecture horizontale de la courbe en S y est faite par `EQUIV` sur la courbe
+planifiee journaliere. LibreOffice recalcule le classeur sans interface ;
+`docs/reference/indicateurs-reference.xlsx` est le classeur recalcule,
+`docs/reference/indicateurs.json` ses resultats.
+
+Le test d'integration rejoue le chemin complet de l'application a chaque
+date — recalcul du cache, lecture des instantanes par la requete du tableau
+de bord, synthese par le noyau — et confronte. La troisieme date est la
+derniere journee entierement validee du jeu : les releves posterieurs sont
+en attente, et d'autres suites d'integration les valident.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/tableau.ts` | Indicateurs a une date, tendances sur trente jours, courbe planifiee prolongee et projection, projection du reseau, prochains jalons, cinq regles d'alerte |
+| `src/db/compute/analyses.ts` | Effectifs et charge prevue, consommation des materiaux cles, rendements par nature, aleas, jours perdus, arrets par cause |
+| `src/db/queries/tableau.ts`, `src/db/queries/analyses.ts` | Lectures des deux ecrans, selection des colonnes selon le role |
+| `src/lib/tableau-donnees.ts` | Branchement du noyau pour la page |
+| `src/components/tableau/` | Panneau d'alertes, prochains jalons |
+| `src/components/graphiques/analyses.tsx` | Histogramme, consommations, barres horizontales, jours perdus, vue tableau |
+| `drizzle/0006` | Debourse previsionnel porte par les instantanes |
+| `scripts/reference/tableur.py`, `docs/reference/` | Calcul de reference au tableur |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Le tableau de bord recalcule les indicateurs depuis VP, VA et CR des instantanes, plutot que de relire CPI et SPI stockes | Une seule formule, celle du noyau, pour l'ecran et pour le test de concordance |
+| Le debourse previsionnel est stocke dans chaque instantane | EAC et VAC s'expriment au cout ; le relire evite de recharger les affectations a chaque affichage |
+| La projection de la courbe en S part de la lecture horizontale et deroule le planning au rythme du SPI ; le cout suit au CPI | La courbe part exactement de la valeur acquise du jour, et le cout aboutit exactement a l'EAC |
+| Un jalon est menace si sa tache declenchante, rejouee depuis la situation, finit apres la date | Le planning prevu ignore le retard constate : les dates prevues ne menacent jamais rien. Le reseau est rejoue avec le reste a faire de chaque tache entamee, au rythme prevu, et aucune tache non commencee avant le lendemain |
+| Une tache critique est en retard des une journee d'ecart entre avancement prevu et reel, convertie par sa duree | Un ecart en pourcentage ne dit pas l'effet sur la fin du chantier ; en jours, il le dit |
+| Les seuils des regles sont nommes, et le panneau les enonce tels qu'ils sont appliques | Une alerte dont on ne connait pas la regle n'est pas actionnable |
+| Rendement : l'effectif d'un lot est reparti entre ses taches productives au prorata des equipes prevues, et compare au prevu de sa nature | Le releve porte l'effectif du lot, pas celui de chaque tache. L'indice sans unite rend comparables des natures mesurees en m3, m2 ou unites |
+| Effectifs et rendements ne sont lus que pour les roles internes | Ce sont des donnees de l'entreprise, comme le cout reel |
+| L'ecran d'analyses n'emploie que les deux premieres teintes de la palette, et une seule par graphique a une serie | Elles passent les cinq controles du validateur en clair et en sombre, contraste compris ; les teintes 3 a 5 sont sous 3:1 en clair |
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| Deux recalculs successifs differaient d'un franc, par intermittence : les lectures du contexte n'etaient pas ordonnees, et une somme flottante tombant sur un demi-franc s'arrondissait selon l'ordre arbitraire des lignes | Toutes les lectures du contexte sont ordonnees, sur une cle metier stable |
+| Le bouton de theme rendait une icone differente au serveur et au client en theme sombre : React regenerait l'arbre | Icone du theme rendue une fois la page montee |
+| La navigation marquait actif le tableau de bord sur tous les ecrans, sa route etant leur prefixe | L'entree active est la plus specifique |
+
+#### Limites assumees
+
+- La projection est une extrapolation au rythme constate, comme l'EAC : elle
+  est pessimiste si les difficultes sont derriere le chantier. Elle differe
+  de la duree projetee par le SPI, qui ne regarde que le rapport global ;
+  les deux sont affichees avec leur hypothese.
+- Le rendement attribue l'effectif au prorata des equipes prevues : une
+  equipe reaffectee en cours de journee echappe a la mesure. Le releve par
+  tache leverait cette limite, au prix d'une saisie plus lourde.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- La concordance avec un calcul de tableur independant, et ce qu'elle
+  prouve : une meme regle, ecrite deux fois par deux voies differentes,
+  donne le meme chiffre.
+- Le franc d'ecart intermittent : l'arithmetique flottante et l'ordre des
+  lignes d'une requete SQL.
+- La projection du reseau depuis la situation, et pourquoi les dates
+  prevues ne suffisent pas a dire qu'un jalon est menace.

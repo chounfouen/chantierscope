@@ -17,6 +17,13 @@ export type Groupe = { titre: string; entrees: readonly Entree[] }
 
 export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
   const chemin = usePathname()
+  // L'entree active est la plus specifique : le tableau de bord, a la
+  // racine du projet, est le prefixe de tous les autres ecrans.
+  const correspond = (href: string) => chemin === href || chemin.startsWith(`${href}/`)
+  const hrefActif = groupes
+    .flatMap((g) => g.entrees)
+    .filter((e) => e.aVenir !== true && correspond(e.href))
+    .reduce<string | null>((m, e) => (m === null || e.href.length > m.length ? e.href : m), null)
 
   return (
     <nav aria-label="Navigation principale" className="space-y-6">
@@ -28,7 +35,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
           <ul className="space-y-px">
             {groupe.entrees.map((e) => {
               const IconeEntree = Icone[e.icone]
-              const actif = chemin === e.href || chemin.startsWith(`${e.href}/`)
+              const actif = e.href === hrefActif
 
               if (e.aVenir === true) {
                 return (

@@ -8,6 +8,7 @@
 
 import { differenceInCalendarDays, format, formatISO, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import type { Nature } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
 /* Montants                                                                   */
@@ -222,4 +223,28 @@ export function libelleGraduation(
     case 'annee':
       return format(locale, 'yyyy', { locale: fr })
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Natures de tache et unites                                                 */
+/* -------------------------------------------------------------------------- */
+
+export const LIBELLE_NATURE: Record<Nature, string> = {
+  TERRASSEMENT: 'Terrassement',
+  VRD: 'Voirie et réseaux',
+  ENROBES: 'Enrobés',
+  FONDATION: 'Fondations',
+  BETONNAGE: 'Béton armé',
+  LEVAGE: 'Levage',
+  MACONNERIE: 'Maçonnerie',
+  CHARPENTE: 'Charpente',
+  ETANCHEITE: 'Étanchéité',
+  ENDUIT: 'Enduits',
+  INTERIEUR: 'Second œuvre intérieur',
+  SUPPORT: 'Installations et support',
+}
+
+/** Un nombre sans unite monetaire, a decimales fixes : `1 234,5`. */
+export function nombre(valeur: number, decimales = 0): string {
+  return arrondi(valeur, decimales)
 }
