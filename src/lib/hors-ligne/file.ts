@@ -245,3 +245,16 @@ export async function viderPourTest(): Promise<void> {
   await bd().releves.clear()
   await bd().photos.clear()
 }
+
+/**
+ * Delai avant un nouvel essai apres une synchronisation interrompue.
+ *
+ * Le reseau d'un chantier revient rarement d'un coup : les premieres
+ * requetes apres le retour de la connexion echouent souvent. On reessaie vite
+ * d'abord, puis de plus en plus espace, jusqu'a la cadence de fond d'une
+ * minute, pour ne pas vider la batterie sur un reseau durablement absent.
+ */
+export function delaiNouvelEssai(essai: number): number {
+  const paliers = [5_000, 10_000, 20_000]
+  return paliers[essai] ?? 60_000
+}

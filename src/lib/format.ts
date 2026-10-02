@@ -188,3 +188,38 @@ export function libelleMeteo(code: number | null): string {
   if (code >= 95) return 'Orage'
   return `Code météo ${code}`
 }
+
+/* -------------------------------------------------------------------------- */
+/* Graduations du Gantt                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Libelle d'une graduation de l'echelle de temps.
+ *
+ * Les dates de l'echelle sont des minuits UTC. Elles sont reconstruites en
+ * date locale avant formatage : formater directement un minuit UTC dans un
+ * navigateur a l'ouest de Greenwich afficherait la veille.
+ */
+export function libelleGraduation(
+  d: Date,
+  periode: 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee',
+  role: 'majeure' | 'mineure',
+): string {
+  const locale = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  switch (periode) {
+    case 'jour':
+      return format(locale, 'd', { locale: fr })
+    case 'semaine':
+      return role === 'majeure'
+        ? `Semaine du ${format(locale, 'd MMMM yyyy', { locale: fr })}`
+        : format(locale, 'd MMM', { locale: fr })
+    case 'mois':
+      return role === 'majeure'
+        ? format(locale, 'MMMM yyyy', { locale: fr })
+        : format(locale, 'MMM', { locale: fr })
+    case 'trimestre':
+      return `T${Math.floor(locale.getMonth() / 3) + 1}`
+    case 'annee':
+      return format(locale, 'yyyy', { locale: fr })
+  }
+}

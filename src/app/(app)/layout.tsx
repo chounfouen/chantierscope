@@ -48,7 +48,7 @@ export default async function CoquilleApplication({
       titre: 'Pilotage',
       entrees: [
         { libelle: 'Tableau de bord', href: base, icone: 'tableauBord' },
-        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning', aVenir: true },
+        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning' },
         { libelle: 'Analyses', href: `${base}/analyses`, icone: 'analyses', aVenir: true },
       ],
     },
@@ -72,7 +72,6 @@ export default async function CoquilleApplication({
                 libelle: 'Simulation',
                 href: `${base}/simulation`,
                 icone: 'simulation' as const,
-                aVenir: true,
               },
             ]
           : []),

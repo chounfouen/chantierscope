@@ -1028,3 +1028,83 @@ TypeScript : seuls les litteraux de chaine, les gabarits hors expressions et
 les textes JSX sont touches, jamais un identifiant, une requete SQL, une
 classe CSS ou une cle. Les cas que seul le sens tranche, « a » ou « à »,
 « equipe » ou « équipé », « relevé d’étanchéité », ont ete corriges a la main.
+
+
+### Sprint 6 — Planning, Gantt et simulation : termine
+
+Critere d'achevement atteint :
+
+- le chemin critique affiche est conforme au calcul manuel du sprint 2 : un
+  test de rendu du Gantt sur le reseau de reference retrouve exactement
+  A-B-D-F-G-I-J, et un parcours Playwright verifie sur le projet de
+  demonstration que les barres critiques affichees sont celles de la base ;
+- une simulation produit une date de fin et une penalite verifiables a la
+  main : dix jours de glissement sur le beton de proprete des fondations
+  donnent une fin au 27 avril 2027 et une penalite de 11 561 412 FCFA, soit
+  10 x 0,001 x 1 156 141 200, calcul ecrit en tete du test.
+
+`npm run verifier` passe avec 567 tests, `npm run test:e2e` avec 17 parcours.
+Le rendu de deux cents taches prend 42 ms, pour une cible de 500.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/gantt.ts` | Geometrie du Gantt : paliers et centrage, graduations, WBS repliable, virtualisation, liaisons orthogonales, repartition des couloirs, journees grisees |
+| `src/db/compute/planning.ts` | Recalage par le calcul au plus tot, dates des noeuds, controle d'une liaison candidate |
+| `src/db/mutations/planning.ts` | Edition transactionnelle : duree, contrainte de debut, liaisons, scenarios |
+| `src/db/queries/planning.ts` | Lecture unique du planning pour le Gantt, l'edition et la simulation |
+| `src/lib/gantt-donnees.ts` | Donnees serialisables du Gantt, et Gantt simule |
+| `src/components/planning/` | Gantt en SVG, ecran du planning avec panneau d'edition, ecran de simulation |
+| `drizzle/0004`, `drizzle/0005` | Contrainte de debut, scenarios, audit des liaisons |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Les dates prevues sont une projection du reseau, jamais saisies une a une | Une date saisie a la main contredirait tot ou tard ses liaisons. Modifier une duree ou une liaison recale tout le planning par le calcul au plus tot |
+| Une date de debut fixee a la main devient une contrainte « pas avant », stockee a part | Le recalage suivant la respecte au lieu de l'effacer. Plus precoce que les predecesseurs, elle est enregistree et signalee sans effet |
+| Le planning du jeu est un point fixe du recalage, et un test le garantit | Sinon la premiere edition aurait deplace tout le chantier |
+| Les jalons contractuels gardent leur date, les jalons internes suivent leur tache | La date contractuelle est celle contre laquelle on mesure un retard |
+| La simulation tourne dans le navigateur | Moteur pur, reseau de quelques kilooctets : resultat instantane a chaque frappe, sans aller-retour serveur |
+| Un scenario enregistre ne conserve que ses hypotheses | Le resultat est un calcul a la volee (section 11.5 de la conception) ; il est refait sur le planning du moment |
+| Le glisser-deposer ouvre la simulation, sans ecrire | Exigence du plan : rien n'est modifie avant confirmation |
+| La simulation est reservee aux roles qui voient les donnees internes | Elle chiffre des penalites et expose la strategie de l'entreprise |
+| Les liaisons entrent au journal d'audit | Les modifier deplace la valeur planifiee et les penalites projetees |
+
+#### Un test faux, corrige apres analyse
+
+Un test supposait qu'allonger une tache critique retarde forcement la fin du
+chantier. La tache retenue, 03.1.2, n'a qu'un successeur lie debut-debut :
+son DEBUT est critique, sa FIN ne l'est pas, et l'allonger ne retarde rien.
+La marge totale retenue est la plus petite des deux, selon la convention
+usuelle des logiciels de planification. Le cas est conserve comme test a
+part ; c'est une subtilite des liaisons autres que fin-debut qui merite
+d'etre exposee dans le memoire.
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| La cellule de grille du Gantt s'elargissait a la largeur de son contenu, 5 496 pixels : le conteneur ne defilait jamais | `min-w-0` sur la cellule |
+| Le centrage initial sur la date du jour s'executait pendant que la page, arrivee en flux, etait encore masquee | Centrage differe a la premiere frame ou le conteneur a des dimensions |
+| Apres le retour du reseau, une synchronisation interrompue ou demandee pendant un passage n'etait relancee qu'une minute plus tard | Relance d'une demande arrivee en cours de passage, nouvel essai a 5, 10 puis 20 secondes |
+| Le controle d'audit de `db:check` comptait tous les declencheurs, gel compris : il serait passe avec un audit manquant | Controle par table et par fonction, et controle separe du gel |
+
+#### Limites assumees
+
+- La simulation porte sur le planning de reference, pas sur la situation
+  constatee : elle mesure l'effet d'un alea sur le reseau. Simuler a partir
+  de l'avancement reel demanderait de re-planifier le reste a faire, ce qui
+  releve d'un module de replanification hors perimetre.
+- La securite de niveau ligne de PostgreSQL, prevue en refus general par la
+  conception, n'est pas encore posee : elle releve de la mise en ligne,
+  sprint 8.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le Gantt sur mesure : geometrie en fonctions pures testees, composant qui
+  ne fait que dessiner, et la mesure de 42 ms pour deux cents taches.
+- Le recalage par le reseau, et le point fixe qui le rend sur.
+- La tache critique par son seul debut, et la convention de marge totale.
+- La simulation chiffree a la main, du glissement a la penalite en FCFA.

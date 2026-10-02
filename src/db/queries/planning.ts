@@ -153,3 +153,21 @@ export function reseauDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaiso
     })),
   }
 }
+
+export type ScenarioEnregistre = {
+  id: string
+  nom: string
+  description: string | null
+  perturbations: { tacheId: string; decalageJ: number; allongementJ: number }[]
+  auteur: string | null
+  creeLe: Date
+}
+
+export async function chargerScenarios(db: Db, projetId: string): Promise<ScenarioEnregistre[]> {
+  const lignes = await db.execute<ScenarioEnregistre>(sql`
+    select s.id, s.nom, s.description, s.perturbations, u.nom as auteur, s.cree_le as "creeLe"
+      from scenario_simulation s left join utilisateur u on u.id = s.cree_par_id
+     where s.projet_id = ${projetId}::uuid
+     order by s.cree_le desc`)
+  return [...lignes]
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  libelleGraduation,
   libelleMeteo,
   aujourdhui,
   dateCourte,
@@ -212,5 +213,24 @@ describe('libelle meteo', () => {
 
   it('garde le code brut quand il ne correspond a aucune famille', () => {
     expect(libelleMeteo(30)).toBe('Code météo 30')
+  })
+})
+
+describe('graduations du Gantt', () => {
+  const lundi = new Date(Date.UTC(2026, 2, 16))
+
+  it('libelle chaque periode', () => {
+    expect(libelleGraduation(lundi, 'jour', 'mineure')).toBe('16')
+    expect(libelleGraduation(lundi, 'semaine', 'majeure')).toBe('Semaine du 16 mars 2026')
+    expect(libelleGraduation(lundi, 'semaine', 'mineure')).toBe('16 mars')
+    expect(libelleGraduation(lundi, 'mois', 'majeure')).toBe('mars 2026')
+    expect(libelleGraduation(new Date(Date.UTC(2026, 6, 1)), 'trimestre', 'mineure')).toBe('T3')
+    expect(libelleGraduation(new Date(Date.UTC(2027, 0, 1)), 'annee', 'majeure')).toBe('2027')
+  })
+
+  it('ne recule pas d un jour a l ouest de Greenwich', () => {
+    // Un minuit UTC formate tel quel a Abidjan comme a Montreal doit garder
+    // son jour : le libelle est construit sur les champs UTC.
+    expect(libelleGraduation(new Date(Date.UTC(2026, 3, 1)), 'jour', 'mineure')).toBe('1')
   })
 })

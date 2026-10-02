@@ -20,6 +20,7 @@ import {
   surChangementFile,
   synchroniser,
   synchroniserPhotos,
+  delaiNouvelEssai,
   type EntreeFile,
 } from '@/lib/hors-ligne/file'
 import { useEnLigne } from '@/lib/hors-ligne/reseau'
@@ -78,13 +79,32 @@ export function IndicateurReseau({
   const file = useFile(projetId, utilisateurId)
   const enAttente = file.releves.filter((e) => e.etat === 'en_attente').length + file.photos
   const enCours = useRef(false)
+  // Une demande arrivee pendant une synchronisation n'est pas perdue : elle
+  // relance un passage des que le precedent se termine.
+  const relanceDemandee = useRef(false)
+  const essai = useRef(0)
+  const nouvelEssai = useRef<number | null>(null)
+  // Chaque relance demandee, en fin de passage ou apres un delai, incremente
+  // ce compteur, qui declenche un nouveau passage.
+  const [relance, setRelance] = useState(0)
 
   const lancer = useCallback(async () => {
-    if (enCours.current || !navigator.onLine) return
+    if (!navigator.onLine) return
+    if (enCours.current) {
+      relanceDemandee.current = true
+      return
+    }
     enCours.current = true
+    if (nouvelEssai.current !== null) window.clearTimeout(nouvelEssai.current)
+    nouvelEssai.current = null
+    let interrompue = false
     try {
       const bilan = await synchroniser(projetId, utilisateurId)
-      if (!bilan.interrompue) await synchroniserPhotos(projetId, utilisateurId)
+      interrompue = bilan.interrompue
+      if (!bilan.interrompue) {
+        const photos = await synchroniserPhotos(projetId, utilisateurId)
+        interrompue = photos.interrompue
+      }
       if (bilan.envoyes > 0) {
         toast.success(
           bilan.envoyes === 1
@@ -101,7 +121,28 @@ export function IndicateurReseau({
     } finally {
       enCours.current = false
     }
+    if (relanceDemandee.current) {
+      relanceDemandee.current = false
+      setRelance((n) => n + 1)
+    } else if (interrompue) {
+      nouvelEssai.current = window.setTimeout(
+        () => setRelance((n) => n + 1),
+        delaiNouvelEssai(essai.current++),
+      )
+    } else {
+      essai.current = 0
+    }
   }, [projetId, utilisateurId, router])
+
+  useEffect(() => {
+    if (relance > 0) void lancer()
+  }, [relance, lancer])
+  useEffect(
+    () => () => {
+      if (nouvelEssai.current !== null) window.clearTimeout(nouvelEssai.current)
+    },
+    [],
+  )
 
   useEffect(() => {
     if (enLigne && enAttente > 0) void lancer()

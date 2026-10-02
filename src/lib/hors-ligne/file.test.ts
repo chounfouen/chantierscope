@@ -185,3 +185,10 @@ describe('photos en file', () => {
     expect(b).toMatchObject({ etat: 'en_attente' })
   })
 })
+
+describe('nouvel essai apres interruption', () => {
+  it('reessaie vite, puis de plus en plus espace, jusqu a une minute', async () => {
+    const { delaiNouvelEssai } = await import('@/lib/hors-ligne/file')
+    expect([0, 1, 2, 3, 10].map(delaiNouvelEssai)).toEqual([5_000, 10_000, 20_000, 60_000, 60_000])
+  })
+})
