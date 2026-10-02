@@ -40,7 +40,7 @@ export function MenuUtilisateur({ utilisateur }: { utilisateur: Utilisateur }) {
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:text-foreground size-8"
-          aria-label="Se deconnecter"
+          aria-label="Se déconnecter"
         >
           <Icone.deconnexion className="size-4" strokeWidth={1.75} />
         </Button>

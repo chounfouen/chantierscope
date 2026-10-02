@@ -306,16 +306,49 @@ async function main(): Promise<void> {
 
     /* --- Audit --------------------------------------------------------------------- */
 
-    const declencheurs = await client<{ n: number }[]>`
-      select count(*)::int as n from pg_trigger t
+    const tablesAuditees = [
+      'releve_journalier',
+      'releve_quantite',
+      'ligne_quantitatif',
+      'tache',
+      'liaison',
+    ]
+    const audites = await client<{ table: string }[]>`
+      select distinct c.relname as table from pg_trigger t
       join pg_class c on c.oid = t.tgrelid
-      where not t.tgisinternal
-        and c.relname in ('releve_journalier','releve_quantite','ligne_quantitatif','tache')
-        and t.tgenabled <> 'D'`
+      join pg_proc p on p.oid = t.tgfoid
+      where not t.tgisinternal and t.tgenabled <> 'D' and p.proname = 'tracer_modification'`
+    const manquants = tablesAuditees.filter((x) => !audites.some((a) => a.table === x))
     verifier(
-      'Les declencheurs d audit sont en place et actifs',
-      Number(declencheurs[0]?.n) >= 5,
-      `${declencheurs[0]?.n} declencheurs actifs`,
+      'Chaque table auditee porte un declencheur d audit actif',
+      manquants.length === 0,
+      manquants.length === 0
+        ? `${tablesAuditees.length} tables`
+        : `manquant : ${manquants.join(', ')}`,
+    )
+
+    const gel = await client<{ n: number }[]>`
+      select count(*)::int as n from pg_trigger t
+      join pg_proc p on p.oid = t.tgfoid
+      where not t.tgisinternal and t.tgenabled <> 'D'
+        and p.proname in ('geler_releve_valide', 'geler_quantites_releve_valide')`
+    verifier(
+      'Le gel des releves valides est en place et actif',
+      Number(gel[0]?.n) === 2,
+      `${gel[0]?.n} declencheurs de gel`,
+    )
+
+    // Refus general : toute table du schema applicatif porte la RLS. Une table
+    // ajoutee sans `.enableRLS()` dans le schema serait lisible par les roles
+    // de l'API Supabase.
+    const sansRls = await client<{ nom: string }[]>`
+      select c.relname as nom from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity`
+    verifier(
+      'Toutes les tables refusent par defaut les roles non proprietaires (RLS)',
+      sansRls.length === 0,
+      sansRls.length === 0 ? 'aucune exception' : sansRls.map((t) => t.nom).join(', '),
     )
 
     /* --- Rendu --------------------------------------------------------------------- */

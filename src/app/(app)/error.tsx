@@ -22,7 +22,7 @@ export default function Erreur({
     console.error(error)
   }, [error])
 
-  const refus = error.message.startsWith('Acces refuse')
+  const refus = error.message.startsWith('Accès refusé')
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
@@ -33,22 +33,22 @@ export default function Erreur({
       )}
 
       <h1 className="mt-4 text-lg font-semibold">
-        {refus ? 'Acces refuse' : 'Une erreur est survenue'}
+        {refus ? 'Accès refusé' : 'Une erreur est survenue'}
       </h1>
 
       <p className="text-muted-foreground mt-2 text-sm">
         {refus
-          ? 'Votre role ne vous donne pas acces a cet ecran, ou ce chantier ne vous est pas rattache.'
-          : 'L affichage de cet ecran a echoue. Si le probleme persiste, prevenez l administrateur.'}
+          ? 'Votre rôle ne vous donne pas accès à cet écran, ou ce chantier ne vous est pas rattaché.'
+          : 'L’affichage de cet écran a échoué. Si le problème persiste, prévenez l’administrateur.'}
       </p>
 
       {error.digest !== undefined && (
-        <p className="text-muted-foreground/70 mt-2 font-mono text-xs">reference {error.digest}</p>
+        <p className="text-muted-foreground mt-2 font-mono text-xs">référence {error.digest}</p>
       )}
 
       {!refus && (
         <Button onClick={reset} variant="outline" className="mt-6">
-          Reessayer
+          Réessayer
         </Button>
       )}
     </div>

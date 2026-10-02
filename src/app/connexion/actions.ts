@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { signIn } from '@/auth'
 
 const Saisie = z.object({
-  email: z.string().trim().email('Adresse electronique invalide'),
+  email: z.string().trim().email('Adresse électronique invalide'),
   motDePasse: z.string().min(1, 'Mot de passe requis'),
 })
 
@@ -36,7 +36,7 @@ export async function seConnecter(_etat: EtatConnexion, donnees: FormData): Prom
     return { erreur: null }
   } catch (e) {
     if (e instanceof AuthError) {
-      return { erreur: 'Adresse electronique ou mot de passe incorrect.' }
+      return { erreur: 'Adresse électronique ou mot de passe incorrect.' }
     }
     // signIn signale la redirection par une levee : il faut la laisser passer.
     throw e

@@ -52,6 +52,21 @@ describe('validation de l environnement', () => {
     expect(env().SUPABASE_BUCKET_PHOTOS).toBe('photos')
   })
 
+  it('traite une variable vide comme absente', async () => {
+    // Cas de .env.example recopie tel quel : les variables de production y
+    // sont declarees vides.
+    poser({ ...COMPLET, SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '' })
+    const { env } = await import('@/lib/env')
+    expect(env().SUPABASE_URL).toBeUndefined()
+    expect(env().SUPABASE_BUCKET_PHOTOS).toBe('photos')
+  })
+
+  it('rejette toujours une variable obligatoire vide', async () => {
+    poser({ ...COMPLET, CRON_SECRET: '' })
+    const { env } = await import('@/lib/env')
+    expect(() => env()).toThrow(/CRON_SECRET/)
+  })
+
   it('met le resultat en cache', async () => {
     poser(COMPLET)
     const { env } = await import('@/lib/env')

@@ -7,7 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     // La base d'integration est reconstruite une fois pour toute la suite.
     globalSetup: ['./vitest.globalsetup.mts'],
     // Les tests d'integration partagent une base : les fichiers ne peuvent

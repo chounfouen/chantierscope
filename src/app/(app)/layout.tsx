@@ -3,9 +3,12 @@ import { redirect } from 'next/navigation'
 import { BasculeTheme } from '@/components/bascule-theme'
 import { MenuUtilisateur } from '@/components/coquille/menu-utilisateur'
 import { Navigation, type Groupe } from '@/components/coquille/navigation'
-import { dbScript } from '@/db/index'
+import { IndicateurReseau } from '@/components/saisie/file-attente'
+import { EnregistrementServiceWorker } from '@/components/saisie/service-worker'
+import { db } from '@/db/index'
 import { compteValide, projetsAccessibles } from '@/db/queries/lecture'
-import { utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
+import { habilite, PEUT_SAISIR, utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
+import { enDeveloppement } from '@/lib/env'
 import { Icone } from '@/lib/icones'
 
 /**
@@ -26,17 +29,11 @@ export default async function CoquilleApplication({
   const utilisateur = await utilisateurEventuel()
   if (!utilisateur) redirect('/connexion')
 
-  const { db, fermer } = dbScript()
-  let projets: Awaited<ReturnType<typeof projetsAccessibles>>
-  let valide: boolean
-  try {
-    ;[valide, projets] = await Promise.all([
-      compteValide(db, utilisateur.id),
-      projetsAccessibles(db, utilisateur.id),
-    ])
-  } finally {
-    await fermer()
-  }
+  const connexion = db()
+  const [valide, projets] = await Promise.all([
+    compteValide(connexion, utilisateur.id),
+    projetsAccessibles(connexion, utilisateur.id),
+  ])
 
   // Un compte desactive ou disparu perd l'acces immediatement, sans attendre
   // l'expiration du jeton.
@@ -50,21 +47,39 @@ export default async function CoquilleApplication({
     {
       titre: 'Pilotage',
       entrees: [
-        { libelle: 'Tableau de bord', href: base, icone: 'tableauBord' },
-        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning', aVenir: true },
-        { libelle: 'Analyses', href: `${base}/analyses`, icone: 'analyses', aVenir: true },
+        { libelle: 'Tableau de bord', href: base, prechargement: 'complet', icone: 'tableauBord' },
+        {
+          libelle: 'Planning',
+          href: `${base}/planning`,
+          prechargement: 'complet',
+          icone: 'planning',
+        },
+        {
+          libelle: 'Analyses',
+          href: `${base}/analyses`,
+          prechargement: 'complet',
+          icone: 'analyses',
+        },
       ],
     },
     {
       titre: 'Chantier',
       entrees: [
-        { libelle: 'Saisie journaliere', href: `${base}/releve`, icone: 'releve', aVenir: true },
-        { libelle: 'Plan interactif', href: `${base}/plan`, icone: 'plan', aVenir: true },
-        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos', aVenir: true },
+        // Le journal porte les effectifs : il suit la regle des donnees internes.
+        ...(interne
+          ? [{ libelle: 'Saisie journalière', href: `${base}/releve`, icone: 'releve' as const }]
+          : []),
+        {
+          libelle: 'Plan interactif',
+          href: `${base}/plan`,
+          prechargement: 'complet',
+          icone: 'plan',
+        },
+        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
       ],
     },
     {
-      titre: 'Decision',
+      titre: 'Décision',
       entrees: [
         ...(interne
           ? [
@@ -72,17 +87,22 @@ export default async function CoquilleApplication({
                 libelle: 'Simulation',
                 href: `${base}/simulation`,
                 icone: 'simulation' as const,
-                aVenir: true,
               },
             ]
           : []),
-        { libelle: 'Rapports', href: `${base}/rapports`, icone: 'rapports', aVenir: true },
+        {
+          libelle: 'Rapports',
+          href: `${base}/rapports`,
+          prechargement: 'complet',
+          icone: 'rapports',
+        },
       ],
     },
   ]
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <EnregistrementServiceWorker actif={!enDeveloppement()} />
       <header className="bg-background/80 border-border/70 sticky top-0 z-30 border-b backdrop-blur-xl">
         <div className="flex h-[3.25rem] items-center gap-3 px-4 sm:px-5">
           <Link href="/" className="flex shrink-0 items-center gap-2.5">
@@ -107,6 +127,9 @@ export default async function CoquilleApplication({
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {projet && habilite(utilisateur.role, PEUT_SAISIR) && (
+              <IndicateurReseau projetId={projet.id} utilisateurId={utilisateur.id} />
+            )}
             <BasculeTheme />
             <span aria-hidden className="bg-border mx-1 h-5 w-px" />
             <MenuUtilisateur utilisateur={utilisateur} />
@@ -117,10 +140,6 @@ export default async function CoquilleApplication({
       <div className="flex flex-1">
         <aside className="bg-sidebar border-border/70 sticky top-[3.25rem] hidden h-[calc(100dvh-3.25rem)] w-[15rem] shrink-0 overflow-y-auto border-r px-2.5 py-5 md:block">
           <Navigation groupes={groupes} />
-          <p className="text-muted-foreground/60 mt-8 px-3 text-[0.6875rem] leading-relaxed">
-            Les entrees grisees correspondent aux ecrans prevus dans les sprints suivants du plan
-            d&apos;implementation.
-          </p>
         </aside>
 
         <main className="min-w-0 flex-1">{children}</main>

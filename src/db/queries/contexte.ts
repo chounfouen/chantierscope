@@ -53,6 +53,8 @@ export type TacheContexte = {
   dateDebutPrevue: string
   dateFinPrevue: string
   dureePrevueJ: number
+  /** Contrainte « pas avant » posee a la main, nulle sinon. */
+  debutImpose: string | null
   /** Vrai pour une tache feuille, c'est-a-dire porteuse de quantitatif. */
   feuille: boolean
 }
@@ -102,6 +104,19 @@ export type JalonContexte = {
   dateReelle: string | null
 }
 
+/**
+ * Equipe affectee a une tache, en ouvriers. Base du budget de debourse : les
+ * heures planifiees d'une tache sont celles de l'equipe que le planning lui
+ * affecte, sur sa duree prevue.
+ */
+export type EquipePrevue = {
+  tacheId: string
+  lotId: string
+  ouvriers: number
+  dateDebut: string
+  dateFin: string
+}
+
 export type Contexte = {
   projet: ProjetContexte
   lots: LotContexte[]
@@ -112,14 +127,22 @@ export type Contexte = {
   moyens: MoyensJournaliers[]
   aleas: AleaContexte[]
   jalons: JalonContexte[]
+  equipes: EquipePrevue[]
 }
 
 /* -------------------------------------------------------------------------- */
 /* Chargement                                                                 */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Toutes les lectures sont ordonnees. Ce n'est pas une coquetterie : la somme
+ * de nombres flottants depend de leur ordre, et un budget de tache dont la
+ * valeur exacte tombe sur un demi-franc s'arrondissait d'un cote ou de
+ * l'autre selon l'ordre, arbitraire, dans lequel PostgreSQL rendait les
+ * lignes. Deux recalculs successifs pouvaient alors differer d'un franc.
+ */
 export async function chargerContexte(db: Db, projetId: string): Promise<Contexte> {
-  const [projets, lots, taches, liaisons, lignes, quantites, moyens, aleas, jalons] =
+  const [projets, lots, taches, liaisons, lignes, quantites, moyens, aleas, jalons, equipes] =
     await Promise.all([
       db.execute<ProjetContexte>(sql`
         select id, code, nom,
@@ -143,6 +166,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
                t.date_debut_prevue  as "dateDebutPrevue",
                t.date_fin_prevue    as "dateFinPrevue",
                t.duree_prevue_j     as "dureePrevueJ",
+               t.debut_impose       as "debutImpose",
                (t.parent_id is not null) as feuille
           from tache t join lot l on l.id = t.lot_id
          where l.projet_id = ${projetId}
@@ -154,7 +178,8 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
           from liaison li
           join tache t on t.id = li.tache_aval_id
           join lot l on l.id = t.lot_id
-         where l.projet_id = ${projetId}`),
+         where l.projet_id = ${projetId}
+         order by li.tache_amont_id, li.tache_aval_id`),
 
       db.execute<LigneContexte>(sql`
         select q.id, q.tache_id as "tacheId",
@@ -163,7 +188,8 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
           from ligne_quantitatif q
           join tache t on t.id = q.tache_id
           join lot l on l.id = t.lot_id
-         where l.projet_id = ${projetId}`),
+         where l.projet_id = ${projetId}
+         order by t.code_wbs, q.designation, q.quantite_prevue, q.id`),
 
       db.execute<QuantiteJournaliere>(sql`
         select rq.ligne_quantitatif_id as "ligneId", r.date,
@@ -172,7 +198,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
           join releve_journalier r on r.id = rq.releve_journalier_id
          where r.projet_id = ${projetId} and r.statut = 'VALIDE'
          group by 1, 2
-         order by 2`),
+         order by 2, 1`),
 
       db.execute<MoyensJournaliers>(sql`
         select lot_id as "lotId", date,
@@ -181,17 +207,30 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
                journee_travaillee         as "journeeTravaillee"
           from releve_journalier
          where projet_id = ${projetId} and statut = 'VALIDE'
-         order by date`),
+         order by date, lot_id`),
 
       db.execute<AleaContexte>(sql`
         select lot_id as "lotId", date, impact_cout_xof::float8 as "coutXof"
-          from alea where projet_id = ${projetId} order by date`),
+          from alea where projet_id = ${projetId} order by date, id`),
 
       db.execute<JalonContexte>(sql`
         select id, nom, tache_declenchante_id as "tacheDeclenchanteId",
                contractuel,
                date_prevue as "datePrevue", date_reelle as "dateReelle"
           from jalon where projet_id = ${projetId} order by ordre`),
+
+      // Un ouvrier est une personne entiere : l'effectif d'une equipe affectee
+      // est arrondi, comme il l'est sur le chantier.
+      db.execute<EquipePrevue>(sql`
+        select a.tache_id as "tacheId", t.lot_id as "lotId",
+               round(a.quantite * r.capacite)::int as ouvriers,
+               a.date_debut as "dateDebut", a.date_fin as "dateFin"
+          from affectation a
+          join ressource r on r.id = a.ressource_id
+          join tache t on t.id = a.tache_id
+          join lot l on l.id = t.lot_id
+         where l.projet_id = ${projetId} and r.type = 'EQUIPE'
+         order by a.id`),
     ])
 
   const projet = projets[0]
@@ -207,6 +246,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
     moyens: [...moyens],
     aleas: [...aleas],
     jalons: [...jalons],
+    equipes: [...equipes],
   }
 }
 

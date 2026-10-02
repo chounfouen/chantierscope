@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { COUT, coutReel, ecartDelaiJours, indicateurs, penaliteXof } from '@/db/compute/evm'
+import {
+  budgetDebourse,
+  coefficientDebourse,
+  COUT,
+  coutReel,
+  ecartDelaiJours,
+  encadrementNecessaire,
+  indicateurs,
+  penaliteXof,
+} from '@/db/compute/evm'
 
 /**
  * Cas de reference calcule a la main.
@@ -238,5 +247,97 @@ describe('lecture horizontale : cas limites de la branche d avance', () => {
 
   it('un jour d analyse au-dela de la courbe est ramene a sa derniere valeur', () => {
     expect(ecartDelaiJours([0, 100, 200], 100, 99)).toBe(98)
+  })
+})
+
+describe('base de comparaison du cout : le debourse', () => {
+  /**
+   * Cas calcule a la main. Budget de vente 1 000 000, debourse 800 000 :
+   * coefficient 0,8, soit une marge previsionnelle de 20 %. La moitie est
+   * realisee, VA = 500 000 en prix, 400 000 en cout. Le cout reel est de
+   * 400 000 : l'execution coute exactement ce qui etait budgete.
+   */
+  const base = {
+    bac: 1_000_000,
+    valeurPlanifiee: 500_000,
+    valeurAcquise: 500_000,
+    coutReel: 400_000,
+    dureeContractuelleJ: 100,
+    montantMarcheXof: 1_000_000,
+    tauxPenaliteJournaliere: 0.001,
+  }
+
+  it('compare au prix de vente, le CPI confond marge et performance', () => {
+    expect(indicateurs(base).cpi).toBe(1.25)
+  })
+
+  it('compare au debourse, une execution conforme au budget vaut un CPI de un', () => {
+    const i = indicateurs({ ...base, coefficientDebourse: 0.8 })
+    expect(i.cpi).toBe(1)
+    expect(i.ecartCout).toBe(0)
+    expect(i.bacCout).toBe(800_000)
+    expect(i.eac).toBe(800_000)
+    expect(i.vac).toBe(0)
+  })
+
+  it('une derive de cout de dix pour cent apparait comme telle', () => {
+    const i = indicateurs({ ...base, coutReel: 440_000, coefficientDebourse: 0.8 })
+    expect(i.cpi).toBeCloseTo(400_000 / 440_000, 10)
+    expect(i.ecartCout).toBe(-40_000)
+    expect(i.eac).toBe(880_000)
+  })
+
+  it('le SPI ne depend pas de la base de cout', () => {
+    expect(indicateurs({ ...base, coefficientDebourse: 0.8 }).spi).toBe(indicateurs(base).spi)
+  })
+
+  it('le debourse applique au plan le modele du cout reel', () => {
+    const plan = {
+      budgetVenteXof: 10_000_000,
+      heuresOuvrierPrevues: 1_000,
+      journeesEncadrementPrevues: 20,
+      joursFrais: 0,
+    }
+    // 5 800 000 de materiaux, 1 400 000 de main d'oeuvre, 840 000 d'encadrement.
+    expect(budgetDebourse(plan)).toBe(8_040_000)
+    // Le meme travail, execute exactement comme prevu, coute ce montant.
+    expect(
+      coutReel({
+        heuresOuvrier: 1_000,
+        journeesEncadrement: 20,
+        valeurAcquiseXof: 10_000_000,
+        joursEcoules: 0,
+        coutAleasXof: 0,
+      }),
+    ).toBe(budgetDebourse(plan))
+  })
+
+  it('les frais de chantier entrent au budget du projet', () => {
+    const sansFrais = budgetDebourse({
+      budgetVenteXof: 0,
+      heuresOuvrierPrevues: 0,
+      journeesEncadrementPrevues: 0,
+      joursFrais: 0,
+    })
+    const avecFrais = budgetDebourse({
+      budgetVenteXof: 0,
+      heuresOuvrierPrevues: 0,
+      journeesEncadrementPrevues: 0,
+      joursFrais: 412,
+    })
+    expect(avecFrais - sansFrais).toBe(412 * COUT.fraisChantierJour)
+  })
+
+  it('coefficient de debourse, et un budget nul ne divise pas par zero', () => {
+    expect(coefficientDebourse(800, 1000)).toBe(0.8)
+    expect(coefficientDebourse(0, 0)).toBe(1)
+  })
+
+  it('encadrement : un pour douze ouvriers, plus le chef de chantier du lot', () => {
+    expect(encadrementNecessaire(0)).toBe(0)
+    expect(encadrementNecessaire(1)).toBe(2)
+    expect(encadrementNecessaire(12)).toBe(2)
+    expect(encadrementNecessaire(13)).toBe(3)
+    expect(encadrementNecessaire(27)).toBe(4)
   })
 })

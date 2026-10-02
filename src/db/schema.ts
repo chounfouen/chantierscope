@@ -138,7 +138,7 @@ export const utilisateur = pgTable(
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('utilisateur_email_unique').on(sql`lower(${t.email})`)],
-)
+).enableRLS()
 
 /**
  * Acces d'un utilisateur a un projet.
@@ -161,7 +161,7 @@ export const accesProjet = pgTable(
     primaryKey({ columns: [t.utilisateurId, t.projetId] }),
     index('acces_projet_projet_idx').on(t.projetId),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Projet, lots, taches                                                      */
@@ -206,7 +206,7 @@ export const projet = pgTable(
     ),
     check('projet_fin_apres_debut', sql`${t.dateFinContractuelle} > ${t.dateOrdreService}`),
   ],
-)
+).enableRLS()
 
 export const lot = pgTable(
   'lot',
@@ -234,7 +234,7 @@ export const lot = pgTable(
     check('lot_budget_positif', sql`${t.budgetXof} >= 0`),
     check('lot_rang_couleur_borne', sql`${t.rangCouleur} between 0 and 7`),
   ],
-)
+).enableRLS()
 
 export const tache = pgTable(
   'tache',
@@ -256,6 +256,12 @@ export const tache = pgTable(
     dureePrevueJ: integer().notNull(),
     dateDebutReelle: date(),
     dateFinReelle: date(),
+    /**
+     * Contrainte « pas avant » posee par le conducteur de travaux. Source de
+     * verite : le recalage du planning la respecte au lieu de l'effacer. Les
+     * dates prevues en decoulent, par le calcul au plus tot du reseau.
+     */
+    debutImpose: date(),
 
     /* --- Cache recalculable. Reconstructible par recompute(). --------------- */
 
@@ -280,7 +286,7 @@ export const tache = pgTable(
     check('tache_avancement_fraction', sql`${t.avancementPct} between 0 and 1`),
     check('tache_pas_son_propre_parent', sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`),
   ],
-)
+).enableRLS()
 
 /**
  * Liaison entre deux taches du reseau.
@@ -309,7 +315,7 @@ export const liaison = pgTable(
     index('liaison_aval_idx').on(t.tacheAvalId),
     check('liaison_pas_reflexive', sql`${t.tacheAmontId} <> ${t.tacheAvalId}`),
   ],
-)
+).enableRLS()
 
 export const ligneQuantitatif = pgTable(
   'ligne_quantitatif',
@@ -335,7 +341,7 @@ export const ligneQuantitatif = pgTable(
     check('ligne_quantite_positive', sql`${t.quantitePrevue} > 0`),
     check('ligne_prix_positif', sql`${t.prixUnitaireXof} >= 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Releves journaliers                                                       */
@@ -364,6 +370,12 @@ export const releveJournalier = pgTable(
     temperatureC: numeric({ precision: 4, scale: 1, mode: 'number' }),
     precipitationsMm: numeric({ precision: 6, scale: 2, mode: 'number' }),
     rafalesKmh: numeric({ precision: 5, scale: 1, mode: 'number' }),
+    /**
+     * Vrai si le chef de chantier a corrige la meteo prechargee. Une
+     * observation de terrain prime sur le modele : la tache nocturne ne la
+     * remplace jamais.
+     */
+    meteoCorrigee: boolean().notNull().default(false),
 
     journeeTravaillee: boolean().notNull().default(true),
     motifArret: text(),
@@ -404,7 +416,7 @@ export const releveJournalier = pgTable(
       sql`${t.statut} <> 'VALIDE' or (${t.valideParId} is not null and ${t.valideLe} is not null)`,
     ),
   ],
-)
+).enableRLS()
 
 export const releveQuantite = pgTable(
   'releve_quantite',
@@ -425,7 +437,7 @@ export const releveQuantite = pgTable(
     index('releve_quantite_ligne_idx').on(t.ligneQuantitatifId),
     check('releve_quantite_positive', sql`${t.quantiteRealisee} >= 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Zones, photos, jalons, aleas, ressources                                  */
@@ -447,7 +459,7 @@ export const zone = pgTable(
     unique('zone_unique').on(t.projetId, t.nom),
     index('zone_niveau_idx').on(t.projetId, t.niveau),
   ],
-)
+).enableRLS()
 
 /** Rattachement des taches aux zones du plan. Table de liaison. */
 export const zoneTache = pgTable(
@@ -464,7 +476,7 @@ export const zoneTache = pgTable(
     primaryKey({ columns: [t.zoneId, t.tacheId] }),
     index('zone_tache_tache_idx').on(t.tacheId),
   ],
-)
+).enableRLS()
 
 /**
  * Cadrage photographique de reference.
@@ -493,7 +505,7 @@ export const pointDeVue = pgTable(
       sql`${t.capDegres} is null or ${t.capDegres} between 0 and 359`,
     ),
   ],
-)
+).enableRLS()
 
 export const photo = pgTable(
   'photo',
@@ -525,7 +537,7 @@ export const photo = pgTable(
     index('photo_projet_idx').on(t.projetId, t.priseLe),
     check('photo_octets_positif', sql`${t.octets} is null or ${t.octets} > 0`),
   ],
-)
+).enableRLS()
 
 export const jalon = pgTable(
   'jalon',
@@ -548,7 +560,7 @@ export const jalon = pgTable(
     index('jalon_date_idx').on(t.projetId, t.datePrevue),
     check('jalon_penalite_positive', sql`${t.penaliteXof} >= 0`),
   ],
-)
+).enableRLS()
 
 export const alea = pgTable(
   'alea',
@@ -559,6 +571,12 @@ export const alea = pgTable(
       .references(() => projet.id, { onDelete: 'cascade' }),
     lotId: uuid().references(() => lot.id, { onDelete: 'set null' }),
     tacheId: uuid().references(() => tache.id, { onDelete: 'set null' }),
+    /**
+     * Releve depuis lequel l'alea a ete declare, le cas echeant. Unique : un
+     * releve renvoye apres une coupure reseau met a jour son alea au lieu
+     * d'en creer un second.
+     */
+    releveJournalierId: uuid().references(() => releveJournalier.id, { onDelete: 'set null' }),
     date: date().notNull(),
     type: typeAlea().notNull(),
     /** De 1, mineur, a 4, bloquant. */
@@ -573,13 +591,40 @@ export const alea = pgTable(
   },
   (t) => [
     index('alea_projet_date_idx').on(t.projetId, t.date),
+    uniqueIndex('alea_releve_unique').on(t.releveJournalierId),
     index('alea_statut_idx').on(t.statut),
     check('alea_gravite_borne', sql`${t.gravite} between 1 and 4`),
     check('alea_impact_delai_positif', sql`${t.impactDelaiJ} >= 0`),
     check('alea_resolution_coherente', sql`${t.statut} <> 'SOLDE' or ${t.resoluLe} is not null`),
     check('alea_resolution_apres_fait', sql`${t.resoluLe} is null or ${t.resoluLe} >= ${t.date}`),
   ],
-)
+).enableRLS()
+
+/**
+ * Scenario de simulation enregistre, pour etre presente en reunion de
+ * chantier. Seules les hypotheses sont conservees : le resultat est un
+ * calcul a la volee, refait a chaque affichage sur le planning du moment,
+ * et ne doit jamais etre ecrit en base.
+ */
+export const scenarioSimulation = pgTable(
+  'scenario_simulation',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    nom: text().notNull(),
+    description: text(),
+    /** Liste de perturbations : tache, decalage et allongement en jours. */
+    perturbations: jsonb().notNull(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('scenario_projet_idx').on(t.projetId, t.creeLe),
+    check('scenario_nom_non_vide', sql`length(trim(${t.nom})) > 0`),
+  ],
+).enableRLS()
 
 export const ressource = pgTable(
   'ressource',
@@ -598,7 +643,7 @@ export const ressource = pgTable(
     unique('ressource_unique').on(t.projetId, t.nom),
     check('ressource_cout_positif', sql`${t.coutUnitaireXof} >= 0`),
   ],
-)
+).enableRLS()
 
 export const affectation = pgTable(
   'affectation',
@@ -620,7 +665,7 @@ export const affectation = pgTable(
     check('affectation_fin_apres_debut', sql`${t.dateFin} >= ${t.dateDebut}`),
     check('affectation_quantite_positive', sql`${t.quantite} > 0`),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Cache de precalcul                                                        */
@@ -656,6 +701,13 @@ export const snapshotAvancement = pgTable(
     spi: numeric({ precision: 10, scale: 6, mode: 'number' }),
     cpi: numeric({ precision: 10, scale: 6, mode: 'number' }),
     dateFinProjetee: date(),
+    /**
+     * Budget au cout, ou debourse previsionnel, du lot ou du projet. Constant
+     * d'une date a l'autre tant que le planning ne change pas ; porte par
+     * chaque instantane pour que le cout estime final se lise dans le cache
+     * sans recharger les affectations.
+     */
+    budgetDebourseXof: bigint({ mode: 'number' }).notNull().default(0),
 
     calculeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -678,7 +730,7 @@ export const snapshotAvancement = pgTable(
       sql`${t.valeurPlanifieeXof} >= 0 and ${t.valeurAcquiseXof} >= 0 and ${t.coutReelXof} >= 0`,
     ),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Audit                                                                     */
@@ -712,7 +764,7 @@ export const journalAudit = pgTable(
     index('audit_horodatage_idx').on(t.horodatage),
     index('audit_utilisateur_idx').on(t.utilisateurId),
   ],
-)
+).enableRLS()
 
 /* ========================================================================== */
 /* Types deduits                                                             */
@@ -732,6 +784,7 @@ export type Photo = typeof photo.$inferSelect
 export type PointDeVue = typeof pointDeVue.$inferSelect
 export type Ressource = typeof ressource.$inferSelect
 export type Affectation = typeof affectation.$inferSelect
+export type ScenarioSimulation = typeof scenarioSimulation.$inferSelect
 export type SnapshotAvancement = typeof snapshotAvancement.$inferSelect
 export type Utilisateur = typeof utilisateur.$inferSelect
 

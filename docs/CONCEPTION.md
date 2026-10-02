@@ -216,16 +216,26 @@ A la date d'analyse `t` :
 | `VP` valeur planifiee | somme( avancement_prevu(t) x budget ) | ce qui devait etre fait |
 | `VA` valeur acquise | somme( avancement_reel(t) x budget ) | ce qui est fait, en valeur |
 | `CR` cout reel | depenses constatees (main d'oeuvre, engins, materiaux, aleas) | ce que ca a coute |
-| `EC` ecart de cout | `VA - CR` | negatif = derive de cout |
+| `k` coefficient de debourse | budget en cout / budget en prix | complement de la marge previsionnelle |
+| `EC` ecart de cout | `k x VA - CR` | negatif = derive de cout |
 | `ED` ecart de delai | `VA - VP` | negatif = retard |
-| `CPI` | `VA / CR` | < 1 = on paie plus cher que prevu |
+| `CPI` | `k x VA / CR` | < 1 = on paie plus cher que prevu |
 | `SPI` | `VA / VP` | < 1 = on avance moins vite que prevu |
-| `EAC` cout estime final | `BAC / CPI` | projection budgetaire |
+| `EAC` cout estime final | `k x BAC / CPI` | projection budgetaire, au cout |
 | `ETC` reste a depenser | `EAC - CR` | |
-| `VAC` ecart final | `BAC - EAC` | |
+| `VAC` ecart final | `k x BAC - EAC` | |
 | duree projetee | `duree_contractuelle / SPI` | projection de delai |
 | retard estime | `duree_projetee - duree_contractuelle` | en jours |
 | penalite prevue | `retard x taux_penalite x montant_marche` | en FCFA |
+
+Le budget est un bordereau de prix, marge comprise, alors que le cout reel est
+un cout de revient. Le CPI compare donc le cout reel au cout BUDGETE du travail
+realise, `k x VA`, et non a son prix de vente : sans cette conversion, un
+chantier execute exactement comme prevu afficherait un CPI egal a l'inverse de
+la marge, superieur a un. Le budget en cout, ou debourse previsionnel, applique
+au planning le modele meme du cout reel : materiaux, heures des equipes
+affectees, encadrement, frais de chantier sur la duree contractuelle. Le SPI
+n'est pas concerne, VP et VA etant dans la meme base.
 
 L'ecart de delai en jours s'obtient plus finement par lecture horizontale de la
 courbe en S : on cherche la date `t'` a laquelle `VP(t') = VA(t)`, le retard

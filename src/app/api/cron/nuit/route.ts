@@ -17,8 +17,10 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '@/db/index'
+import { completerMeteoProjet } from '@/db/mutations/meteo'
 import { recalculerProjet } from '@/db/mutations/releve'
 import { relever } from '@/services/meteo'
+import { invaliderDepuisRoute } from '@/lib/cache'
 import { env } from '@/lib/env'
 
 /** Jamais mise en cache : elle ecrit. */
@@ -34,7 +36,7 @@ type Rapport = {
 export async function GET(requete: Request): Promise<Response> {
   const attendu = `Bearer ${env().CRON_SECRET}`
   if (requete.headers.get('authorization') !== attendu) {
-    return Response.json({ erreur: 'Non autorise' }, { status: 401 })
+    return Response.json({ erreur: 'Non autorisé' }, { status: 401 })
   }
 
   const debut = Date.now()
@@ -50,6 +52,7 @@ export async function GET(requete: Request): Promise<Response> {
     const rapportProjets: Rapport['projets'] = []
     for (const p of projets) {
       const r = await recalculerProjet(base, p.id)
+      invaliderDepuisRoute(p.id)
       rapportProjets.push({
         code: p.code,
         instantanes: r.instantanes,
@@ -65,9 +68,9 @@ export async function GET(requete: Request): Promise<Response> {
     }
     return Response.json(rapport)
   } catch (erreur) {
-    console.error('Echec de la tache nocturne', erreur)
+    console.error('Échec de la tâche nocturne', erreur)
     return Response.json(
-      { erreur: erreur instanceof Error ? erreur.message : 'Echec inconnu' },
+      { erreur: erreur instanceof Error ? erreur.message : 'Échec inconnu' },
       { status: 500 },
     )
   }
@@ -126,18 +129,7 @@ async function completerMeteo(base: ReturnType<typeof db>): Promise<number> {
       derniere.date,
     )
 
-    for (const [date, m] of journees) {
-      const resultat = await base.execute(sql`
-        update releve_journalier
-           set meteo_code = ${m.code},
-               temperature_c = ${m.temperatureMaxC},
-               precipitations_mm = ${m.precipitationsMm},
-               rafales_kmh = ${m.rafalesKmh}
-         where projet_id = ${projetId}::uuid
-           and date = ${date}::date
-           and precipitations_mm is null`)
-      completes += Array.isArray(resultat) ? resultat.length : 0
-    }
+    completes += await completerMeteoProjet(base, projetId, journees)
   }
   return completes
 }

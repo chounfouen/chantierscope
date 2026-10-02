@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
+  "buildCommand": "bash scripts/construire.sh",
   "crons": [
     {
       "path": "/api/cron/nuit",

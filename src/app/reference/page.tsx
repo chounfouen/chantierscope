@@ -19,11 +19,11 @@ const LOTS = [
   'Installation de chantier',
   'Terrassement et VRD',
   'Fondations',
-  'Gros oeuvre',
+  'Gros œuvre',
   'Charpente et couverture',
-  'Second oeuvre',
+  'Second œuvre',
   'Lots techniques',
-  'Finitions et exterieurs',
+  'Finitions et extérieurs',
 ]
 
 export default function Accueil() {
@@ -35,7 +35,7 @@ export default function Accueil() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">ChantierScope</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Suivi de l&apos;evolution d&apos;un chantier de genie civil
+              Suivi de l&apos;évolution d&apos;un chantier de génie civil
             </p>
           </div>
         </div>
@@ -54,15 +54,15 @@ export default function Accueil() {
           </CardHeader>
           <CardContent>
             <dl className="chiffres-alignes grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Montant du marche</dt>
+              <dt className="text-muted-foreground">Montant du marché</dt>
               <dd className="text-right font-medium">{fcfa(1_156_141_200)}</dd>
               <dt className="text-muted-foreground">Forme compacte</dt>
               <dd className="text-right font-medium">{fcfaCompact(1_156_141_200)}</dd>
               <dt className="text-muted-foreground">Valeur acquise</dt>
               <dd className="text-right font-medium">{fcfaCompact(500_883_296)}</dd>
-              <dt className="text-muted-foreground">Beton coule</dt>
+              <dt className="text-muted-foreground">Béton coulé</dt>
               <dd className="text-right font-medium">{quantite(1284.5, 'M3')}</dd>
-              <dt className="text-muted-foreground">Acier pose</dt>
+              <dt className="text-muted-foreground">Acier posé</dt>
               <dd className="text-right font-medium">{quantite(97.42, 'T')}</dd>
             </dl>
           </CardContent>
@@ -79,13 +79,13 @@ export default function Accueil() {
             <dl className="chiffres-alignes grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted-foreground">Avancement global</dt>
               <dd className="text-right font-medium">{pourcent(0.433)}</dd>
-              <dt className="text-muted-foreground">Ecart de delai</dt>
-              <dd className="text-etat-retard text-right font-medium">{jours(-18)}</dd>
+              <dt className="text-muted-foreground">Écart de délai</dt>
+              <dd className="text-right font-medium">{jours(-18)}</dd>
               <dt className="text-muted-foreground">SPI</dt>
               <dd className="text-right font-medium">{indice(0.873)}</dd>
               <dt className="text-muted-foreground">CPI</dt>
               <dd className="text-right font-medium">{indice(0.979)}</dd>
-              <dt className="text-muted-foreground">Penalite projetee</dt>
+              <dt className="text-muted-foreground">Pénalité projetée</dt>
               <dd className="text-right font-medium">{fcfa(20_233_000)}</dd>
             </dl>
           </CardContent>
@@ -93,9 +93,9 @@ export default function Accueil() {
       </div>
 
       <section className="mt-10">
-        <h2 className="text-sm font-semibold tracking-tight">Etats d&apos;avancement</h2>
+        <h2 className="text-sm font-semibold tracking-tight">États d&apos;avancement</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Palette de statut, reservee. Chaque etat porte une icone et un libelle : la couleur ne
+          Palette de statut, réservée. Chaque état porte une icône et un libellé : la couleur ne
           porte jamais seule le sens.
         </p>
         <ul className="mt-4 flex flex-wrap gap-2">
@@ -124,10 +124,10 @@ export default function Accueil() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-sm font-semibold tracking-tight">Identite des lots</h2>
+        <h2 className="text-sm font-semibold tracking-tight">Identité des lots</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Huit teintes categorielles dans un ordre fixe, jamais cycle. Palette validee contre les
-          surfaces reelles de l&apos;application, en clair et en sombre.
+          Huit teintes catégorielles dans un ordre fixe, jamais cyclé. Palette validée contre les
+          surfaces réelles de l&apos;application, en clair et en sombre.
         </p>
         <ul className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
           {LOTS.map((nom, rang) => (
@@ -150,7 +150,7 @@ export default function Accueil() {
 
       <footer className="text-muted-foreground flex items-center gap-2 text-xs">
         <Icone.valide className="text-etat-acheve size-4" />
-        Sprint 3 — persistance et recalcul en place. Etape suivante : authentification et ecrans.
+        Sprint 3 — persistance et recalcul en place. Étape suivante : authentification et écrans.
       </footer>
     </div>
   )

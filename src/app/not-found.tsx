@@ -8,7 +8,7 @@ export default function Introuvable() {
       <Icone.rechercher className="text-muted-foreground size-10" />
       <h1 className="mt-4 text-lg font-semibold">Page introuvable</h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Cette adresse ne correspond a aucun ecran de l&apos;application.
+        Cette adresse ne correspond à aucun écran de l&apos;application.
       </p>
       <Button asChild variant="outline" className="mt-6">
         <Link href="/">Retour au tableau de bord</Link>

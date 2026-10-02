@@ -8,6 +8,7 @@
 
 import { differenceInCalendarDays, format, formatISO, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import type { Nature } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
 /* Montants                                                                   */
@@ -165,4 +166,95 @@ export function aujourdhui(): DateSimple {
 /** Nombre de jours calendaires entre deux dates de planning, signe. */
 export function ecartJours(de: DateSimple, a: DateSimple): number {
   return differenceInCalendarDays(parseISO(a), parseISO(de))
+}
+
+/* -------------------------------------------------------------------------- */
+/* Meteo                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Libelle d'un code meteo WMO, tel que renvoye par Open-Meteo. Regroupe par
+ * famille : sur un chantier, distinguer la bruine moderee de la bruine dense
+ * n'apporte rien, distinguer la pluie de l'orage, si.
+ */
+export function libelleMeteo(code: number | null): string {
+  if (code === null) return 'Météo non relevée'
+  if (code === 0) return 'Ciel dégagé'
+  if (code <= 3) return 'Nuageux'
+  if (code === 45 || code === 48) return 'Brouillard'
+  if (code >= 51 && code <= 57) return 'Bruine'
+  if (code >= 61 && code <= 67) return 'Pluie'
+  if (code >= 71 && code <= 77) return 'Neige'
+  if (code >= 80 && code <= 82) return 'Averses'
+  if (code >= 95) return 'Orage'
+  return `Code météo ${code}`
+}
+
+/* -------------------------------------------------------------------------- */
+/* Graduations du Gantt                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Libelle d'une graduation de l'echelle de temps.
+ *
+ * Les dates de l'echelle sont des minuits UTC. Elles sont reconstruites en
+ * date locale avant formatage : formater directement un minuit UTC dans un
+ * navigateur a l'ouest de Greenwich afficherait la veille.
+ */
+export function libelleGraduation(
+  d: Date,
+  periode: 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee',
+  role: 'majeure' | 'mineure',
+): string {
+  const locale = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  switch (periode) {
+    case 'jour':
+      return format(locale, 'd', { locale: fr })
+    case 'semaine':
+      return role === 'majeure'
+        ? `Semaine du ${format(locale, 'd MMMM yyyy', { locale: fr })}`
+        : format(locale, 'd MMM', { locale: fr })
+    case 'mois':
+      return role === 'majeure'
+        ? format(locale, 'MMMM yyyy', { locale: fr })
+        : format(locale, 'MMM', { locale: fr })
+    case 'trimestre':
+      return `T${Math.floor(locale.getMonth() / 3) + 1}`
+    case 'annee':
+      return format(locale, 'yyyy', { locale: fr })
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Natures de tache et unites                                                 */
+/* -------------------------------------------------------------------------- */
+
+export const LIBELLE_NATURE: Record<Nature, string> = {
+  TERRASSEMENT: 'Terrassement',
+  VRD: 'Voirie et réseaux',
+  ENROBES: 'Enrobés',
+  FONDATION: 'Fondations',
+  BETONNAGE: 'Béton armé',
+  LEVAGE: 'Levage',
+  MACONNERIE: 'Maçonnerie',
+  CHARPENTE: 'Charpente',
+  ETANCHEITE: 'Étanchéité',
+  ENDUIT: 'Enduits',
+  INTERIEUR: 'Second œuvre intérieur',
+  SUPPORT: 'Installations et support',
+}
+
+/** Un nombre sans unite monetaire, a decimales fixes : `1 234,5`. */
+export function nombre(valeur: number, decimales = 0): string {
+  return arrondi(valeur, decimales)
+}
+
+/**
+ * Un ecart de fraction signe : `+2,4 %`, `-6,2 %`. Un ecart qui s'arrondit a
+ * zero s'ecrit `0,0 %`, jamais `-0,0 %`.
+ */
+export function pourcentSigne(fraction: number, decimales = 1): string {
+  const arrondi = Number((fraction * 100).toFixed(decimales)) / 100
+  if (arrondi === 0) return pourcent(0, decimales)
+  return `${arrondi > 0 ? '+' : ''}${pourcent(arrondi, decimales)}`
 }

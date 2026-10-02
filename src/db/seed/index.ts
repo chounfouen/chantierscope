@@ -13,6 +13,7 @@
 import bcrypt from 'bcryptjs'
 import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns'
 import { sql } from 'drizzle-orm'
+import { env } from '@/lib/env'
 import { dbScript } from '@/db/index'
 import * as t from '@/db/schema'
 import {
@@ -24,6 +25,7 @@ import {
   POINTS_DE_VUE,
   PROJET,
   RESSOURCES,
+  EQUIPE_PAR_NATURE,
   ZONES,
 } from '@/db/seed/catalogue'
 import { simulerExecution } from '@/db/seed/execution'
@@ -62,7 +64,13 @@ const TABLES_A_VIDER = [
   'utilisateur',
 ]
 
-const TABLES_AUDITEES = ['releve_journalier', 'releve_quantite', 'ligne_quantitatif', 'tache']
+const TABLES_AUDITEES = [
+  'releve_journalier',
+  'releve_quantite',
+  'ligne_quantitatif',
+  'tache',
+  'liaison',
+]
 
 const jourDepuisOs = (n: number): string =>
   formatISO(addDays(parseISO(DATE_ORDRE_SERVICE), n), { representation: 'date' })
@@ -72,14 +80,28 @@ async function peupler(): Promise<void> {
   const { db, client, fermer } = dbScript()
 
   try {
-    console.log('Simulation de l execution du chantier...')
+    console.log('Simulation de l’execution du chantier...')
     const e = simulerExecution()
     const { planning } = e
+
+    // Peuplement unique en production : sur une base distante, le vidage
+    // n'est permis que si elle ne contient encore aucun projet. Relance par
+    // erreur apres la mise en service, il effacerait le chantier reel.
+    const hote = new URL(env().DIRECT_URL).hostname
+    if (hote !== 'localhost' && hote !== '127.0.0.1') {
+      const [existant] = await client<{ n: number }[]>`select count(*)::int as n from projet`
+      if ((existant?.n ?? 0) > 0) {
+        throw new Error(
+          `Refus de repeupler une base distante deja peuplee (${hote}) : ` +
+            'le peuplement de production est unique. Restaurer une sauvegarde au besoin.',
+        )
+      }
+    }
 
     console.log('Vidage des tables...')
     await client.unsafe(`truncate ${TABLES_A_VIDER.join(', ')} restart identity cascade`)
 
-    console.log('Desactivation des declencheurs d audit...')
+    console.log('Désactivation des déclencheurs d’audit...')
     for (const table of TABLES_AUDITEES) {
       await client.unsafe(`alter table ${table} disable trigger user`)
     }
@@ -220,7 +242,7 @@ async function peupler(): Promise<void> {
     await db.insert(t.jalon).values(
       JALONS.map((j) => {
         const declencheur = planning.taches.find((x) => x.code === j.declencheur)
-        if (!declencheur) throw new Error(`Jalon sans tache declenchante : ${j.declencheur}`)
+        if (!declencheur) throw new Error(`Jalon sans tâche déclenchante : ${j.declencheur}`)
         const reel = e.reelles.get(j.declencheur)
         return {
           projetId,
@@ -252,29 +274,35 @@ async function peupler(): Promise<void> {
       .returning({ id: t.ressource.id, nom: t.ressource.nom })
     const idRessource = new Map(ressourcesInserees.map((r) => [r.nom, r.id]))
 
-    // Affectation simple : chaque tache mobilise la ressource type de sa nature.
-    const RESSOURCE_PAR_NATURE: Record<string, string> = {
-      TERRASSEMENT: 'Equipe terrassement',
-      VRD: 'Equipe terrassement',
-      ENROBES: 'Equipe terrassement',
-      FONDATION: 'Equipe ferraillage',
-      BETONNAGE: 'Equipe coffrage',
-      LEVAGE: 'Grue a tour 40 metres',
-      MACONNERIE: 'Equipe maconnerie',
-      CHARPENTE: 'Equipe coffrage',
-      ETANCHEITE: 'Equipe finitions',
-      ENDUIT: 'Equipe finitions',
-      INTERIEUR: 'Equipe finitions',
-      SUPPORT: 'Equipe terrassement',
-    }
+    // Chaque tache mobilise l'equipe type de sa nature, dimensionnee a son
+    // effectif : la quantite affectee est l'effectif rapporte a la capacite
+    // de l'equipe. Le levage mobilise en plus la grue.
+    const capacite = new Map<string, number>(RESSOURCES.map((r) => [r.nom, r.capacite as number]))
     await db.insert(t.affectation).values(
-      planning.taches.map((x) => ({
-        tacheId: idTache.get(x.code) as string,
-        ressourceId: idRessource.get(RESSOURCE_PAR_NATURE[x.nature] as string) as string,
-        quantite: 1,
-        dateDebut: jourDepuisOs(x.debut),
-        dateFin: jourDepuisOs(x.fin),
-      })),
+      planning.taches.flatMap((x) => {
+        const equipe = EQUIPE_PAR_NATURE[x.nature]
+        const commun = {
+          tacheId: idTache.get(x.code) as string,
+          dateDebut: jourDepuisOs(x.debut),
+          dateFin: jourDepuisOs(x.fin),
+        }
+        const affectations = [
+          {
+            ...commun,
+            ressourceId: idRessource.get(equipe.ressource) as string,
+            quantite:
+              Math.round((equipe.ouvriers / (capacite.get(equipe.ressource) ?? 1)) * 100) / 100,
+          },
+        ]
+        if (x.nature === 'LEVAGE') {
+          affectations.push({
+            ...commun,
+            ressourceId: idRessource.get('Grue à tour 40 mètres') as string,
+            quantite: 1,
+          })
+        }
+        return affectations
+      }),
     )
 
     /* --- Zones -------------------------------------------------------------- */
@@ -297,7 +325,7 @@ async function peupler(): Promise<void> {
 
     /* --- Releves journaliers ------------------------------------------------ */
 
-    console.log(`Chargement de ${e.releves.length} releves journaliers...`)
+    console.log(`Chargement de ${e.releves.length} relevés journaliers...`)
 
     const dernierJourReleve = DATE_ANALYSE
     const troisJoursAvant = formatISO(addDays(parseISO(DATE_ANALYSE), -3), {
@@ -355,7 +383,7 @@ async function peupler(): Promise<void> {
       )
     })
 
-    console.log(`Chargement de ${quantitesAInserer.length} lignes de quantite realisee...`)
+    console.log(`Chargement de ${quantitesAInserer.length} lignes de quantité réalisée...`)
     for (const paquet of paquets(quantitesAInserer, 1000)) {
       await db.insert(t.releveQuantite).values(paquet)
     }
@@ -445,7 +473,7 @@ async function peupler(): Promise<void> {
     console.log(`  quantites         ${quantitesAInserer.length}`)
     console.log(`  aleas             ${e.aleas.length}`)
     console.log(`  photos            ${planches.length}`)
-    console.log(`  duree calculee    ${dureeContractuelle} jours`)
+    console.log(`  durée calculée    ${dureeContractuelle} jours`)
   } finally {
     await fermer()
   }

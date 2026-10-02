@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { dbScript } from '@/db/index'
+import { db } from '@/db/index'
 import { projetsAccessibles } from '@/db/queries/lecture'
 import { utilisateurCourant } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
@@ -12,13 +12,7 @@ import { Icone } from '@/lib/icones'
 export default async function Accueil() {
   const utilisateur = await utilisateurCourant()
 
-  const { db, fermer } = dbScript()
-  let projets: Awaited<ReturnType<typeof projetsAccessibles>>
-  try {
-    projets = await projetsAccessibles(db, utilisateur.id)
-  } finally {
-    await fermer()
-  }
+  const projets = await projetsAccessibles(db(), utilisateur.id)
 
   const premier = projets[0]
   if (premier) redirect(`/projet/${premier.id}`)
@@ -28,8 +22,8 @@ export default async function Accueil() {
       <Icone.projet className="text-muted-foreground mx-auto size-10" />
       <h1 className="mt-4 text-lg font-semibold">Aucun projet accessible</h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Votre compte n&apos;est rattache a aucun chantier. Demandez a l&apos;administrateur de vous
-        donner acces a une operation.
+        Votre compte n&apos;est rattaché à aucun chantier. Demandez à l&apos;administrateur de vous
+        donner accès à une opération.
       </p>
     </div>
   )

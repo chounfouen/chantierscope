@@ -10,7 +10,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { dbScript } from '@/db/index'
 import { premierProjetId } from '@/db/queries/contexte'
-import { recompute } from '@/db/recompute'
+import { COUT } from '@/db/compute/evm'
+import { debourse, recompute } from '@/db/recompute'
+import { chargerContexte } from '@/db/queries/contexte'
 import { recalculerProjet, validerReleve } from '@/db/mutations/releve'
 
 const { db, client, fermer } = dbScript()
@@ -104,6 +106,25 @@ describe('idempotence', () => {
   })
 })
 
+describe('budget de debourse', () => {
+  it('fait apparaitre une marge previsionnelle plausible pour un marche de batiment', async () => {
+    // Le coefficient est le budget en cout sur le budget en prix : son
+    // complement est la marge previsionnelle, entre 5 et 25 % en batiment.
+    const k = debourse(await chargerContexte(db, projetId))
+    expect(k.projet).toBeGreaterThan(0.75)
+    expect(k.projet).toBeLessThan(0.95)
+  })
+
+  it('chaque lot travaille a un coefficient propre, sans frais de chantier', async () => {
+    const k = debourse(await chargerContexte(db, projetId))
+    expect(k.parLot.size).toBe(8)
+    for (const v of k.parLot.values()) {
+      expect(v).toBeGreaterThan(0.58)
+      expect(v).toBeLessThan(k.projet + 0.2)
+    }
+  })
+})
+
 describe('coherence des agregats', () => {
   it('la somme des valeurs acquises des lots egale celle du projet', async () => {
     await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
@@ -117,6 +138,26 @@ describe('coherence des agregats', () => {
       having max(case when s.lot_id is null then s.valeur_acquise_xof end)
              <> sum(case when s.lot_id is not null then s.valeur_acquise_xof else 0 end)`
     expect(ecarts).toEqual([])
+  })
+
+  /**
+   * Non-regression : un alea rattache a un lot etait compte dans le cout du
+   * lot ET ajoute une seconde fois au cout du projet.
+   */
+  it('le cout reel du projet est la somme des lots, des frais et des seuls aleas sans lot', async () => {
+    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+    const [r] = await client<{ projet: number; lots: number; jours: number; sansLot: number }[]>`
+      select
+        (select cout_reel_xof from snapshot_avancement
+          where lot_id is null and date = ${DATE_ANALYSE}::date)::float8 as projet,
+        (select sum(cout_reel_xof) from snapshot_avancement
+          where lot_id is not null and date = ${DATE_ANALYSE}::date)::float8 as lots,
+        (${DATE_ANALYSE}::date - (select date_ordre_service from projet limit 1) + 1)::int as jours,
+        (select coalesce(sum(impact_cout_xof), 0) from alea
+          where lot_id is null and date <= ${DATE_ANALYSE}::date)::float8 as "sansLot"`
+    expect(r?.projet).toBe(
+      Number(r?.lots) + Number(r?.jours) * COUT.fraisChantierJour + Number(r?.sansLot),
+    )
   })
 
   it('la valeur acquise ne decroit jamais dans le temps', async () => {
@@ -270,30 +311,28 @@ describe('coherence du cache : incremental contre integral', () => {
     // Etat de depart propre.
     await recalculerProjet(db, projetId, conducteur?.id as string)
 
-    const [releve] = await client<{ id: string }[]>`
-      select id from releve_journalier where statut = 'SOUMIS' order by date limit 1`
-    if (!releve) {
-      // Tous les releves ont deja ete valides par les cas precedents : on en
-      // remet un a l'etat soumis pour disposer d'un cas valide.
-      await client`
-        update releve_journalier set statut = 'SOUMIS', valide_par_id = null, valide_le = null
-         where id = (select id from releve_journalier where statut = 'VALIDE'
-                      order by date desc limit 1)`
-    }
-
+    // Le jeu de demonstration laisse six releves soumis ; les cas precedents
+    // en consomment quatre. Un releve valide ne peut pas etre remis a l'etat
+    // soumis : la base le refuse, c'est le gel.
     const [aValider] = await client<{ id: string }[]>`
       select id from releve_journalier where statut = 'SOUMIS' order by date limit 1`
     expect(aValider).toBeDefined()
 
     // Chemin incremental : validation, qui declenche le recalcul.
-    await validerReleve(db, aValider?.id as string, conducteur?.id as string)
+    const validation = await validerReleve(db, aValider?.id as string, conducteur?.id as string)
+    expect(validation.recalcul).not.toBeNull()
+    const incrementalRecalcul = validation.recalcul as NonNullable<typeof validation.recalcul>
     const incremental = await empreinteCache()
 
     // Chemin integral : on efface tout le cache et on repart de zero.
     await client`update tache set avancement_pct = 0, poids_budgetaire_xof = 0,
                                    marge_libre_j = null, marge_totale_j = null, critique = false`
     await client`delete from snapshot_avancement`
-    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+    // Meme date d'analyse que le chemin incremental, qui recalcule a la date
+    // du jour. Figer ici une date differente ferait comparer deux plages
+    // d'instantanes distinctes : le test ne passerait que le jour ou la date
+    // figee coincide avec la date courante.
+    await recompute(db, projetId, { dateAnalyse: incrementalRecalcul.dateAnalyse })
     const integral = await empreinteCache()
 
     expect(integral).toEqual(incremental)

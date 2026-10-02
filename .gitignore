@@ -49,3 +49,7 @@ next-env.d.ts
 /playwright-report
 /scripts/bac
 /public/uploads
+/.stockage
+
+# fichiers de travail jetables
+*.tmp.*

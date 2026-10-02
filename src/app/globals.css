@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -152,14 +152,17 @@
     @apply bg-background text-foreground;
     /* Ligatures et formes contextuelles : rendu plus soigne sans changer la
        chasse, donc sans decaler les colonnes de chiffres. */
-    font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
+    font-feature-settings:
+      'liga' 1,
+      'calt' 1,
+      'kern' 1;
     text-rendering: optimizeLegibility;
   }
 
   /* Un anneau de focus visible, unique pour toute l application, et jamais
      supprime : la saisie de chantier se fait souvent au clavier. */
   :focus-visible {
-    @apply ring-ring/70 ring-offset-background outline-none ring-2 ring-offset-2;
+    @apply ring-ring/70 ring-offset-background ring-2 ring-offset-2 outline-none;
   }
 
   ::selection {
@@ -361,4 +364,3 @@
     border: 1px dashed CanvasText;
   }
 }
-

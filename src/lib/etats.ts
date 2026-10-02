@@ -39,12 +39,12 @@ type DescriptionEtat = {
 
 export const ETAT: Record<Etat, DescriptionEtat> = {
   NON_COMMENCE: {
-    libelle: 'Non commence',
+    libelle: 'Non commencé',
     couleur: 'var(--etat-neant)',
     fond: 'bg-etat-neant',
     teinte: 'text-etat-neant',
     icone: Icone.nonCommence,
-    definition: 'Aucune quantite relevee a ce jour.',
+    definition: 'Aucune quantité relevée à ce jour.',
   },
   EN_COURS: {
     libelle: 'En cours',
@@ -52,15 +52,15 @@ export const ETAT: Record<Etat, DescriptionEtat> = {
     fond: 'bg-etat-cours',
     teinte: 'text-etat-cours',
     icone: Icone.enCours,
-    definition: 'Commence, pas encore acheve, dans les delais.',
+    definition: 'Commencé, pas encore achevé, dans les délais.',
   },
   ACHEVE: {
-    libelle: 'Acheve',
+    libelle: 'Achevé',
     couleur: 'var(--etat-acheve)',
     fond: 'bg-etat-acheve',
     teinte: 'text-etat-acheve',
     icone: Icone.valide,
-    definition: 'Toutes les quantites prevues sont realisees.',
+    definition: 'Toutes les quantités prévues sont réalisées.',
   },
   EN_RETARD: {
     libelle: 'En retard',
@@ -68,7 +68,7 @@ export const ETAT: Record<Etat, DescriptionEtat> = {
     fond: 'bg-etat-retard',
     teinte: 'text-etat-retard',
     icone: Icone.alerte,
-    definition: 'Avancement inferieur au prevu a la date du jour, marge encore disponible.',
+    definition: 'Avancement inférieur au prévu à la date du jour, marge encore disponible.',
   },
   CRITIQUE: {
     libelle: 'Critique',
@@ -76,14 +76,51 @@ export const ETAT: Record<Etat, DescriptionEtat> = {
     fond: 'bg-etat-critique',
     teinte: 'text-etat-critique',
     icone: Icone.nonConformite,
-    definition: 'En retard sur le chemin critique : tout jour perdu decale la fin du chantier.',
+    definition: 'En retard sur le chemin critique : tout jour perdu décale la fin du chantier.',
   },
   NON_TRAVAILLE: {
-    libelle: 'Non travaille',
+    libelle: 'Non travaillé',
     couleur: 'var(--etat-chome)',
     fond: 'hachure-chome',
     teinte: 'text-encre-discrete',
     icone: Icone.chome,
-    definition: 'Journee sans activite : intemperie, ferie ou arret de chantier.',
+    definition: 'Journée sans activité : intempérie, férié ou arrêt de chantier.',
+  },
+}
+
+/**
+ * Statuts d'un releve journalier, sur le meme principe : couleur de la
+ * palette d'etats, toujours doublee d'une icone et d'un libelle.
+ *
+ * Le brouillon et le releve rectifie partagent la teinte neutre, mais pas
+ * l'icone : l'un n'est pas encore engage, l'autre ne l'est plus.
+ */
+export const STATUT_RELEVE: Record<
+  'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'RECTIFIE',
+  { libelle: string; couleur: string; icone: LucideIcon; definition: string }
+> = {
+  BROUILLON: {
+    libelle: 'Brouillon',
+    couleur: 'var(--etat-neant)',
+    icone: Icone.modifier,
+    definition: 'En cours de saisie, pas encore transmis au conducteur de travaux.',
+  },
+  SOUMIS: {
+    libelle: 'Soumis',
+    couleur: 'var(--etat-cours)',
+    icone: Icone.enAttente,
+    definition: 'Transmis, en attente de validation. Pas encore compté dans les indicateurs.',
+  },
+  VALIDE: {
+    libelle: 'Validé',
+    couleur: 'var(--etat-acheve)',
+    icone: Icone.valide,
+    definition: 'Validé et gelé. Compté dans les indicateurs du projet.',
+  },
+  RECTIFIE: {
+    libelle: 'Rectifié',
+    couleur: 'var(--etat-neant)',
+    icone: Icone.rectifie,
+    definition: 'Remplacé par un relevé rectificatif. Conservé comme trace.',
   },
 }

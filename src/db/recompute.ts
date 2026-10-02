@@ -21,7 +21,15 @@ import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns
 import { sql } from 'drizzle-orm'
 import { agreger, avancementPrevu, avancementTache } from '@/db/compute/avancement'
 import { calculerReseau } from '@/db/compute/cpm'
-import { COUT, coutReel, ecartDelaiJours, indicateurs } from '@/db/compute/evm'
+import {
+  budgetDebourse,
+  coefficientDebourse,
+  COUT,
+  coutReel,
+  ecartDelaiJours,
+  encadrementNecessaire,
+  indicateurs,
+} from '@/db/compute/evm'
 import type { Reseau, ResultatAvancement } from '@/db/compute/types'
 import type { db as instanceDb } from '@/db/index'
 import { chargerContexte, type Contexte } from '@/db/queries/contexte'
@@ -125,6 +133,7 @@ type Instantane = {
   spi: number | null
   cpi: number | null
   dateFinProjetee: string | null
+  budgetDebourseXof: number
 }
 
 type Calcul = {
@@ -203,7 +212,11 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
   /* --- Reseau : marges et criticite --------------------------------------- */
 
   const reseau: Reseau = {
-    taches: feuilles.map((t) => ({ id: t.id, duree: t.dureePrevueJ })),
+    taches: feuilles.map((t) => ({
+      id: t.id,
+      duree: t.dureePrevueJ,
+      ...(t.debutImpose !== null ? { debutImpose: jourDepuis(origine, t.debutImpose) } : {}),
+    })),
     liaisons: liaisons.map((l) => ({
       amont: l.amont,
       aval: l.aval,
@@ -248,6 +261,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
   const courbeVp = consolides.map((i) => i.valeurPlanifieeXof)
 
   const ind = indicateurs({
+    coefficientDebourse: debourse(contexte).projet,
     bac: global.budget,
     valeurPlanifiee: vpFinale,
     valeurAcquise: global.valeurAcquise,
@@ -331,6 +345,7 @@ function construireInstantanes(
     budgetParLot.set(t.lotId, (budgetParLot.get(t.lotId) ?? 0) + budget)
   }
   const budgetTotal = [...budgetParLot.values()].reduce((a, b) => a + b, 0)
+  const k = debourse(contexte)
 
   /* Indexation par date des quantites, des moyens et des aleas. */
   const quantitesParDate = new Map<string, Contexte['quantites']>()
@@ -349,15 +364,22 @@ function construireInstantanes(
     moyensParDate.set(m.date, liste)
   }
 
-  const aleasParDate = new Map<string, number>()
+  /*
+   * Un alea rattache a un lot entre dans le cout de ce lot, donc dans le
+   * cout du projet par la somme des lots. Seuls les aleas sans lot sont
+   * ajoutes directement au projet : les ajouter tous compterait deux fois
+   * ceux qui sont deja dans un lot.
+   */
+  const aleasSansLotParDate = new Map<string, number>()
   const aleasLotParDate = new Map<string, Map<string, number>>()
   for (const a of contexte.aleas) {
     if (a.date > p.dateAnalyse) continue
-    aleasParDate.set(a.date, (aleasParDate.get(a.date) ?? 0) + a.coutXof)
     if (a.lotId) {
       const parLot = aleasLotParDate.get(a.date) ?? new Map<string, number>()
       parLot.set(a.lotId, (parLot.get(a.lotId) ?? 0) + a.coutXof)
       aleasLotParDate.set(a.date, parLot)
+    } else {
+      aleasSansLotParDate.set(a.date, (aleasSansLotParDate.get(a.date) ?? 0) + a.coutXof)
     }
   }
 
@@ -365,7 +387,7 @@ function construireInstantanes(
   const heuresParLot = new Map<string, number>()
   const encadrementParLot = new Map<string, number>()
   const aleasCumulParLot = new Map<string, number>()
-  let aleasCumulProjet = 0
+  let aleasSansLotCumul = 0
 
   const instantanes: Instantane[] = []
 
@@ -382,7 +404,7 @@ function construireInstantanes(
       encadrementParLot.set(m.lotId, (encadrementParLot.get(m.lotId) ?? 0) + m.encadrement)
     }
 
-    aleasCumulProjet += aleasParDate.get(date) ?? 0
+    aleasSansLotCumul += aleasSansLotParDate.get(date) ?? 0
     for (const [lotId, cout] of aleasLotParDate.get(date) ?? []) {
       aleasCumulParLot.set(lotId, (aleasCumulParLot.get(lotId) ?? 0) + cout)
     }
@@ -441,12 +463,13 @@ function construireInstantanes(
         valeurAcquiseXof: va,
         coutReelXof: cr,
         spi: vp > 0 ? arrondir(va / vp, 6) : null,
-        cpi: cr > 0 ? arrondir(va / cr, 6) : null,
+        cpi: cr > 0 ? arrondir((va * (k.parLot.get(lot.id) ?? 1)) / cr, 6) : null,
         dateFinProjetee: null,
+        budgetDebourseXof: k.coutParLot.get(lot.id) ?? 0,
       })
     }
 
-    const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasCumulProjet
+    const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasSansLotCumul
     const spi = vpTotal > 0 ? vaTotal / vpTotal : null
     const dateFinProjetee =
       spi !== null && spi > 0
@@ -467,8 +490,9 @@ function construireInstantanes(
       valeurAcquiseXof: vaTotal,
       coutReelXof: crProjet,
       spi: spi === null ? null : arrondir(spi, 6),
-      cpi: crProjet > 0 ? arrondir(vaTotal / crProjet, 6) : null,
+      cpi: crProjet > 0 ? arrondir((vaTotal * k.projet) / crProjet, 6) : null,
       dateFinProjetee,
+      budgetDebourseXof: k.coutProjet,
     })
   }
 
@@ -513,13 +537,18 @@ async function ecrireInstantanes(
   calcul: Calcul,
 ): Promise<void> {
   /**
-   * Remplacement integral de la plage recalculee. Un `insert ... on conflict`
-   * laisserait subsister les instantanes de journees devenues vides, par
-   * exemple apres l'annulation d'un releve.
+   * Remplacement integral des instantanes du projet. Un `insert ... on
+   * conflict` laisserait subsister les instantanes de journees devenues
+   * vides, par exemple apres l'annulation d'un releve.
+   *
+   * L'effacement couvre aussi les dates POSTERIEURES a la date d'analyse : le
+   * calcul repart toujours du premier jour, et un instantane situe au-dela
+   * de la date d'analyse ne serait reconstruit par aucun recalcul a cette
+   * date. Le conserver laisserait un cache que `recompute()` ne sait pas
+   * reproduire.
    */
   await executeur.execute(sql`
-    delete from snapshot_avancement
-     where projet_id = ${projetId} and date <= ${calcul.dateAnalyse}`)
+    delete from snapshot_avancement where projet_id = ${projetId}`)
 
   if (calcul.instantanes.length === 0) return
 
@@ -532,15 +561,96 @@ async function ecrireInstantanes(
           sql`(${projetId}::uuid, ${s.lotId}::uuid, ${s.date}::date,
                ${s.avancementPct}::numeric, ${s.valeurPlanifieeXof}::bigint,
                ${s.valeurAcquiseXof}::bigint, ${s.coutReelXof}::bigint,
-               ${s.spi}::numeric, ${s.cpi}::numeric, ${s.dateFinProjetee}::date)`,
+               ${s.spi}::numeric, ${s.cpi}::numeric, ${s.dateFinProjetee}::date,
+               ${s.budgetDebourseXof}::bigint)`,
       ),
       sql`, `,
     )
     await executeur.execute(sql`
       insert into snapshot_avancement
         (projet_id, lot_id, date, avancement_pct, valeur_planifiee_xof,
-         valeur_acquise_xof, cout_reel_xof, spi, cpi, date_fin_projetee)
+         valeur_acquise_xof, cout_reel_xof, spi, cpi, date_fin_projetee,
+         budget_debourse_xof)
       values ${valeurs}`)
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Budget de debourse                                                         */
+/* -------------------------------------------------------------------------- */
+
+export type CoefficientsDebourse = {
+  /** Par lot : sans frais de chantier, comme le cout reel d'un lot. */
+  parLot: Map<string, number>
+  /** Projet : frais de chantier compris sur la duree contractuelle. */
+  projet: number
+  /** Budgets au cout correspondants, en FCFA entiers. */
+  coutParLot: Map<string, number>
+  coutProjet: number
+}
+
+/**
+ * Coefficients de debourse du projet et de chaque lot.
+ *
+ * Les heures planifiees viennent des equipes affectees aux taches, jour par
+ * jour sur leur duree prevue ; l'encadrement planifie applique le taux
+ * d'encadrement a l'effectif de chaque lot et de chaque jour, comme le
+ * releve reel. Budget et cout reel suivent ainsi exactement la meme
+ * structure : seule la performance peut les ecarter.
+ *
+ * Fonction pure du contexte, exportee pour les tests.
+ */
+export function debourse(contexte: Contexte): CoefficientsDebourse {
+  const lotParTache = new Map(contexte.taches.map((t) => [t.id, t.lotId]))
+  const venteParLot = new Map<string, number>()
+  for (const l of contexte.lignes) {
+    const lotId = lotParTache.get(l.tacheId)
+    if (!lotId) continue
+    venteParLot.set(lotId, (venteParLot.get(lotId) ?? 0) + l.quantitePrevue * l.prixUnitaireXof)
+  }
+
+  /* Effectif planifie par lot et par jour. */
+  const ouvriersLotJour = new Map<string, Map<string, number>>()
+  for (const e of contexte.equipes) {
+    const parJour = ouvriersLotJour.get(e.lotId) ?? new Map<string, number>()
+    const fin = parseISO(e.dateFin)
+    for (let d = parseISO(e.dateDebut); d <= fin; d = addDays(d, 1)) {
+      const cle = formatISO(d, { representation: 'date' })
+      parJour.set(cle, (parJour.get(cle) ?? 0) + e.ouvriers)
+    }
+    ouvriersLotJour.set(e.lotId, parJour)
+  }
+
+  const parLot = new Map<string, number>()
+  const coutParLot = new Map<string, number>()
+  let coutProjet = 0
+  let venteProjet = 0
+  for (const lot of contexte.lots) {
+    const vente = venteParLot.get(lot.id) ?? 0
+    const jours = [...(ouvriersLotJour.get(lot.id)?.values() ?? [])]
+    const cout = budgetDebourse({
+      budgetVenteXof: vente,
+      heuresOuvrierPrevues: jours.reduce((s, o) => s + o * COUT.heuresParJour, 0),
+      journeesEncadrementPrevues: jours.reduce((s, o) => s + encadrementNecessaire(o), 0),
+      joursFrais: 0,
+    })
+    parLot.set(lot.id, coefficientDebourse(cout, vente))
+    coutParLot.set(lot.id, cout)
+    coutProjet += cout
+    venteProjet += vente
+  }
+  coutProjet += budgetDebourse({
+    budgetVenteXof: 0,
+    heuresOuvrierPrevues: 0,
+    journeesEncadrementPrevues: 0,
+    joursFrais: contexte.projet.dureeContractuelleJ,
+  })
+
+  return {
+    parLot,
+    projet: coefficientDebourse(coutProjet, venteProjet),
+    coutParLot,
+    coutProjet,
   }
 }
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  libelleGraduation,
+  libelleMeteo,
   aujourdhui,
   dateCourte,
   dateLongue,
@@ -13,6 +15,7 @@ import {
   jours,
   moisCourt,
   pourcent,
+  pourcentSigne,
   quantite,
 } from '@/lib/format'
 
@@ -100,6 +103,12 @@ describe('quantites', () => {
 })
 
 describe('pourcentages et indices', () => {
+  it('ecrit un ecart signe, sans zero negatif', () => {
+    expect(normaliser(pourcentSigne(0.024))).toBe('+2,4 %')
+    expect(normaliser(pourcentSigne(-0.062))).toBe('-6,2 %')
+    expect(normaliser(pourcentSigne(-0.0001))).toBe('0,0 %')
+  })
+
   it('formate une fraction en pourcentage', () => {
     expect(normaliser(pourcent(0.4035))).toBe('40,4 %')
   })
@@ -190,5 +199,45 @@ describe('ecart entre deux dates', () => {
 
   it('compte la duree du chantier de demonstration', () => {
     expect(ecartJours('2026-03-02', '2027-04-17')).toBe(411)
+  })
+})
+
+describe('libelle meteo', () => {
+  it('regroupe les codes WMO par famille', () => {
+    expect(libelleMeteo(0)).toBe('Ciel dégagé')
+    expect(libelleMeteo(2)).toBe('Nuageux')
+    expect(libelleMeteo(45)).toBe('Brouillard')
+    expect(libelleMeteo(53)).toBe('Bruine')
+    expect(libelleMeteo(63)).toBe('Pluie')
+    expect(libelleMeteo(73)).toBe('Neige')
+    expect(libelleMeteo(81)).toBe('Averses')
+    expect(libelleMeteo(95)).toBe('Orage')
+  })
+
+  it('signale une meteo absente plutot que de la deviner', () => {
+    expect(libelleMeteo(null)).toBe('Météo non relevée')
+  })
+
+  it('garde le code brut quand il ne correspond a aucune famille', () => {
+    expect(libelleMeteo(30)).toBe('Code météo 30')
+  })
+})
+
+describe('graduations du Gantt', () => {
+  const lundi = new Date(Date.UTC(2026, 2, 16))
+
+  it('libelle chaque periode', () => {
+    expect(libelleGraduation(lundi, 'jour', 'mineure')).toBe('16')
+    expect(libelleGraduation(lundi, 'semaine', 'majeure')).toBe('Semaine du 16 mars 2026')
+    expect(libelleGraduation(lundi, 'semaine', 'mineure')).toBe('16 mars')
+    expect(libelleGraduation(lundi, 'mois', 'majeure')).toBe('mars 2026')
+    expect(libelleGraduation(new Date(Date.UTC(2026, 6, 1)), 'trimestre', 'mineure')).toBe('T3')
+    expect(libelleGraduation(new Date(Date.UTC(2027, 0, 1)), 'annee', 'majeure')).toBe('2027')
+  })
+
+  it('ne recule pas d un jour a l ouest de Greenwich', () => {
+    // Un minuit UTC formate tel quel a Abidjan comme a Montreal doit garder
+    // son jour : le libelle est construit sur les champs UTC.
+    expect(libelleGraduation(new Date(Date.UTC(2026, 3, 1)), 'jour', 'mineure')).toBe('1')
   })
 })

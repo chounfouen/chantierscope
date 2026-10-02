@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: '%s — ChantierScope',
   },
   description:
-    "Suivi de l'evolution d'un chantier de genie civil : avancement physique, planning et valeur acquise.",
+    "Suivi de l'évolution d'un chantier de génie civil : avancement physique, planning et valeur acquise.",
 }
 
 export const viewport: Viewport = {

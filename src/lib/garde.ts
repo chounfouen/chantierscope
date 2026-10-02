@@ -14,6 +14,7 @@
  * rester testable sans navigateur ni base.
  */
 
+import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import {
   NonAuthentifie,
@@ -72,4 +73,28 @@ export async function exigerRole(rolesAutorises: readonly Role[]): Promise<Utili
     throw new NonAutorise(`le role ${u.role} n est pas habilite pour cette operation`)
   }
   return u
+}
+
+/**
+ * Garde des pages : comme `exiger`, mais un refus devient une redirection.
+ *
+ * En production, React masque le message des erreurs levees cote serveur :
+ * la frontiere d'erreur ne peut donc pas distinguer un refus d'acces d'une
+ * panne, et l'utilisateur lirait « une erreur est survenue » la ou il n'a
+ * simplement pas le droit. La redirection vers un ecran dedie dit la verite.
+ *
+ * Les Server Actions et les gestionnaires de route gardent `exiger`, dont ils
+ * traduisent eux-memes le refus.
+ */
+export async function exigerPage(
+  projetId: string,
+  rolesAutorises: readonly Role[] = PEUT_LIRE,
+): Promise<Utilisateur> {
+  try {
+    return await exiger(projetId, rolesAutorises)
+  } catch (e) {
+    if (e instanceof NonAuthentifie) redirect('/connexion')
+    if (e instanceof NonAutorise) redirect('/acces-refuse')
+    throw e
+  }
 }

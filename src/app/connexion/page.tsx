@@ -13,8 +13,8 @@ export const metadata: Metadata = { title: 'Connexion' }
 const COMPTES_DEMO = [
   { role: 'Chef de chantier', email: 'chef@chantierscope.test' },
   { role: 'Conducteur de travaux', email: 'conducteur@chantierscope.test' },
-  { role: 'Maitrise d oeuvre', email: 'moe@chantierscope.test' },
-  { role: 'Maitrise d ouvrage', email: 'moa@chantierscope.test' },
+  { role: 'Maîtrise d’œuvre', email: 'moe@chantierscope.test' },
+  { role: 'Maîtrise d’ouvrage', email: 'moa@chantierscope.test' },
   { role: 'Administration', email: 'admin@chantierscope.test' },
 ]
 
@@ -38,7 +38,7 @@ export default async function Connexion({
           <div>
             <h1 className="text-xl font-semibold tracking-tight">ChantierScope</h1>
             <p className="text-muted-foreground text-sm">
-              Suivi de l&apos;evolution d&apos;un chantier
+              Suivi de l&apos;évolution d&apos;un chantier
             </p>
           </div>
         </div>
@@ -62,7 +62,7 @@ export default async function Connexion({
           <>
             <Separator className="my-6" />
             <div className="text-muted-foreground text-xs">
-              <p className="mb-2 font-medium">Comptes de demonstration</p>
+              <p className="mb-2 font-medium">Comptes de démonstration</p>
               <ul className="space-y-1">
                 {COMPTES_DEMO.map((c) => (
                   <li key={c.email} className="flex justify-between gap-4">
@@ -72,7 +72,7 @@ export default async function Connexion({
                 ))}
               </ul>
               <p className="mt-2">
-                Mot de passe commun, defini dans <code className="font-mono">src/db/seed</code>.
+                Mot de passe commun, défini dans <code className="font-mono">src/db/seed</code>.
               </p>
             </div>
           </>

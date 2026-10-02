@@ -844,3 +844,452 @@ la conception tient : aucune incoherence n'est definitive.
   choix de precalculer plutot que d'agreger a l'affichage.
 - La justification du perimetre des releves pris en compte, et son effet
   mesure sur les indicateurs.
+
+
+### Sprint 4 — Authentification et coquille applicative : termine
+
+Commit `298db6b` puis correctifs. Critere d'achevement atteint : les cinq
+comptes de demonstration se connectent sur la construction de production et
+voient exactement ce que la matrice prevoit ; le test de non-fuite pour le
+role `MOA` passe. `npm run verifier` est au vert avec 321 tests.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/auth.ts` | Auth.js v5, identifiants, sessions JWT de douze heures, role et projets portes par le jeton |
+| `src/lib/droits.ts` | Matrice des droits en logique pure, groupes de roles nommes par ce qu'ils autorisent |
+| `src/lib/garde.ts` | `exiger(projetId, roles)`, appliquee a la session courante |
+| `src/db/queries/lecture.ts` | Lectures de la vue projet et de la vue lot, colonnes internes selectionnees selon le role |
+| `src/app/(app)/` | Coquille : navigation laterale, fil d'Ariane, menu utilisateur, tableau de bord, vue lot, etats de chargement et d'erreur |
+| `src/components/graphiques/courbe-s.tsx` | Courbe en S, serie du cout reel absente pour le maitre d'ouvrage |
+
+#### Verification a l'ecran
+
+Parcours automatise sur `next start` : connexion de chacun des cinq comptes,
+ouverture du tableau de bord puis d'un lot. Le conducteur voit le CPI, la
+serie du cout reel et le cout reel reconstitue ; le maitre d'ouvrage voit
+l'avancement, le SPI et la date de fin projetee, mais ni CPI ni cout reel,
+et aucune cle de cout dans la charge utile.
+
+#### Deux defauts trouves a la cloture
+
+| Defaut | Correction |
+|---|---|
+| Le test de coherence du cache comparait un recalcul incremental a la date du jour avec un recalcul integral a la date figee du 30 septembre. Il ne passait que ce jour-la | Le chemin integral reprend la date d'analyse effectivement employee par le chemin incremental |
+| `recompute()` n'effacait que les instantanes anterieurs a la date d'analyse. Un recalcul a une date plus ancienne laissait subsister des instantanes posterieurs qu'aucun recalcul a cette date ne savait reproduire | L'effacement couvre tous les instantanes du projet ; le calcul repartant du premier jour, rien n'est perdu |
+
+Le second defaut violait directement la regle selon laquelle tout cache doit
+etre reconstructible par `recompute()`. C'est le test de cache detruit puis
+reconstruit qui l'a revele, une fois le premier corrige : un test qui ne
+passe que par coincidence de date masque les autres.
+
+Deux erreurs ESLint, un parametre inutilise dans l'infobulle de la courbe en
+S et une comparaison non stricte, empechaient aussi `npm run verifier` de
+passer.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le filtrage par selection de colonnes plutot que par masquage, et sa preuve
+  par inspection de la charge utile serialisee.
+- La separation des roles : le chef de chantier saisit, le conducteur valide.
+- L'episode du test dependant de la date, exemple d'un test vert qui ne
+  prouvait rien.
+
+
+### Sprint 5 — Saisie journaliere : termine
+
+Critere d'achevement atteint, et demontre par les parcours Playwright au
+bureau comme au telephone (`npm run test:e2e`, 8 parcours au vert) :
+
+- une saisie faite sans reseau est gardee sur le telephone puis apparait en
+  base au retour de la connexion ;
+- un releve valide ne peut plus etre modifie, et la base elle-meme le refuse ;
+- l'avancement du projet bouge des la validation.
+
+`npm run verifier` passe avec 475 tests.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/lib/releve.ts` | Schemas Zod par etape, partages entre navigateur et serveur |
+| `src/lib/releve-formulaire.ts` | Etat du formulaire et conversion en releve, sans React |
+| `src/db/compute/saisie.ts` | Controle d'une quantite face au prevu, au cumul valide et au cumul en attente |
+| `src/db/mutations/releve.ts` | Enregistrement idempotent, rectification, refus metier explicites |
+| `drizzle/0003_gel_releve_valide.sql` | Gel d'un releve valide et de ses quantites, par declencheur |
+| `src/app/api/projet/[id]/releves/route.ts` | Point d'entree unique des envois, direct ou depuis la file |
+| `src/components/saisie/` | Formulaire en etapes, journal, fiche, file d'attente |
+| `src/lib/hors-ligne/` | Classement des issues d'envoi, file IndexedDB, synchronisation |
+| `public/sw.js` | Service worker : pages en reseau d'abord, ressources en cache d'abord |
+| `src/services/stockage.ts` | Magasin de photos : Supabase en production, disque signe en local |
+| `e2e/` | Parcours Playwright |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| L'identifiant d'un releve est genere par le navigateur | Il rend l'envoi idempotent : un releve renvoye apres une reponse perdue retrouve sa ligne au lieu d'en creer une seconde. Genere dans la page et non par le serveur, faute de quoi une page servie depuis le cache donnerait le meme identifiant a deux saisies |
+| Saisie par gestionnaire de route, validation par Server Action | L'identifiant d'une Server Action change a chaque construction : un releve reste en file pendant un redeploiement ne pourrait plus l'appeler. La validation, elle, ne se fait qu'en ligne |
+| Gel porte par un declencheur, code d'erreur `CS001` | Une regle que la base peut garantir ne doit pas dependre de la discipline des mutations futures |
+| Rectification validee d'emblee, reservee aux roles qui valident | Le rectificatif engage autant qu'une validation ; un passage par « soumis » ferait disparaitre la journee des indicateurs jusqu'a la validation |
+| Un depassement de quantite est signale, pas refuse | Le refuser pousserait a saisir une quantite fausse pour passer le controle. L'avancement reste plafonne par le noyau |
+| L'alerte de depassement compte aussi les releves en attente | Deux releves non valides, chacun sous le prevu, peuvent le depasser ensemble |
+| Trois issues d'envoi : enregistre, refuse, reporte | Seul un releve que le serveur n'a pas pu juger est rejoue. Un refus est garde avec son motif, jamais renvoye en boucle |
+| File cloisonnee par utilisateur | Sur un telephone partage, un releve ne doit pas partir sous la session du suivant |
+| Pages en cache effacees au passage par la connexion | Elles portent les donnees du compte connecte |
+| Photos compressees a la selection, metadonnees EXIF effacees | Le reseau de chantier, et la position GPS qui n'a pas a quitter le telephone |
+| Journal reserve aux roles qui voient les donnees internes | Il porte les effectifs et les heures |
+
+#### Defauts trouves et corriges en chemin
+
+| Defaut | Correction |
+|---|---|
+| Un alea rattache a un lot etait compte dans le cout du lot ET ajoute au cout du projet | Seuls les aleas sans lot s'ajoutent au projet. Test d'agregat ajoute |
+| `Date.parse` acceptait le 30 fevrier, reporte au 2 mars | Verification par aller-retour, revelee par un test |
+| En production, un refus d'acces s'affichait comme une panne : React masque le message des erreurs serveur | Garde de page `exigerPage`, qui redirige vers un ecran « Acces refuse » |
+| La vue lot chargeait un lot sans verifier qu'il appartenait au projet de l'adresse | Controle ajoute, page introuvable sinon |
+| Une variable d'environnement declaree vide faisait echouer la validation | Une variable vide vaut une variable absente, comme dans `.env.example` |
+
+#### Le CPI compare desormais le cout reel au cout budgete
+
+La correction du double comptage des aleas a fait passer le CPI de 0,984 a
+1,034, ce qui a conduit a examiner le modele de cout dans son principe. Deux
+erreurs, plus profondes qu'un parametre mal regle, en sont ressorties.
+
+1. **La valeur acquise etait comparee au cout reel au prix de vente.** Le
+   quantitatif est un bordereau de prix, marge comprise ; le cout reel est un
+   cout de revient. Un chantier execute exactement comme prevu aurait affiche
+   un CPI egal a l'inverse de la marge, au-dessus de un : l'indice mesurait
+   l'erosion de marge, pas la performance de cout. Le CPI rapporte desormais
+   le cout reel au cout budgete du travail realise, `k x VA`, ou `k` est le
+   coefficient de debourse, budget en cout sur budget en prix. EAC et VAC sont
+   exprimes au cout. Le SPI n'est pas concerne.
+2. **Le budget et l'execution ne partageaient pas les memes effectifs.** Le
+   peuplement simulait les equipes avec sa propre table par nature d'ouvrage,
+   divergente des affectations du planning (14 ouvriers au betonnage contre
+   une equipe de coffrage de 12). Une table unique, `EQUIPE_PAR_NATURE`, sert
+   maintenant aux deux. Le bruit d'effectif, decentre d'un demi-ouvrier par
+   lot et par jour, et la journee moyenne de 7,9 heures contre 8 au budget ont
+   ete recentres pour la meme raison : un biais de simulation se serait lu
+   comme un ecart de performance.
+
+Le budget de debourse applique au planning le modele meme du cout reel :
+materiaux, heures des equipes affectees jour par jour, encadrement au meme
+taux d'un encadrant pour douze ouvriers plus le chef de chantier, frais de
+chantier sur la duree contractuelle. Il fait apparaitre une marge
+previsionnelle de 14 % (coefficient de 0,859), plausible en batiment. Aucun parametre n'a
+ete ajuste pour viser une valeur.
+
+| Indicateur | Avant | Apres |
+|---|---|---|
+| CPI du projet | 1,034 | 0,892 |
+| Avancement, SPI, ecart de delai | inchanges | inchanges |
+
+La lecture est desormais causale. Les lots 02 et 03, acheves a l'heure,
+sortent sous un CPI de un a cause des aleas qu'ils ont portes, 3,5 et 6,1
+millions, que le budget ne provisionne pas. Au niveau du projet s'y ajoutent
+les frais de chantier des jours de retard. Le retard et les aleas coutent :
+c'est exactement ce que l'indicateur doit montrer. Le budget ne comporte pas
+de provision pour aleas ; l'ajouter serait la suite naturelle, a documenter
+comme limite dans le memoire.
+
+#### Ecarts par rapport au plan
+
+| Ecart | Raison |
+|---|---|
+| Pas de `react-hook-form` | Le formulaire tient en un etat simple converti par une fonction pure testee ; la bibliotheque n'aurait rien ajoute |
+| Photos ajoutables a un releve deja valide | Une photo documente la journee sans modifier ce que le releve engage |
+| `experimental.useOffline` de Next non retenu | Il rejoue une requete en memoire, perdue a la fermeture de l'onglet. La file IndexedDB survit au redemarrage du telephone |
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le gel par declencheur, et son test : la base refuse une modification que
+  l'application aurait pu oublier d'interdire.
+- L'idempotence par identifiant genere dans le navigateur, et le piege du
+  cache qui l'aurait cassee.
+- Le classement des issues d'envoi en trois categories, base de toute file
+  hors ligne honnete.
+- Le double comptage des aleas, trouve par un test d'integration de la
+  saisie et non par une relecture.
+
+
+### Entre les sprints 5 et 6 — corrections
+
+| Correction | Effet |
+|---|---|
+| Le CPI compare le cout reel au cout budgete, voir la section du sprint 5 | CPI du projet de 1,034 a 0,892, lecture causale de la derive de cout |
+| La tache nocturne compte reellement la meteo completee | Le rapport annoncait toujours zero, faute de clause `returning` |
+| Les pages passent par le client applicatif `db()` | Plus de connexion directe par rendu, qui aurait contourne le pooler en production |
+| Libelles accentues dans toute l'interface et dans le jeu de demonstration | Conformite a la regle de langue ; l'empreinte metier du jeu change en consequence |
+
+Les accents ont ete poses par un outil qui s'appuie sur l'arbre syntaxique de
+TypeScript : seuls les litteraux de chaine, les gabarits hors expressions et
+les textes JSX sont touches, jamais un identifiant, une requete SQL, une
+classe CSS ou une cle. Les cas que seul le sens tranche, « a » ou « à »,
+« equipe » ou « équipé », « relevé d’étanchéité », ont ete corriges a la main.
+
+
+### Sprint 6 — Planning, Gantt et simulation : termine
+
+Critere d'achevement atteint :
+
+- le chemin critique affiche est conforme au calcul manuel du sprint 2 : un
+  test de rendu du Gantt sur le reseau de reference retrouve exactement
+  A-B-D-F-G-I-J, et un parcours Playwright verifie sur le projet de
+  demonstration que les barres critiques affichees sont celles de la base ;
+- une simulation produit une date de fin et une penalite verifiables a la
+  main : dix jours de glissement sur le beton de proprete des fondations
+  donnent une fin au 27 avril 2027 et une penalite de 11 561 412 FCFA, soit
+  10 x 0,001 x 1 156 141 200, calcul ecrit en tete du test.
+
+`npm run verifier` passe avec 567 tests, `npm run test:e2e` avec 17 parcours.
+Le rendu de deux cents taches prend 42 ms, pour une cible de 500.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/gantt.ts` | Geometrie du Gantt : paliers et centrage, graduations, WBS repliable, virtualisation, liaisons orthogonales, repartition des couloirs, journees grisees |
+| `src/db/compute/planning.ts` | Recalage par le calcul au plus tot, dates des noeuds, controle d'une liaison candidate |
+| `src/db/mutations/planning.ts` | Edition transactionnelle : duree, contrainte de debut, liaisons, scenarios |
+| `src/db/queries/planning.ts` | Lecture unique du planning pour le Gantt, l'edition et la simulation |
+| `src/lib/gantt-donnees.ts` | Donnees serialisables du Gantt, et Gantt simule |
+| `src/components/planning/` | Gantt en SVG, ecran du planning avec panneau d'edition, ecran de simulation |
+| `drizzle/0004`, `drizzle/0005` | Contrainte de debut, scenarios, audit des liaisons |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Les dates prevues sont une projection du reseau, jamais saisies une a une | Une date saisie a la main contredirait tot ou tard ses liaisons. Modifier une duree ou une liaison recale tout le planning par le calcul au plus tot |
+| Une date de debut fixee a la main devient une contrainte « pas avant », stockee a part | Le recalage suivant la respecte au lieu de l'effacer. Plus precoce que les predecesseurs, elle est enregistree et signalee sans effet |
+| Le planning du jeu est un point fixe du recalage, et un test le garantit | Sinon la premiere edition aurait deplace tout le chantier |
+| Les jalons contractuels gardent leur date, les jalons internes suivent leur tache | La date contractuelle est celle contre laquelle on mesure un retard |
+| La simulation tourne dans le navigateur | Moteur pur, reseau de quelques kilooctets : resultat instantane a chaque frappe, sans aller-retour serveur |
+| Un scenario enregistre ne conserve que ses hypotheses | Le resultat est un calcul a la volee (section 11.5 de la conception) ; il est refait sur le planning du moment |
+| Le glisser-deposer ouvre la simulation, sans ecrire | Exigence du plan : rien n'est modifie avant confirmation |
+| La simulation est reservee aux roles qui voient les donnees internes | Elle chiffre des penalites et expose la strategie de l'entreprise |
+| Les liaisons entrent au journal d'audit | Les modifier deplace la valeur planifiee et les penalites projetees |
+
+#### Un test faux, corrige apres analyse
+
+Un test supposait qu'allonger une tache critique retarde forcement la fin du
+chantier. La tache retenue, 03.1.2, n'a qu'un successeur lie debut-debut :
+son DEBUT est critique, sa FIN ne l'est pas, et l'allonger ne retarde rien.
+La marge totale retenue est la plus petite des deux, selon la convention
+usuelle des logiciels de planification. Le cas est conserve comme test a
+part ; c'est une subtilite des liaisons autres que fin-debut qui merite
+d'etre exposee dans le memoire.
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| La cellule de grille du Gantt s'elargissait a la largeur de son contenu, 5 496 pixels : le conteneur ne defilait jamais | `min-w-0` sur la cellule |
+| Le centrage initial sur la date du jour s'executait pendant que la page, arrivee en flux, etait encore masquee | Centrage differe a la premiere frame ou le conteneur a des dimensions |
+| Apres le retour du reseau, une synchronisation interrompue ou demandee pendant un passage n'etait relancee qu'une minute plus tard | Relance d'une demande arrivee en cours de passage, nouvel essai a 5, 10 puis 20 secondes |
+| Le controle d'audit de `db:check` comptait tous les declencheurs, gel compris : il serait passe avec un audit manquant | Controle par table et par fonction, et controle separe du gel |
+
+#### Limites assumees
+
+- La simulation porte sur le planning de reference, pas sur la situation
+  constatee : elle mesure l'effet d'un alea sur le reseau. Simuler a partir
+  de l'avancement reel demanderait de re-planifier le reste a faire, ce qui
+  releve d'un module de replanification hors perimetre.
+- La securite de niveau ligne de PostgreSQL, prevue en refus general par la
+  conception, n'est pas encore posee : elle releve de la mise en ligne,
+  sprint 8.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le Gantt sur mesure : geometrie en fonctions pures testees, composant qui
+  ne fait que dessiner, et la mesure de 42 ms pour deux cents taches.
+- Le recalage par le reseau, et le point fixe qui le rend sur.
+- La tache critique par son seul debut, et la convention de marge totale.
+- La simulation chiffree a la main, du glissement a la penalite en FCFA.
+
+### Sprint 7 — Tableau de bord et analyses : termine
+
+Critere d'achevement atteint :
+
+- les treize indicateurs de la methode de la valeur acquise (VP, VA, CR,
+  ecart de cout, ecart de delai en valeur, CPI, SPI, EAC, ETC, VAC, duree
+  projetee, retard estime, penalite prevue), plus l'avancement et l'ecart de
+  delai lu horizontalement, concordent avec le calcul de reference au
+  tableur aux 15 mai, 31 juillet et 27 septembre 2026 : au franc pres pour
+  les montants, a 1e-9 pour les indices, au jour pres pour les durees ;
+- le tableau de bord se charge en 667 ms sur la construction de production,
+  mesure faite par le parcours Playwright, pour une cible d'une seconde.
+
+`npm run verifier` passe avec 651 tests, `npm run test:e2e` avec 26 parcours.
+
+#### Le calcul de reference au tableur
+
+`scripts/reference/tableur.py` extrait de la base les seules donnees
+sources — quantitatif, dates prevues, methodes, releves valides, moyens,
+aleas, equipes affectees —, sans lire aucune valeur derivee. Il ecrit un
+classeur dont chaque grandeur est une formule de tableur redigee d'apres
+les sections 4.1 a 4.3 de la conception, et non d'apres le code : avancement
+selon la methode de chaque tache, valeur planifiee lineaire, debourse
+previsionnel jour par jour et par lot, cout reel, puis les indicateurs. La
+lecture horizontale de la courbe en S y est faite par `EQUIV` sur la courbe
+planifiee journaliere. LibreOffice recalcule le classeur sans interface ;
+`docs/reference/indicateurs-reference.xlsx` est le classeur recalcule,
+`docs/reference/indicateurs.json` ses resultats.
+
+Le test d'integration rejoue le chemin complet de l'application a chaque
+date — recalcul du cache, lecture des instantanes par la requete du tableau
+de bord, synthese par le noyau — et confronte. La troisieme date est la
+derniere journee entierement validee du jeu : les releves posterieurs sont
+en attente, et d'autres suites d'integration les valident.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/tableau.ts` | Indicateurs a une date, tendances sur trente jours, courbe planifiee prolongee et projection, projection du reseau, prochains jalons, cinq regles d'alerte |
+| `src/db/compute/analyses.ts` | Effectifs et charge prevue, consommation des materiaux cles, rendements par nature, aleas, jours perdus, arrets par cause |
+| `src/db/queries/tableau.ts`, `src/db/queries/analyses.ts` | Lectures des deux ecrans, selection des colonnes selon le role |
+| `src/lib/tableau-donnees.ts` | Branchement du noyau pour la page |
+| `src/components/tableau/` | Panneau d'alertes, prochains jalons |
+| `src/components/graphiques/analyses.tsx` | Histogramme, consommations, barres horizontales, jours perdus, vue tableau |
+| `drizzle/0006` | Debourse previsionnel porte par les instantanes |
+| `scripts/reference/tableur.py`, `docs/reference/` | Calcul de reference au tableur |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Le tableau de bord recalcule les indicateurs depuis VP, VA et CR des instantanes, plutot que de relire CPI et SPI stockes | Une seule formule, celle du noyau, pour l'ecran et pour le test de concordance |
+| Le debourse previsionnel est stocke dans chaque instantane | EAC et VAC s'expriment au cout ; le relire evite de recharger les affectations a chaque affichage |
+| La projection de la courbe en S part de la lecture horizontale et deroule le planning au rythme du SPI ; le cout suit au CPI | La courbe part exactement de la valeur acquise du jour, et le cout aboutit exactement a l'EAC |
+| Un jalon est menace si sa tache declenchante, rejouee depuis la situation, finit apres la date | Le planning prevu ignore le retard constate : les dates prevues ne menacent jamais rien. Le reseau est rejoue avec le reste a faire de chaque tache entamee, au rythme prevu, et aucune tache non commencee avant le lendemain |
+| Une tache critique est en retard des une journee d'ecart entre avancement prevu et reel, convertie par sa duree | Un ecart en pourcentage ne dit pas l'effet sur la fin du chantier ; en jours, il le dit |
+| Les seuils des regles sont nommes, et le panneau les enonce tels qu'ils sont appliques | Une alerte dont on ne connait pas la regle n'est pas actionnable |
+| Rendement : l'effectif d'un lot est reparti entre ses taches productives au prorata des equipes prevues, et compare au prevu de sa nature | Le releve porte l'effectif du lot, pas celui de chaque tache. L'indice sans unite rend comparables des natures mesurees en m3, m2 ou unites |
+| Effectifs et rendements ne sont lus que pour les roles internes | Ce sont des donnees de l'entreprise, comme le cout reel |
+| L'ecran d'analyses n'emploie que les deux premieres teintes de la palette, et une seule par graphique a une serie | Elles passent les cinq controles du validateur en clair et en sombre, contraste compris ; les teintes 3 a 5 sont sous 3:1 en clair |
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| Deux recalculs successifs differaient d'un franc, par intermittence : les lectures du contexte n'etaient pas ordonnees, et une somme flottante tombant sur un demi-franc s'arrondissait selon l'ordre arbitraire des lignes | Toutes les lectures du contexte sont ordonnees, sur une cle metier stable |
+| Le bouton de theme rendait une icone differente au serveur et au client en theme sombre : React regenerait l'arbre | Icone du theme rendue une fois la page montee |
+| La navigation marquait actif le tableau de bord sur tous les ecrans, sa route etant leur prefixe | L'entree active est la plus specifique |
+
+#### Limites assumees
+
+- La projection est une extrapolation au rythme constate, comme l'EAC : elle
+  est pessimiste si les difficultes sont derriere le chantier. Elle differe
+  de la duree projetee par le SPI, qui ne regarde que le rapport global ;
+  les deux sont affichees avec leur hypothese.
+- Le rendement attribue l'effectif au prorata des equipes prevues : une
+  equipe reaffectee en cours de journee echappe a la mesure. Le releve par
+  tache leverait cette limite, au prix d'une saisie plus lourde.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- La concordance avec un calcul de tableur independant, et ce qu'elle
+  prouve : une meme regle, ecrite deux fois par deux voies differentes,
+  donne le meme chiffre.
+- Le franc d'ecart intermittent : l'arithmetique flottante et l'ordre des
+  lignes d'une requete SQL.
+- La projection du reseau depuis la situation, et pourquoi les dates
+  prevues ne suffisent pas a dire qu'un jalon est menace.
+
+### Sprint 8 — Photos, plan, rapports et mise en ligne : livre, en attente de mise en ligne effective
+
+Tout ce qui se fait depuis le depot est fait et verifie. La mise en ligne
+elle-meme demande trois comptes que l'environnement de developpement n'a pas
+— projet Supabase, projet Vercel, secret GitHub — : elle est preparee pas a
+pas dans le `README.md` et reste a executer.
+
+Critere d'achevement :
+
+| Exigence | Etat | Mesure |
+|---|---|---|
+| Application accessible en ligne | a faire, comptes requis | construction, migrations, cron, RLS et sauvegardes prets |
+| Premier rendu utile sous 1,5 s en 4G | atteint en local | 644 ms, profil mobile de Lighthouse (150 ms, 1,6 Mbit/s, processeur ×4) |
+| Navigation sous 400 ms | atteint | 9 a 74 ms, du clic a l'image qui suit l'affichage |
+| Soumission d'un releve sous 1 s | atteint en local | 171 ms en 4G bridee |
+| Rapport hebdomadaire en PDF | atteint | genere en 320 a 420 ms |
+| Sauvegarde restauree avec succes | atteint | vingt et une tables identiques ligne a ligne, `db:check` vert sur la copie |
+
+Les mesures sont faites sur la construction de production servie en local :
+en ligne s'ajoutera la latence entre Abidjan et Francfort, a mesurer une fois
+le deploiement fait.
+
+`npm run verifier` passe avec 683 tests, `npm run test:e2e` avec 40 parcours,
+`npm run db:check` avec 32 verifications.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/db/compute/photos.ts`, `src/components/photos/`, ecran `photos` | Timeline : groupes par point de vue, curseur temporel, comparateur a volet, grille par date, filtres par l'adresse |
+| `src/db/compute/plan.ts`, `src/components/plan/`, ecran `plan` | Plan par niveau, zones a l'etat de leurs taches, rejeu hebdomadaire, detail au clic ou au clavier |
+| `src/db/compute/rapport.ts`, `src/services/rapport/`, route `api/projet/[id]/rapport`, ecran `rapports` | Rapport hebdomadaire PDF, faits marquants ecrits depuis les donnees |
+| `src/lib/viz-impression.ts` | Palette d'impression, verifiee par test contre la feuille de style |
+| `drizzle/0007` | Row Level Security en refus general sur les vingt tables |
+| `scripts/construire.sh`, `vercel.json`, `next.config.ts` | Migration avant construction, en production seulement ; fichiers embarques par la route du rapport |
+| `.github/workflows/sauvegarde.yml` | Sauvegarde nocturne et a la demande, archive conservee trente jours |
+| `scripts/restaurer.sh`, `scripts/verifier-restauration.sh` | Restauration locale, et sa preuve |
+| `scripts/changer-mot-de-passe.ts` | Mots de passe des comptes de demonstration, publics |
+| `src/lib/cache.ts` | Cache par etiquette des lectures de synthese |
+| `e2e/livrables.spec.ts`, `e2e/performance.spec.ts`, `e2e/accessibilite.spec.ts` | Parcours des livrables, mesures de performance, audit WCAG 2.1 AA en clair et en sombre |
+| `README.md` | Installation, mise en ligne, reprise |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| Une zone du plan prend un ETAT de la palette d'etats, jamais une teinte de serie | Il n'existe pas de rampe sequentielle validee ; les etats le sont, et disent ce qui compte : en retard, critique, acheve |
+| Une zone n'est critique que si une tache critique y est elle-meme en retard | Sinon une zone dont seule une tache a marge est en retard etait annoncee comme retardant le chantier |
+| Le rapport est calcule a la demande, jamais stocke | Meme regle que la simulation : un calcul sur la source de verite, refait a l'identique |
+| Ses indicateurs sont confrontes au calcul de reference au tableur | Le rapport doit dire ce que dit l'ecran ; la meme reference les tient tous deux |
+| Photos converties en JPEG par `sharp` pour le PDF | Le moteur PDF ne lit ni le WebP des photos de chantier ni le SVG des planches de demonstration |
+| Police Liberation Sans embarquee, espaces fines remplacees | L'Helvetica integree au PDF n'a pas l'espace fine insecable des formats francais |
+| RLS declaree dans le schema, `.enableRLS()` sur chaque table | La migration en decoule ; `db:check` refuse une table qui y echapperait |
+| Migration au deploiement de production seulement | Une previsualisation de branche ne doit jamais toucher la base de production |
+| Peuplement refuse sur une base distante deja peuplee | Il commence par vider les tables : relance par erreur, il effacerait le chantier |
+| Plus de squelette de chargement commun aux ecrans du projet ; un point d'attente sur le lien clique | React retient l'affichage d'un contenu trois cents millisecondes apres son squelette : toutes les navigations en payaient le prix |
+| Prechargement complet des ecrans legers | Le code de leurs composants clients est charge d'avance ; sinon React suspend la navigation le temps de le charger |
+| Le journal est pagine par journees completes de quatre-vingts releves | Quatre cents releves pesaient sept cents kilooctets |
+| Les teintes d'etat ne colorent plus de texte, seulement des icones et des marques | Comme couleur de texte, seule la teinte critique atteint 4,5:1, et en clair seulement |
+
+#### Defauts trouves en chemin
+
+| Defaut | Correction |
+|---|---|
+| Toutes les navigations duraient plus de 800 ms alors que le serveur repondait en 20 a 70 ms | Diagnostic au protocole de debogage de Chrome : delai de revelation de React apres le squelette commun, puis chargement tardif du code des graphiques. Squelette retire, prechargement complet |
+| La mesure de navigation de Playwright comptait le dessin des graphiques qui suit l'affichage | Mesure faite dans la page, du clic a l'image suivante |
+| Les titres de groupe de la navigation, a 70 % d'opacite, manquaient de contraste | Encre secondaire pleine |
+| Le Gantt etait declare image alors qu'il contient des elements manipulables | Role de groupe |
+| Les noms des taches critiques du Gantt etaient ecrits en rouge d'etat | Nom a l'encre, icone d'etat libellee |
+| Un ecart arrondi a zero s'ecrivait « -0,0 % » | Format d'ecart signe dedie |
+| L'environnement refuse la publication d'etiquettes Git | L'etiquette `sprint-7` existe en local, a publier depuis un poste |
+
+#### Limites assumees
+
+- La mise en ligne n'est pas faite : elle demande des comptes que seul le
+  porteur du projet peut ouvrir. Le `README.md` en donne les etapes.
+- Les mesures de performance sont locales. La latence reseau reelle entre
+  Abidjan et Francfort reste a mesurer sur le deploiement, avec l'onglet
+  reseau du navigateur, pour le memoire.
+- Le cache par etiquette garde une heure au plus une entree qu'une
+  invalidation aurait oubliee.
+- Le prechargement complet sert, pendant cinq minutes au plus, les donnees
+  d'un ecran tel qu'il etait quand le lien est apparu, si un autre utilisateur
+  les a modifiees entre-temps. Ses propres ecritures, elles, sont vues aussitot.
+- L'audit automatique d'accessibilite ne remplace pas une revue humaine, au
+  lecteur d'ecran.
+
+#### Matiere pour le memoire produite a ce sprint
+
+- La chasse aux 800 ms : un serveur qui repond en 20 ms, et une navigation
+  qui en prend 850 ; la methode de mesure compte autant que le correctif.
+- Le refus general de la RLS, prouve en jouant le role d'un client de l'API.
+- La restauration prouvee, table par table.
+- Le rapport PDF dont les chiffres concordent avec le tableur.

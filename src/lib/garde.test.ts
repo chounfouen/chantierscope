@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   NonAutorise,
+  actionsSurReleve,
   verifierAcces,
   LIBELLE_ROLE,
   PEUT_ADMINISTRER,
@@ -121,7 +122,7 @@ describe('verification d acces', () => {
   it('refuse un projet non rattache, meme a un role habilite', () => {
     // Un conducteur de travaux d une autre operation n a rien a voir ici.
     expect(() => verifierAcces(utilisateur('CONDUCTEUR', ['p2']), 'p1', PEUT_VALIDER)).toThrow(
-      /n est pas accessible/,
+      /n’est pas accessible/,
     )
   })
 
@@ -136,7 +137,7 @@ describe('verification d acces', () => {
       verifierAcces(utilisateur('MOA', ['p2']), 'p1', PEUT_VALIDER)
       expect.unreachable('l acces aurait du etre refuse')
     } catch (e) {
-      expect((e as Error).message).toContain('n est pas habilite')
+      expect((e as Error).message).toContain('n’est pas habilité')
     }
   })
 
@@ -148,5 +149,40 @@ describe('verification d acces', () => {
 
   it('les droits par defaut sont ceux de lecture', () => {
     expect(() => verifierAcces(utilisateur('MOA'), 'p1', PEUT_LIRE)).not.toThrow()
+  })
+})
+
+describe('circuit de validation d un releve', () => {
+  it('le chef de chantier modifie et soumet son brouillon, sans le valider', () => {
+    expect(actionsSurReleve('BROUILLON', 'CHEF_CHANTIER')).toEqual(['modifier', 'soumettre'])
+    expect(actionsSurReleve('SOUMIS', 'CHEF_CHANTIER')).toEqual(['modifier'])
+  })
+
+  it('le conducteur valide un releve soumis', () => {
+    expect(actionsSurReleve('SOUMIS', 'CONDUCTEUR')).toEqual(['modifier', 'valider'])
+  })
+
+  it('un brouillon ne se valide pas sans avoir ete soumis', () => {
+    for (const r of TOUS) expect(actionsSurReleve('BROUILLON', r)).not.toContain('valider')
+  })
+
+  it('un releve valide est gele : personne ne le modifie', () => {
+    for (const r of TOUS) expect(actionsSurReleve('VALIDE', r)).not.toContain('modifier')
+  })
+
+  it('seuls les roles qui valident rectifient un releve valide', () => {
+    const rectifient = TOUS.filter((r) => actionsSurReleve('VALIDE', r).includes('rectifier'))
+    expect(rectifient.sort()).toEqual([...PEUT_VALIDER].sort())
+  })
+
+  it('un releve rectifie n admet plus aucune action', () => {
+    for (const r of TOUS) expect(actionsSurReleve('RECTIFIE', r)).toEqual([])
+  })
+
+  it('la maitrise d oeuvre et la maitrise d ouvrage n agissent jamais sur un releve', () => {
+    for (const statut of ['BROUILLON', 'SOUMIS', 'VALIDE', 'RECTIFIE'] as const) {
+      expect(actionsSurReleve(statut, 'MOE')).toEqual([])
+      expect(actionsSurReleve(statut, 'MOA')).toEqual([])
+    }
   })
 })

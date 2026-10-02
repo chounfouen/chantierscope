@@ -18,12 +18,12 @@
  */
 
 import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns'
+import { encadrementNecessaire } from '@/db/compute/evm'
 import { naturesBloquees, causeArret } from '@/db/compute/meteo'
-import { DATE_ANALYSE, DATE_ORDRE_SERVICE } from '@/db/seed/catalogue'
+import { DATE_ANALYSE, DATE_ORDRE_SERVICE, EQUIPE_PAR_NATURE } from '@/db/seed/catalogue'
 import { hasard, GRAINE } from '@/db/seed/hasard'
 import { chargerMeteo, type JourneeMeteo } from '@/db/seed/meteo'
 import { calerPlanning, type Planning, type TachePlanning } from '@/db/seed/planning'
-import type { Nature } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
 /* Parametres du modele                                                       */
@@ -53,22 +53,6 @@ const RUPTURE_ACIER = { debut: '2026-06-15', fin: '2026-06-20' }
 
 /** Panne de la grue a tour. */
 const PANNE_GRUE = { debut: '2026-05-11', fin: '2026-05-13' }
-
-/** Effectif ouvrier type d'une tache, par nature d'ouvrage. */
-const EFFECTIF_NATURE: Record<Nature, number> = {
-  TERRASSEMENT: 8,
-  VRD: 6,
-  ENROBES: 8,
-  FONDATION: 12,
-  BETONNAGE: 14,
-  LEVAGE: 4,
-  MACONNERIE: 10,
-  CHARPENTE: 8,
-  ETANCHEITE: 6,
-  ENDUIT: 12,
-  INTERIEUR: 10,
-  SUPPORT: 5,
-}
 
 /* -------------------------------------------------------------------------- */
 /* Types produits                                                             */
@@ -212,7 +196,7 @@ export function simulerExecution(): Execution {
   for (let j = 0; j <= dernierJour; j++) {
     const date = jour(j)
     const m = meteo.get(date)
-    if (!m) throw new Error(`Meteo absente pour ${date}. Relancer src/db/seed/meteo.ts.`)
+    if (!m) throw new Error(`Météo absente pour ${date}. Relancer src/db/seed/meteo.ts.`)
 
     const bloquees = naturesBloquees(m)
     const cause = causeArret(m)
@@ -281,7 +265,7 @@ export function simulerExecution(): Execution {
 
       if (lignesDuJour.length > 0) {
         etatLot.quantites.set(t.code, lignesDuJour)
-        etatLot.ouvriers += EFFECTIF_NATURE[t.nature]
+        etatLot.ouvriers += EQUIPE_PAR_NATURE[t.nature].ouvriers
       }
 
       if (achevee(t)) finReelle.set(t.code, j)
@@ -297,17 +281,20 @@ export function simulerExecution(): Execution {
 
       if (!journeeTravaillee) lotsArretes.add(lot)
 
-      const ouvriers = aProduit ? etat.ouvriers + h.entier(-2, 3) : 0
-      const encadrement = aProduit ? Math.ceil(ouvriers / 12) + 1 : 0
-      const heures = aProduit ? arrondi(Math.max(0, ouvriers) * h.entre(7.2, 8.6), 2) : 0
+      // Bruit centre : absences et renforts se compensent en moyenne. Un
+      // bruit decentre ferait apparaitre un ecart de cout que rien ne cause.
+      const ouvriers = aProduit ? etat.ouvriers + h.entier(-2, 2) : 0
+      const encadrement = aProduit ? encadrementNecessaire(ouvriers) : 0
+      // Journee moyenne de huit heures, celle que retient le budget.
+      const heures = aProduit ? arrondi(Math.max(0, ouvriers) * h.entre(7.4, 8.6), 2) : 0
 
       const motif = journeeTravaillee
         ? null
         : rupture && lot === '04'
-          ? 'Rupture d approvisionnement en acier a beton'
+          ? 'Rupture d’approvisionnement en acier à béton'
           : panne && lot === '04'
-            ? 'Grue a tour immobilisee, intervention du mainteneur'
-            : (cause?.libelle ?? 'Aucune tache mobilisable ce jour')
+            ? 'Grue à tour immobilisée, intervention du mainteneur'
+            : (cause?.libelle ?? 'Aucune tâche mobilisable ce jour')
 
       releves.push({
         date,
@@ -339,7 +326,7 @@ export function simulerExecution(): Execution {
     type: 'RUPTURE_APPROVISIONNEMENT',
     gravite: 4,
     description:
-      'Rupture de stock du fournisseur d acier a beton. Aucune livraison de barres haute adherence ' +
+      'Rupture de stock du fournisseur d’acier à béton. Aucune livraison de barres haute adhérence ' +
       'pendant six jours. Le ferraillage des voiles et planchers est totalement interrompu.',
     impactDelaiJ: indiceJour(RUPTURE_ACIER.fin) - indiceJour(RUPTURE_ACIER.debut) + 1,
     impactCoutXof: 5_100_000,
@@ -354,8 +341,8 @@ export function simulerExecution(): Execution {
     type: 'PANNE_ENGIN',
     gravite: 3,
     description:
-      'Avarie du variateur de la grue a tour. Immobilisation pendant trois jours dans l attente ' +
-      'de la piece et de l intervention du mainteneur.',
+      'Avarie du variateur de la grue à tour. Immobilisation pendant trois jours dans l’attente ' +
+      'de la pièce et de l’intervention du mainteneur.',
     impactDelaiJ: 3,
     impactCoutXof: 4_200_000,
     statut: 'SOLDE',
@@ -414,8 +401,8 @@ function regrouperIntemperies(
       gravite: jours >= 4 ? 3 : jours >= 2 ? 2 : 1,
       description:
         jours === 1
-          ? `Journee d arret pour intemperie. ${premier.libelle}.`
-          : `Serie d intemperies sur ${jours} journees d arret. ${premier.libelle}.`,
+          ? `Journée d’arrêt pour intempérie. ${premier.libelle}.`
+          : `Série d’intempéries sur ${jours} journées d’arrêt. ${premier.libelle}.`,
       impactDelaiJ: jours,
       impactCoutXof: jours * 1_850_000,
       statut: 'SOLDE' as const,
@@ -430,8 +417,8 @@ const NON_CONFORMITES = [
     lot: '03',
     gravite: 3,
     description:
-      'Enrobage insuffisant des aciers sur trois semelles isolees de l axe C. Reprise par ' +
-      'ragreage et controle contradictoire demande par le bureau de controle.',
+      'Enrobage insuffisant des aciers sur trois semelles isolées de l’axe C. Reprise par ' +
+      'ragréage et contrôle contradictoire demandé par le bureau de contrôle.',
     cout: 2_400_000,
     resolu: '2026-05-04',
   },
@@ -440,8 +427,8 @@ const NON_CONFORMITES = [
     lot: '04',
     gravite: 2,
     description:
-      'Defaut de planeite du plancher haut du rez-de-chaussee, ecart de 18 mm sur une regle de ' +
-      'deux metres. Rattrapage prevu a la chape.',
+      'Défaut de planéité du plancher haut du rez-de-chaussée, écart de 18 mm sur une règle de ' +
+      'deux mètres. Rattrapage prévu à la chape.',
     cout: 1_150_000,
     resolu: '2026-06-18',
   },
@@ -450,8 +437,8 @@ const NON_CONFORMITES = [
     lot: '04',
     gravite: 3,
     description:
-      'Resistance a 28 jours insuffisante sur le prelevement du voile V12 du R+1, 24,3 MPa pour ' +
-      '25 MPa requis. Carottage et essai complementaire demandes.',
+      'Résistance à 28 jours insuffisante sur le prélèvement du voile V12 du R+1, 24,3 MPa pour ' +
+      '25 MPa requis. Carottage et essai complémentaire demandés.',
     cout: 3_800_000,
     resolu: '2026-08-08',
   },
@@ -460,8 +447,8 @@ const NON_CONFORMITES = [
     lot: '02',
     gravite: 2,
     description:
-      'Pente insuffisante sur trente metres du reseau d eaux usees entre les regards R4 et R5. ' +
-      'Repose du troncon exigee.',
+      'Pente insuffisante sur trente mètres du réseau d’eaux usées entre les regards R4 et R5. ' +
+      'Repose du tronçon exigé.',
     cout: 1_650_000,
     resolu: null,
   },
@@ -470,8 +457,8 @@ const NON_CONFORMITES = [
     lot: '04',
     gravite: 2,
     description:
-      'Fissuration de retrait sur l acrotere de la facade est. Traitement par pontage et ' +
-      'reprise d etancheite a prevoir.',
+      'Fissuration de retrait sur l’acrotère de la façade est. Traitement par pontage et ' +
+      'reprise d’étanchéité à prévoir.',
     cout: 890_000,
     resolu: null,
   },
@@ -497,13 +484,13 @@ function nonConformites(h: ReturnType<typeof hasard>): AleaSimule[] {
 /* -------------------------------------------------------------------------- */
 
 const OBSERVATIONS_NORMALES = [
-  'Journee sans incident.',
-  'Livraison de materiaux conforme au bon de commande.',
-  'Visite du bureau de controle, aucune reserve.',
-  'Reunion de chantier hebdomadaire tenue sur site.',
-  'Controle de reception des aciers avant coulage.',
-  'Essai d affaissement au cone realise, resultat conforme.',
-  'Nettoyage des acces et evacuation des gravats.',
+  'Journée sans incident.',
+  'Livraison de matériaux conforme au bon de commande.',
+  'Visite du bureau de contrôle, aucune réserve.',
+  'Réunion de chantier hebdomadaire tenue sur site.',
+  'Contrôle de réception des aciers avant coulage.',
+  'Essai d’affaissement au cône réalisé, résultat conforme.',
+  'Nettoyage des accès et évacuation des gravats.',
   null,
   null,
   null,
@@ -518,12 +505,12 @@ function redigerObservation(
   lot: string,
 ): string | null {
   if (!travaillee) {
-    if (rupture && lot === '04') return 'Chantier a l arret sur le lot, aucune barre disponible.'
-    if (panne && lot === '04') return 'Grue consignee, seules les taches au sol restent possibles.'
-    return `Arret de production. Precipitations relevees : ${m.precipitationsMm} mm.`
+    if (rupture && lot === '04') return 'Chantier à l’arrêt sur le lot, aucune barre disponible.'
+    if (panne && lot === '04') return 'Grue consignée, seules les tâches au sol restent possibles.'
+    return `Arrêt de production. Précipitations relevées : ${m.precipitationsMm} mm.`
   }
   if (m.precipitationsMm > 5) {
-    return `Pluie intermittente, ${m.precipitationsMm} mm. Production ralentie en fin de journee.`
+    return `Pluie intermittente, ${m.precipitationsMm} mm. Production ralentie en fin de journée.`
   }
   return h.choix(OBSERVATIONS_NORMALES)
 }
