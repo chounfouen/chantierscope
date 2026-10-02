@@ -951,15 +951,48 @@ bureau comme au telephone (`npm run test:e2e`, 8 parcours au vert) :
 | La vue lot chargeait un lot sans verifier qu'il appartenait au projet de l'adresse | Controle ajoute, page introuvable sinon |
 | Une variable d'environnement declaree vide faisait echouer la validation | Une variable vide vaut une variable absente, comme dans `.env.example` |
 
-#### Effet de la correction du cout sur la demonstration
+#### Le CPI compare desormais le cout reel au cout budgete
 
-Le CPI du projet passe de 0,984 a 1,034. Le double comptage gonflait le cout
-reel d'environ 24 millions de FCFA. Le modele de cout n'avait pas ete
-calibre (voir le sprint 2) ; la nouvelle valeur est la valeur juste au regard
-de ce modele. Les CPI par lot sont tous superieurs a 1 parce que les frais de
-chantier restent au niveau du projet, decision du sprint 3. Recaler les
-parametres du modele pour retrouver une derive de cout est une decision de
-conception, pas un correctif : elle est laissee ouverte.
+La correction du double comptage des aleas a fait passer le CPI de 0,984 a
+1,034, ce qui a conduit a examiner le modele de cout dans son principe. Deux
+erreurs, plus profondes qu'un parametre mal regle, en sont ressorties.
+
+1. **La valeur acquise etait comparee au cout reel au prix de vente.** Le
+   quantitatif est un bordereau de prix, marge comprise ; le cout reel est un
+   cout de revient. Un chantier execute exactement comme prevu aurait affiche
+   un CPI egal a l'inverse de la marge, au-dessus de un : l'indice mesurait
+   l'erosion de marge, pas la performance de cout. Le CPI rapporte desormais
+   le cout reel au cout budgete du travail realise, `k x VA`, ou `k` est le
+   coefficient de debourse, budget en cout sur budget en prix. EAC et VAC sont
+   exprimes au cout. Le SPI n'est pas concerne.
+2. **Le budget et l'execution ne partageaient pas les memes effectifs.** Le
+   peuplement simulait les equipes avec sa propre table par nature d'ouvrage,
+   divergente des affectations du planning (14 ouvriers au betonnage contre
+   une equipe de coffrage de 12). Une table unique, `EQUIPE_PAR_NATURE`, sert
+   maintenant aux deux. Le bruit d'effectif, decentre d'un demi-ouvrier par
+   lot et par jour, et la journee moyenne de 7,9 heures contre 8 au budget ont
+   ete recentres pour la meme raison : un biais de simulation se serait lu
+   comme un ecart de performance.
+
+Le budget de debourse applique au planning le modele meme du cout reel :
+materiaux, heures des equipes affectees jour par jour, encadrement au meme
+taux d'un encadrant pour douze ouvriers plus le chef de chantier, frais de
+chantier sur la duree contractuelle. Il fait apparaitre une marge
+previsionnelle de 14 % (coefficient de 0,859), plausible en batiment. Aucun parametre n'a
+ete ajuste pour viser une valeur.
+
+| Indicateur | Avant | Apres |
+|---|---|---|
+| CPI du projet | 1,034 | 0,892 |
+| Avancement, SPI, ecart de delai | inchanges | inchanges |
+
+La lecture est desormais causale. Les lots 02 et 03, acheves a l'heure,
+sortent sous un CPI de un a cause des aleas qu'ils ont portes, 3,5 et 6,1
+millions, que le budget ne provisionne pas. Au niveau du projet s'y ajoutent
+les frais de chantier des jours de retard. Le retard et les aleas coutent :
+c'est exactement ce que l'indicateur doit montrer. Le budget ne comporte pas
+de provision pour aleas ; l'ajouter serait la suite naturelle, a documenter
+comme limite dans le memoire.
 
 #### Ecarts par rapport au plan
 

@@ -1534,6 +1534,31 @@ export const RESSOURCES = [
   { type: 'MATERIEL', nom: 'Centrale a beton mobile', capacite: 1, cout: 320_000, unite: 'JOUR' },
 ] as const
 
+/**
+ * Equipe type de chaque nature d'ouvrage : ressource affectee et effectif.
+ *
+ * Source UNIQUE de l'effectif. Le planning en tire les affectations, dont
+ * l'application deduit le budget de debourse ; la simulation d'execution en
+ * tire l'effectif present sur le chantier. Deux tables distinctes avaient
+ * diverge, et le budget comparait alors un effectif prevu a un autre.
+ *
+ * Le levage mobilise en plus la grue, sans effectif propre.
+ */
+export const EQUIPE_PAR_NATURE: Record<Nature, { ressource: string; ouvriers: number }> = {
+  TERRASSEMENT: { ressource: 'Equipe terrassement', ouvriers: 8 },
+  VRD: { ressource: 'Equipe terrassement', ouvriers: 6 },
+  ENROBES: { ressource: 'Equipe terrassement', ouvriers: 8 },
+  FONDATION: { ressource: 'Equipe ferraillage', ouvriers: 12 },
+  BETONNAGE: { ressource: 'Equipe coffrage', ouvriers: 14 },
+  LEVAGE: { ressource: 'Equipe coffrage', ouvriers: 4 },
+  MACONNERIE: { ressource: 'Equipe maconnerie', ouvriers: 10 },
+  CHARPENTE: { ressource: 'Equipe coffrage', ouvriers: 8 },
+  ETANCHEITE: { ressource: 'Equipe finitions', ouvriers: 6 },
+  ENDUIT: { ressource: 'Equipe finitions', ouvriers: 12 },
+  INTERIEUR: { ressource: 'Equipe finitions', ouvriers: 10 },
+  SUPPORT: { ressource: 'Equipe terrassement', ouvriers: 5 },
+}
+
 /* -------------------------------------------------------------------------- */
 /* Zones du plan                                                              */
 /* -------------------------------------------------------------------------- */

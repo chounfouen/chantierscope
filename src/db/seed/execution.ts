@@ -18,12 +18,12 @@
  */
 
 import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns'
+import { encadrementNecessaire } from '@/db/compute/evm'
 import { naturesBloquees, causeArret } from '@/db/compute/meteo'
-import { DATE_ANALYSE, DATE_ORDRE_SERVICE } from '@/db/seed/catalogue'
+import { DATE_ANALYSE, DATE_ORDRE_SERVICE, EQUIPE_PAR_NATURE } from '@/db/seed/catalogue'
 import { hasard, GRAINE } from '@/db/seed/hasard'
 import { chargerMeteo, type JourneeMeteo } from '@/db/seed/meteo'
 import { calerPlanning, type Planning, type TachePlanning } from '@/db/seed/planning'
-import type { Nature } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
 /* Parametres du modele                                                       */
@@ -53,22 +53,6 @@ const RUPTURE_ACIER = { debut: '2026-06-15', fin: '2026-06-20' }
 
 /** Panne de la grue a tour. */
 const PANNE_GRUE = { debut: '2026-05-11', fin: '2026-05-13' }
-
-/** Effectif ouvrier type d'une tache, par nature d'ouvrage. */
-const EFFECTIF_NATURE: Record<Nature, number> = {
-  TERRASSEMENT: 8,
-  VRD: 6,
-  ENROBES: 8,
-  FONDATION: 12,
-  BETONNAGE: 14,
-  LEVAGE: 4,
-  MACONNERIE: 10,
-  CHARPENTE: 8,
-  ETANCHEITE: 6,
-  ENDUIT: 12,
-  INTERIEUR: 10,
-  SUPPORT: 5,
-}
 
 /* -------------------------------------------------------------------------- */
 /* Types produits                                                             */
@@ -281,7 +265,7 @@ export function simulerExecution(): Execution {
 
       if (lignesDuJour.length > 0) {
         etatLot.quantites.set(t.code, lignesDuJour)
-        etatLot.ouvriers += EFFECTIF_NATURE[t.nature]
+        etatLot.ouvriers += EQUIPE_PAR_NATURE[t.nature].ouvriers
       }
 
       if (achevee(t)) finReelle.set(t.code, j)
@@ -297,9 +281,12 @@ export function simulerExecution(): Execution {
 
       if (!journeeTravaillee) lotsArretes.add(lot)
 
-      const ouvriers = aProduit ? etat.ouvriers + h.entier(-2, 3) : 0
-      const encadrement = aProduit ? Math.ceil(ouvriers / 12) + 1 : 0
-      const heures = aProduit ? arrondi(Math.max(0, ouvriers) * h.entre(7.2, 8.6), 2) : 0
+      // Bruit centre : absences et renforts se compensent en moyenne. Un
+      // bruit decentre ferait apparaitre un ecart de cout que rien ne cause.
+      const ouvriers = aProduit ? etat.ouvriers + h.entier(-2, 2) : 0
+      const encadrement = aProduit ? encadrementNecessaire(ouvriers) : 0
+      // Journee moyenne de huit heures, celle que retient le budget.
+      const heures = aProduit ? arrondi(Math.max(0, ouvriers) * h.entre(7.4, 8.6), 2) : 0
 
       const motif = journeeTravaillee
         ? null

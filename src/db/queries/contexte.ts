@@ -102,6 +102,19 @@ export type JalonContexte = {
   dateReelle: string | null
 }
 
+/**
+ * Equipe affectee a une tache, en ouvriers. Base du budget de debourse : les
+ * heures planifiees d'une tache sont celles de l'equipe que le planning lui
+ * affecte, sur sa duree prevue.
+ */
+export type EquipePrevue = {
+  tacheId: string
+  lotId: string
+  ouvriers: number
+  dateDebut: string
+  dateFin: string
+}
+
 export type Contexte = {
   projet: ProjetContexte
   lots: LotContexte[]
@@ -112,6 +125,7 @@ export type Contexte = {
   moyens: MoyensJournaliers[]
   aleas: AleaContexte[]
   jalons: JalonContexte[]
+  equipes: EquipePrevue[]
 }
 
 /* -------------------------------------------------------------------------- */
@@ -119,7 +133,7 @@ export type Contexte = {
 /* -------------------------------------------------------------------------- */
 
 export async function chargerContexte(db: Db, projetId: string): Promise<Contexte> {
-  const [projets, lots, taches, liaisons, lignes, quantites, moyens, aleas, jalons] =
+  const [projets, lots, taches, liaisons, lignes, quantites, moyens, aleas, jalons, equipes] =
     await Promise.all([
       db.execute<ProjetContexte>(sql`
         select id, code, nom,
@@ -192,6 +206,18 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
                contractuel,
                date_prevue as "datePrevue", date_reelle as "dateReelle"
           from jalon where projet_id = ${projetId} order by ordre`),
+
+      // Un ouvrier est une personne entiere : l'effectif d'une equipe affectee
+      // est arrondi, comme il l'est sur le chantier.
+      db.execute<EquipePrevue>(sql`
+        select a.tache_id as "tacheId", t.lot_id as "lotId",
+               round(a.quantite * r.capacite)::int as ouvriers,
+               a.date_debut as "dateDebut", a.date_fin as "dateFin"
+          from affectation a
+          join ressource r on r.id = a.ressource_id
+          join tache t on t.id = a.tache_id
+          join lot l on l.id = t.lot_id
+         where l.projet_id = ${projetId} and r.type = 'EQUIPE'`),
     ])
 
   const projet = projets[0]
@@ -207,6 +233,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
     moyens: [...moyens],
     aleas: [...aleas],
     jalons: [...jalons],
+    equipes: [...equipes],
   }
 }
 

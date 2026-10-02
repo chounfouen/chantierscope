@@ -12,6 +12,16 @@
  *
  * Toutes les grandeurs sont en entiers de FCFA. Les indices sont sans unite.
  *
+ * BASE DE COMPARAISON DU COUT. Le quantitatif est un bordereau de PRIX : la
+ * valeur acquise est un chiffre d'affaires, marge comprise. Le cout reel est
+ * un cout de REVIENT. Diviser l'un par l'autre donnerait un CPI superieur a
+ * un a productivite nominale, de la valeur de la marge : on mesurerait
+ * l'erosion de marge, pas la performance de cout. Pour l'entreprise, la
+ * valeur acquise se compare au cout BUDGETE du travail realise, c'est-a-dire
+ * au debourse previsionnel. Le coefficient de debourse, rapport du budget en
+ * cout au budget en prix, fait la conversion. Le SPI n'est pas concerne :
+ * valeur planifiee et valeur acquise sont dans la meme base.
+ *
  * Les indices sont rendus NULS et non infinis quand leur denominateur est
  * nul. Un chantier qui n'a rien depense n'a pas un CPI infini : il n'a pas de
  * CPI. Renvoyer `Infinity` propagerait une valeur absurde jusqu'a l'affichage.
@@ -31,18 +41,25 @@ export type EntreeEvm = {
   montantMarcheXof: number
   /** Fraction du marche due par jour calendaire de retard. */
   tauxPenaliteJournaliere: number
+  /**
+   * Budget en cout sur budget en prix, voir `budgetDebourse`. Un, valeur par
+   * defaut, signifie que VA et BAC sont deja exprimes au cout.
+   */
+  coefficientDebourse?: number
 }
 
 export type IndicateursEvm = {
   bac: number
+  /** Budget a l'achevement exprime au cout : base de l'EAC et du VAC. */
+  bacCout: number
   vp: number
   va: number
   cr: number
-  /** Valeur acquise moins cout reel. Negatif : derive de cout. */
+  /** Valeur acquise au cout moins cout reel. Negatif : derive de cout. */
   ecartCout: number
   /** Valeur acquise moins valeur planifiee. Negatif : retard. */
   ecartDelaiValeur: number
-  /** Valeur acquise sur cout reel. Sous un : on paie plus cher que prevu. */
+  /** Valeur acquise au cout sur cout reel. Sous un : on paie plus cher que prevu. */
   cpi: number | null
   /** Valeur acquise sur valeur planifiee. Sous un : on avance moins vite. */
   spi: number | null
@@ -60,8 +77,11 @@ export type IndicateursEvm = {
 
 export function indicateurs(e: EntreeEvm): IndicateursEvm {
   const { bac, valeurPlanifiee: vp, valeurAcquise: va, coutReel: cr } = e
+  const k = e.coefficientDebourse ?? 1
+  const vaCout = va * k
+  const bacCout = Math.round(bac * k)
 
-  const cpi = cr > 0 ? va / cr : null
+  const cpi = cr > 0 ? vaCout / cr : null
   const spi = vp > 0 ? va / vp : null
 
   /**
@@ -73,9 +93,9 @@ export function indicateurs(e: EntreeEvm): IndicateursEvm {
    * difficultes sont derriere lui, optimiste sur un chantier dont les lots
    * les plus risques restent a venir.
    */
-  const eac = cpi !== null && cpi > 0 ? Math.round(bac / cpi) : null
+  const eac = cpi !== null && cpi > 0 ? Math.round(bacCout / cpi) : null
   const etc = eac === null ? null : eac - cr
-  const vac = eac === null ? null : bac - eac
+  const vac = eac === null ? null : bacCout - eac
 
   /**
    * Extrapolation de la duree par la performance de delai.
@@ -93,10 +113,11 @@ export function indicateurs(e: EntreeEvm): IndicateursEvm {
 
   return {
     bac,
+    bacCout,
     vp,
     va,
     cr,
-    ecartCout: va - cr,
+    ecartCout: Math.round(vaCout - cr),
     ecartDelaiValeur: va - vp,
     cpi,
     spi,
@@ -223,7 +244,51 @@ export const COUT = {
    * gardiennage, encadrement general. Independants de l'activite du jour.
    */
   fraisChantierJour: 300_000,
+  /** Duree de travail planifiee d'un ouvrier, en heures par jour. */
+  heuresParJour: 8,
+  /**
+   * Taux d'encadrement : un encadrant pour douze ouvriers, plus le chef de
+   * chantier du lot des qu'une equipe est presente.
+   */
+  ouvriersParEncadrant: 12,
 } as const
+
+/** Encadrants necessaires pour un effectif ouvrier donne, sur une journee. */
+export function encadrementNecessaire(ouvriers: number): number {
+  return ouvriers > 0 ? Math.ceil(ouvriers / COUT.ouvriersParEncadrant) + 1 : 0
+}
+
+export type EntreeBudgetDebourse = {
+  /** Budget de vente : somme des montants du quantitatif. */
+  budgetVenteXof: number
+  /** Heures ouvriers planifiees, d'apres les equipes affectees. */
+  heuresOuvrierPrevues: number
+  /** Journees d'encadrement planifiees, d'apres le meme taux. */
+  journeesEncadrementPrevues: number
+  /** Jours calendaires portant les frais de chantier ; zero pour un lot. */
+  joursFrais: number
+}
+
+/**
+ * Budget en cout, ou debourse previsionnel : le meme modele que `coutReel`,
+ * applique au travail PLANIFIE. C'est la condition pour que le CPI compare
+ * deux grandeurs de meme nature ; un budget etabli selon une autre structure
+ * de cout ferait apparaitre un ecart de methode comme un ecart de
+ * performance.
+ */
+export function budgetDebourse(e: EntreeBudgetDebourse): number {
+  return Math.round(
+    e.budgetVenteXof * COUT.partMateriaux +
+      e.heuresOuvrierPrevues * COUT.tauxHoraireOuvrier +
+      e.journeesEncadrementPrevues * COUT.coutJourEncadrement +
+      e.joursFrais * COUT.fraisChantierJour,
+  )
+}
+
+/** Coefficient de debourse : budget en cout sur budget en prix. */
+export function coefficientDebourse(budgetCoutXof: number, budgetVenteXof: number): number {
+  return budgetVenteXof > 0 ? budgetCoutXof / budgetVenteXof : 1
+}
 
 export type EntreeCoutReel = {
   /** Cumul des heures ouvriers relevees depuis l'ordre de service. */

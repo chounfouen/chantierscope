@@ -11,7 +11,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { dbScript } from '@/db/index'
 import { premierProjetId } from '@/db/queries/contexte'
 import { COUT } from '@/db/compute/evm'
-import { recompute } from '@/db/recompute'
+import { debourse, recompute } from '@/db/recompute'
+import { chargerContexte } from '@/db/queries/contexte'
 import { recalculerProjet, validerReleve } from '@/db/mutations/releve'
 
 const { db, client, fermer } = dbScript()
@@ -102,6 +103,25 @@ describe('idempotence', () => {
         group by 1, 2, 3 having count(*) > 1
       ) d`
     expect(Number(doublons[0]?.n)).toBe(0)
+  })
+})
+
+describe('budget de debourse', () => {
+  it('fait apparaitre une marge previsionnelle plausible pour un marche de batiment', async () => {
+    // Le coefficient est le budget en cout sur le budget en prix : son
+    // complement est la marge previsionnelle, entre 5 et 25 % en batiment.
+    const k = debourse(await chargerContexte(db, projetId))
+    expect(k.projet).toBeGreaterThan(0.75)
+    expect(k.projet).toBeLessThan(0.95)
+  })
+
+  it('chaque lot travaille a un coefficient propre, sans frais de chantier', async () => {
+    const k = debourse(await chargerContexte(db, projetId))
+    expect(k.parLot.size).toBe(8)
+    for (const v of k.parLot.values()) {
+      expect(v).toBeGreaterThan(0.58)
+      expect(v).toBeLessThan(k.projet + 0.2)
+    }
   })
 })
 

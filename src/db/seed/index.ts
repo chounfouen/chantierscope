@@ -24,6 +24,7 @@ import {
   POINTS_DE_VUE,
   PROJET,
   RESSOURCES,
+  EQUIPE_PAR_NATURE,
   ZONES,
 } from '@/db/seed/catalogue'
 import { simulerExecution } from '@/db/seed/execution'
@@ -252,29 +253,35 @@ async function peupler(): Promise<void> {
       .returning({ id: t.ressource.id, nom: t.ressource.nom })
     const idRessource = new Map(ressourcesInserees.map((r) => [r.nom, r.id]))
 
-    // Affectation simple : chaque tache mobilise la ressource type de sa nature.
-    const RESSOURCE_PAR_NATURE: Record<string, string> = {
-      TERRASSEMENT: 'Equipe terrassement',
-      VRD: 'Equipe terrassement',
-      ENROBES: 'Equipe terrassement',
-      FONDATION: 'Equipe ferraillage',
-      BETONNAGE: 'Equipe coffrage',
-      LEVAGE: 'Grue a tour 40 metres',
-      MACONNERIE: 'Equipe maconnerie',
-      CHARPENTE: 'Equipe coffrage',
-      ETANCHEITE: 'Equipe finitions',
-      ENDUIT: 'Equipe finitions',
-      INTERIEUR: 'Equipe finitions',
-      SUPPORT: 'Equipe terrassement',
-    }
+    // Chaque tache mobilise l'equipe type de sa nature, dimensionnee a son
+    // effectif : la quantite affectee est l'effectif rapporte a la capacite
+    // de l'equipe. Le levage mobilise en plus la grue.
+    const capacite = new Map<string, number>(RESSOURCES.map((r) => [r.nom, r.capacite as number]))
     await db.insert(t.affectation).values(
-      planning.taches.map((x) => ({
-        tacheId: idTache.get(x.code) as string,
-        ressourceId: idRessource.get(RESSOURCE_PAR_NATURE[x.nature] as string) as string,
-        quantite: 1,
-        dateDebut: jourDepuisOs(x.debut),
-        dateFin: jourDepuisOs(x.fin),
-      })),
+      planning.taches.flatMap((x) => {
+        const equipe = EQUIPE_PAR_NATURE[x.nature]
+        const commun = {
+          tacheId: idTache.get(x.code) as string,
+          dateDebut: jourDepuisOs(x.debut),
+          dateFin: jourDepuisOs(x.fin),
+        }
+        const affectations = [
+          {
+            ...commun,
+            ressourceId: idRessource.get(equipe.ressource) as string,
+            quantite:
+              Math.round((equipe.ouvriers / (capacite.get(equipe.ressource) ?? 1)) * 100) / 100,
+          },
+        ]
+        if (x.nature === 'LEVAGE') {
+          affectations.push({
+            ...commun,
+            ressourceId: idRessource.get('Grue a tour 40 metres') as string,
+            quantite: 1,
+          })
+        }
+        return affectations
+      }),
     )
 
     /* --- Zones -------------------------------------------------------------- */

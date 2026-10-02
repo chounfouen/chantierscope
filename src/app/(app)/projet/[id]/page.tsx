@@ -125,7 +125,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                 <Tuile
                   intitule="CPI — cout"
                   valeur={global.cpi === null ? '—' : indice(global.cpi)}
-                  precision="valeur acquise sur cout reel"
+                  precision="valeur acquise au coût budgété sur coût réel"
                   icone="cout"
                   ton={tonIndice(global.cpi)}
                 />
@@ -200,9 +200,10 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
             </div>
             {interne && (
               <p className="text-muted-foreground/80 mt-2 px-1 text-xs leading-relaxed">
-                Le cout reel est reconstitue a partir des heures relevees, des quantites mises en
-                oeuvre et du cout des aleas. Il ne remplace pas la comptabilite analytique de
-                l&apos;entreprise.
+                Le coût réel est reconstitué à partir des heures relevées, des quantités mises en
+                œuvre et du coût des aléas ; il ne remplace pas la comptabilité analytique de
+                l’entreprise. Le CPI le compare au coût budgété du travail réalisé, établi d’après
+                les équipes prévues au planning, et non au prix de vente, qui inclut la marge.
               </p>
             )}
           </section>

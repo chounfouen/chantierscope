@@ -21,7 +21,15 @@ import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns
 import { sql } from 'drizzle-orm'
 import { agreger, avancementPrevu, avancementTache } from '@/db/compute/avancement'
 import { calculerReseau } from '@/db/compute/cpm'
-import { COUT, coutReel, ecartDelaiJours, indicateurs } from '@/db/compute/evm'
+import {
+  budgetDebourse,
+  coefficientDebourse,
+  COUT,
+  coutReel,
+  ecartDelaiJours,
+  encadrementNecessaire,
+  indicateurs,
+} from '@/db/compute/evm'
 import type { Reseau, ResultatAvancement } from '@/db/compute/types'
 import type { db as instanceDb } from '@/db/index'
 import { chargerContexte, type Contexte } from '@/db/queries/contexte'
@@ -248,6 +256,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
   const courbeVp = consolides.map((i) => i.valeurPlanifieeXof)
 
   const ind = indicateurs({
+    coefficientDebourse: debourse(contexte).projet,
     bac: global.budget,
     valeurPlanifiee: vpFinale,
     valeurAcquise: global.valeurAcquise,
@@ -331,6 +340,7 @@ function construireInstantanes(
     budgetParLot.set(t.lotId, (budgetParLot.get(t.lotId) ?? 0) + budget)
   }
   const budgetTotal = [...budgetParLot.values()].reduce((a, b) => a + b, 0)
+  const k = debourse(contexte)
 
   /* Indexation par date des quantites, des moyens et des aleas. */
   const quantitesParDate = new Map<string, Contexte['quantites']>()
@@ -448,7 +458,7 @@ function construireInstantanes(
         valeurAcquiseXof: va,
         coutReelXof: cr,
         spi: vp > 0 ? arrondir(va / vp, 6) : null,
-        cpi: cr > 0 ? arrondir(va / cr, 6) : null,
+        cpi: cr > 0 ? arrondir((va * (k.parLot.get(lot.id) ?? 1)) / cr, 6) : null,
         dateFinProjetee: null,
       })
     }
@@ -474,7 +484,7 @@ function construireInstantanes(
       valeurAcquiseXof: vaTotal,
       coutReelXof: crProjet,
       spi: spi === null ? null : arrondir(spi, 6),
-      cpi: crProjet > 0 ? arrondir(vaTotal / crProjet, 6) : null,
+      cpi: crProjet > 0 ? arrondir((vaTotal * k.projet) / crProjet, 6) : null,
       dateFinProjetee,
     })
   }
@@ -554,6 +564,75 @@ async function ecrireInstantanes(
          valeur_acquise_xof, cout_reel_xof, spi, cpi, date_fin_projetee)
       values ${valeurs}`)
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Budget de debourse                                                         */
+/* -------------------------------------------------------------------------- */
+
+export type CoefficientsDebourse = {
+  /** Par lot : sans frais de chantier, comme le cout reel d'un lot. */
+  parLot: Map<string, number>
+  /** Projet : frais de chantier compris sur la duree contractuelle. */
+  projet: number
+}
+
+/**
+ * Coefficients de debourse du projet et de chaque lot.
+ *
+ * Les heures planifiees viennent des equipes affectees aux taches, jour par
+ * jour sur leur duree prevue ; l'encadrement planifie applique le taux
+ * d'encadrement a l'effectif de chaque lot et de chaque jour, comme le
+ * releve reel. Budget et cout reel suivent ainsi exactement la meme
+ * structure : seule la performance peut les ecarter.
+ *
+ * Fonction pure du contexte, exportee pour les tests.
+ */
+export function debourse(contexte: Contexte): CoefficientsDebourse {
+  const lotParTache = new Map(contexte.taches.map((t) => [t.id, t.lotId]))
+  const venteParLot = new Map<string, number>()
+  for (const l of contexte.lignes) {
+    const lotId = lotParTache.get(l.tacheId)
+    if (!lotId) continue
+    venteParLot.set(lotId, (venteParLot.get(lotId) ?? 0) + l.quantitePrevue * l.prixUnitaireXof)
+  }
+
+  /* Effectif planifie par lot et par jour. */
+  const ouvriersLotJour = new Map<string, Map<string, number>>()
+  for (const e of contexte.equipes) {
+    const parJour = ouvriersLotJour.get(e.lotId) ?? new Map<string, number>()
+    const fin = parseISO(e.dateFin)
+    for (let d = parseISO(e.dateDebut); d <= fin; d = addDays(d, 1)) {
+      const cle = formatISO(d, { representation: 'date' })
+      parJour.set(cle, (parJour.get(cle) ?? 0) + e.ouvriers)
+    }
+    ouvriersLotJour.set(e.lotId, parJour)
+  }
+
+  const parLot = new Map<string, number>()
+  let coutProjet = 0
+  let venteProjet = 0
+  for (const lot of contexte.lots) {
+    const vente = venteParLot.get(lot.id) ?? 0
+    const jours = [...(ouvriersLotJour.get(lot.id)?.values() ?? [])]
+    const cout = budgetDebourse({
+      budgetVenteXof: vente,
+      heuresOuvrierPrevues: jours.reduce((s, o) => s + o * COUT.heuresParJour, 0),
+      journeesEncadrementPrevues: jours.reduce((s, o) => s + encadrementNecessaire(o), 0),
+      joursFrais: 0,
+    })
+    parLot.set(lot.id, coefficientDebourse(cout, vente))
+    coutProjet += cout
+    venteProjet += vente
+  }
+  coutProjet += budgetDebourse({
+    budgetVenteXof: 0,
+    heuresOuvrierPrevues: 0,
+    journeesEncadrementPrevues: 0,
+    joursFrais: contexte.projet.dureeContractuelleJ,
+  })
+
+  return { parLot, projet: coefficientDebourse(coutProjet, venteProjet) }
 }
 
 /* -------------------------------------------------------------------------- */
