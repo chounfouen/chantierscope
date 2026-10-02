@@ -53,6 +53,8 @@ export type TacheContexte = {
   dateDebutPrevue: string
   dateFinPrevue: string
   dureePrevueJ: number
+  /** Contrainte « pas avant » posee a la main, nulle sinon. */
+  debutImpose: string | null
   /** Vrai pour une tache feuille, c'est-a-dire porteuse de quantitatif. */
   feuille: boolean
 }
@@ -157,6 +159,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
                t.date_debut_prevue  as "dateDebutPrevue",
                t.date_fin_prevue    as "dateFinPrevue",
                t.duree_prevue_j     as "dureePrevueJ",
+               t.debut_impose       as "debutImpose",
                (t.parent_id is not null) as feuille
           from tache t join lot l on l.id = t.lot_id
          where l.projet_id = ${projetId}

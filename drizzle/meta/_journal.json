@@ -29,6 +29,20 @@
       "when": 1790907430635,
       "tag": "0003_gel_releve_valide",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790923353669,
+      "tag": "0004_planning_editable_scenarios",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790923368417,
+      "tag": "0005_audit_liaison",
+      "breakpoints": true
     }
   ]
 }

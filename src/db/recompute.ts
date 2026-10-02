@@ -211,7 +211,11 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
   /* --- Reseau : marges et criticite --------------------------------------- */
 
   const reseau: Reseau = {
-    taches: feuilles.map((t) => ({ id: t.id, duree: t.dureePrevueJ })),
+    taches: feuilles.map((t) => ({
+      id: t.id,
+      duree: t.dureePrevueJ,
+      ...(t.debutImpose !== null ? { debutImpose: jourDepuis(origine, t.debutImpose) } : {}),
+    })),
     liaisons: liaisons.map((l) => ({
       amont: l.amont,
       aval: l.aval,

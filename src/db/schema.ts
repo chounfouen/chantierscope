@@ -256,6 +256,12 @@ export const tache = pgTable(
     dureePrevueJ: integer().notNull(),
     dateDebutReelle: date(),
     dateFinReelle: date(),
+    /**
+     * Contrainte « pas avant » posee par le conducteur de travaux. Source de
+     * verite : le recalage du planning la respecte au lieu de l'effacer. Les
+     * dates prevues en decoulent, par le calcul au plus tot du reseau.
+     */
+    debutImpose: date(),
 
     /* --- Cache recalculable. Reconstructible par recompute(). --------------- */
 
@@ -594,6 +600,32 @@ export const alea = pgTable(
   ],
 )
 
+/**
+ * Scenario de simulation enregistre, pour etre presente en reunion de
+ * chantier. Seules les hypotheses sont conservees : le resultat est un
+ * calcul a la volee, refait a chaque affichage sur le planning du moment,
+ * et ne doit jamais etre ecrit en base.
+ */
+export const scenarioSimulation = pgTable(
+  'scenario_simulation',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    nom: text().notNull(),
+    description: text(),
+    /** Liste de perturbations : tache, decalage et allongement en jours. */
+    perturbations: jsonb().notNull(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('scenario_projet_idx').on(t.projetId, t.creeLe),
+    check('scenario_nom_non_vide', sql`length(trim(${t.nom})) > 0`),
+  ],
+)
+
 export const ressource = pgTable(
   'ressource',
   {
@@ -745,6 +777,7 @@ export type Photo = typeof photo.$inferSelect
 export type PointDeVue = typeof pointDeVue.$inferSelect
 export type Ressource = typeof ressource.$inferSelect
 export type Affectation = typeof affectation.$inferSelect
+export type ScenarioSimulation = typeof scenarioSimulation.$inferSelect
 export type SnapshotAvancement = typeof snapshotAvancement.$inferSelect
 export type Utilisateur = typeof utilisateur.$inferSelect
 

@@ -63,7 +63,13 @@ const TABLES_A_VIDER = [
   'utilisateur',
 ]
 
-const TABLES_AUDITEES = ['releve_journalier', 'releve_quantite', 'ligne_quantitatif', 'tache']
+const TABLES_AUDITEES = [
+  'releve_journalier',
+  'releve_quantite',
+  'ligne_quantitatif',
+  'tache',
+  'liaison',
+]
 
 const jourDepuisOs = (n: number): string =>
   formatISO(addDays(parseISO(DATE_ORDRE_SERVICE), n), { representation: 'date' })
