@@ -9,7 +9,7 @@
  * L'application de ces regles a une session vit dans `garde.ts`.
  */
 
-import type { Role } from '@/db/schema'
+import type { Role, StatutReleve } from '@/db/schema'
 
 export type Utilisateur = {
   id: string
@@ -94,6 +94,36 @@ export function verifierAcces(
   }
   if (!rattacheAuProjet(utilisateur, projetId)) {
     throw new NonAutorise('ce projet n est pas accessible a cet utilisateur')
+  }
+}
+
+/**
+ * Circuit de validation d'un releve journalier.
+ *
+ *   BROUILLON -> SOUMIS -> VALIDE -> RECTIFIE
+ *
+ * Un releve se modifie tant qu'il n'est pas valide. Une fois valide il est
+ * GELE : la base refuse toute modification, et une correction passe par un
+ * releve rectificatif qui le remplace et le fait passer a `RECTIFIE`. Un
+ * releve rectifie n'admet plus aucune action, il reste comme trace.
+ *
+ * La rectification est reservee aux roles qui valident : elle produit
+ * directement un releve valide, et engage donc autant qu'une validation.
+ */
+export type ActionReleve = 'modifier' | 'soumettre' | 'valider' | 'rectifier'
+
+export function actionsSurReleve(statut: StatutReleve, role: Role): ActionReleve[] {
+  const saisit = habilite(role, PEUT_SAISIR)
+  const valide = habilite(role, PEUT_VALIDER)
+  switch (statut) {
+    case 'BROUILLON':
+      return saisit ? ['modifier', 'soumettre'] : []
+    case 'SOUMIS':
+      return [...(saisit ? (['modifier'] as const) : []), ...(valide ? (['valider'] as const) : [])]
+    case 'VALIDE':
+      return valide ? ['rectifier'] : []
+    case 'RECTIFIE':
+      return []
   }
 }
 

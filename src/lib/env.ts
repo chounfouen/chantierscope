@@ -52,7 +52,7 @@ let cache: Env | undefined
 export function env(): Env {
   if (cache) return cache
 
-  const resultat = Schema.safeParse(process.env)
+  const resultat = Schema.safeParse(sansValeursVides(process.env))
   if (!resultat.success) {
     const details = resultat.error.issues
       .map((issue) => `  ${issue.path.join('.')} : ${issue.message}`)
@@ -65,6 +65,20 @@ export function env(): Env {
 
   cache = resultat.data
   return cache
+}
+
+/**
+ * Une variable declaree vide vaut une variable absente.
+ *
+ * `.env.example` declare chaque variable, y compris celles reservees a la
+ * production, avec une valeur vide. Sans cette equivalence, recopier
+ * l'exemple comme le demande le message d'erreur ferait echouer la
+ * validation des variables optionnelles typees, comme une URL.
+ */
+function sansValeursVides(brut: NodeJS.ProcessEnv): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(brut).filter((e): e is [string, string] => e[1] !== undefined && e[1] !== ''),
+  )
 }
 
 /** Vrai en developpement local. Sert a n'exposer certains outils qu'en local. */
