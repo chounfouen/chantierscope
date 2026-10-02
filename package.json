@@ -25,7 +25,8 @@
     "db:check": "tsx --env-file=.env.local src/db/verifier.ts",
     "db:meteo": "tsx --env-file=.env.local src/db/seed/meteo.ts",
     "db:empreinte": "tsx --env-file=.env.local scripts/empreinte.ts",
-    "db:recalcul": "tsx --env-file=.env.local scripts/recalculer.ts"
+    "db:recalcul": "tsx --env-file=.env.local scripts/recalculer.ts",
+    "test:e2e": "next build && playwright test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -52,6 +53,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.0",
     "@types/react": "^19",

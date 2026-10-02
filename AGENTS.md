@@ -46,6 +46,7 @@ la reference : suivre l'ordre des sprints, ne pas anticiper.
 ```
 npm run dev          serveur de developpement
 npm run verifier     typecheck + lint + emoji + tests — a lancer avant commit
+npm run test:e2e     construction puis parcours Playwright, sur la base de test
 npm run db:generate  genere une migration depuis le schema
 npm run db:migrate   applique les migrations
 npm run db:studio    explorateur de base

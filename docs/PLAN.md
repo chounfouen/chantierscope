@@ -895,3 +895,87 @@ passer.
 - La separation des roles : le chef de chantier saisit, le conducteur valide.
 - L'episode du test dependant de la date, exemple d'un test vert qui ne
   prouvait rien.
+
+
+### Sprint 5 — Saisie journaliere : termine
+
+Critere d'achevement atteint, et demontre par les parcours Playwright au
+bureau comme au telephone (`npm run test:e2e`, 8 parcours au vert) :
+
+- une saisie faite sans reseau est gardee sur le telephone puis apparait en
+  base au retour de la connexion ;
+- un releve valide ne peut plus etre modifie, et la base elle-meme le refuse ;
+- l'avancement du projet bouge des la validation.
+
+`npm run verifier` passe avec 475 tests.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/lib/releve.ts` | Schemas Zod par etape, partages entre navigateur et serveur |
+| `src/lib/releve-formulaire.ts` | Etat du formulaire et conversion en releve, sans React |
+| `src/db/compute/saisie.ts` | Controle d'une quantite face au prevu, au cumul valide et au cumul en attente |
+| `src/db/mutations/releve.ts` | Enregistrement idempotent, rectification, refus metier explicites |
+| `drizzle/0003_gel_releve_valide.sql` | Gel d'un releve valide et de ses quantites, par declencheur |
+| `src/app/api/projet/[id]/releves/route.ts` | Point d'entree unique des envois, direct ou depuis la file |
+| `src/components/saisie/` | Formulaire en etapes, journal, fiche, file d'attente |
+| `src/lib/hors-ligne/` | Classement des issues d'envoi, file IndexedDB, synchronisation |
+| `public/sw.js` | Service worker : pages en reseau d'abord, ressources en cache d'abord |
+| `src/services/stockage.ts` | Magasin de photos : Supabase en production, disque signe en local |
+| `e2e/` | Parcours Playwright |
+
+#### Decisions prises a ce sprint
+
+| Decision | Motif |
+|---|---|
+| L'identifiant d'un releve est genere par le navigateur | Il rend l'envoi idempotent : un releve renvoye apres une reponse perdue retrouve sa ligne au lieu d'en creer une seconde. Genere dans la page et non par le serveur, faute de quoi une page servie depuis le cache donnerait le meme identifiant a deux saisies |
+| Saisie par gestionnaire de route, validation par Server Action | L'identifiant d'une Server Action change a chaque construction : un releve reste en file pendant un redeploiement ne pourrait plus l'appeler. La validation, elle, ne se fait qu'en ligne |
+| Gel porte par un declencheur, code d'erreur `CS001` | Une regle que la base peut garantir ne doit pas dependre de la discipline des mutations futures |
+| Rectification validee d'emblee, reservee aux roles qui valident | Le rectificatif engage autant qu'une validation ; un passage par « soumis » ferait disparaitre la journee des indicateurs jusqu'a la validation |
+| Un depassement de quantite est signale, pas refuse | Le refuser pousserait a saisir une quantite fausse pour passer le controle. L'avancement reste plafonne par le noyau |
+| L'alerte de depassement compte aussi les releves en attente | Deux releves non valides, chacun sous le prevu, peuvent le depasser ensemble |
+| Trois issues d'envoi : enregistre, refuse, reporte | Seul un releve que le serveur n'a pas pu juger est rejoue. Un refus est garde avec son motif, jamais renvoye en boucle |
+| File cloisonnee par utilisateur | Sur un telephone partage, un releve ne doit pas partir sous la session du suivant |
+| Pages en cache effacees au passage par la connexion | Elles portent les donnees du compte connecte |
+| Photos compressees a la selection, metadonnees EXIF effacees | Le reseau de chantier, et la position GPS qui n'a pas a quitter le telephone |
+| Journal reserve aux roles qui voient les donnees internes | Il porte les effectifs et les heures |
+
+#### Defauts trouves et corriges en chemin
+
+| Defaut | Correction |
+|---|---|
+| Un alea rattache a un lot etait compte dans le cout du lot ET ajoute au cout du projet | Seuls les aleas sans lot s'ajoutent au projet. Test d'agregat ajoute |
+| `Date.parse` acceptait le 30 fevrier, reporte au 2 mars | Verification par aller-retour, revelee par un test |
+| En production, un refus d'acces s'affichait comme une panne : React masque le message des erreurs serveur | Garde de page `exigerPage`, qui redirige vers un ecran « Acces refuse » |
+| La vue lot chargeait un lot sans verifier qu'il appartenait au projet de l'adresse | Controle ajoute, page introuvable sinon |
+| Une variable d'environnement declaree vide faisait echouer la validation | Une variable vide vaut une variable absente, comme dans `.env.example` |
+
+#### Effet de la correction du cout sur la demonstration
+
+Le CPI du projet passe de 0,984 a 1,034. Le double comptage gonflait le cout
+reel d'environ 24 millions de FCFA. Le modele de cout n'avait pas ete
+calibre (voir le sprint 2) ; la nouvelle valeur est la valeur juste au regard
+de ce modele. Les CPI par lot sont tous superieurs a 1 parce que les frais de
+chantier restent au niveau du projet, decision du sprint 3. Recaler les
+parametres du modele pour retrouver une derive de cout est une decision de
+conception, pas un correctif : elle est laissee ouverte.
+
+#### Ecarts par rapport au plan
+
+| Ecart | Raison |
+|---|---|
+| Pas de `react-hook-form` | Le formulaire tient en un etat simple converti par une fonction pure testee ; la bibliotheque n'aurait rien ajoute |
+| Photos ajoutables a un releve deja valide | Une photo documente la journee sans modifier ce que le releve engage |
+| `experimental.useOffline` de Next non retenu | Il rejoue une requete en memoire, perdue a la fermeture de l'onglet. La file IndexedDB survit au redemarrage du telephone |
+
+#### Matiere pour le memoire produite a ce sprint
+
+- Le gel par declencheur, et son test : la base refuse une modification que
+  l'application aurait pu oublier d'interdire.
+- L'idempotence par identifiant genere dans le navigateur, et le piege du
+  cache qui l'aurait cassee.
+- Le classement des issues d'envoi en trois categories, base de toute file
+  hors ligne honnete.
+- Le double comptage des aleas, trouve par un test d'integration de la
+  saisie et non par une relecture.
