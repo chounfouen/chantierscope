@@ -262,6 +262,38 @@
   }
 
   /**
+   * Champ de formulaire commun : bord epais, coins arrondis, foyer a la
+   * couleur de la marque. Les filtres et les formulaires de bureau
+   * l'emploient tel quel ; la saisie de terrain a sa version agrandie.
+   */
+  .champ {
+    @apply border-input bg-card placeholder:text-muted-foreground h-11 w-full min-w-0 rounded-xl border-2 px-3.5 text-[0.9375rem] font-semibold transition-colors outline-none;
+  }
+  .champ:hover:not(:disabled):not(:focus-visible) {
+    @apply border-foreground/25;
+  }
+  .champ:focus-visible {
+    @apply border-marque ring-marque/20 ring-4 ring-offset-0;
+  }
+  .champ[aria-invalid='true'] {
+    @apply border-destructive ring-destructive/20 ring-4;
+  }
+  .champ:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  textarea.champ {
+    @apply h-auto min-h-24 py-2.5 leading-relaxed;
+  }
+  .champ-compact {
+    @apply h-10 px-3 text-sm;
+  }
+
+  /* Libelle de champ : court, en gras, au-dessus du champ. */
+  .libelle-champ {
+    @apply text-foreground/80 text-[0.8125rem] font-bold;
+  }
+
+  /**
    * Bandeau d en-tete de section : un filet superieur teinte, qui structure
    * la page sans ajouter de trait horizontal supplementaire.
    */

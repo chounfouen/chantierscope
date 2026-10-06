@@ -62,7 +62,7 @@ export function Comparateur({ photos, nom }: { photos: readonly PhotoAffichee[];
         id={id}
         value={valeur}
         onChange={(e) => changer(e.target.value)}
-        className="border-input bg-background rounded-md border px-2 py-1 text-xs"
+        className="champ champ-compact w-auto"
       >
         {photos.map((p) => (
           <option key={p.id} value={p.id}>
@@ -243,7 +243,7 @@ export function Timeline({
                   type="button"
                   onClick={() => setComparer(comparer === cle ? null : cle)}
                   aria-pressed={comparer === cle}
-                  className="border-input hover:bg-accent mt-3 rounded-md border px-2.5 py-1 text-xs font-medium"
+                  className="relief bg-card border-input mt-3 h-9 rounded-xl border-2 px-3 text-xs font-bold [--relief:var(--input)]"
                 >
                   {comparer === cle ? 'Revenir au curseur' : 'Comparer deux dates'}
                 </button>

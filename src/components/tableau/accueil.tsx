@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Grue } from '@/components/coquille/grue'
 import { AnneauProgression } from '@/components/indicateurs/anime'
 import { Icone, type NomIcone } from '@/lib/icones'
 import { pourcent } from '@/lib/format'
@@ -33,7 +34,7 @@ export function Accueil({
           'linear-gradient(135deg, var(--marque-douce) 0%, var(--card) 55%, var(--soleil-doux) 140%)',
       }}
     >
-      <Grue />
+      <Grue className="absolute -bottom-8 hidden h-52 xl:block" style={{ right: '13rem' }} />
       <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <p className="text-marque text-sm font-extrabold">{salutation}</p>
@@ -81,26 +82,5 @@ export function Accueil({
         </div>
       </div>
     </section>
-  )
-}
-
-/** Silhouette de grue a tour, en filigrane : la signature du chantier. */
-function Grue() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 220 200"
-      className="text-marque pointer-events-none absolute -bottom-8 hidden h-52 opacity-[0.06] xl:block"
-      style={{ right: '13rem' }}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M120 200V40M100 200V40M100 40h20M100 70l20 20M120 70l-20 20M100 110l20 20M120 110l-20 20M100 150l20 20M120 150l-20 20" />
-      <path d="M20 40h195M110 40V10M110 10L20 40M110 10l105 30M180 40v40M172 80h16v14h-16z" />
-      <path d="M30 40v22h30V40" />
-    </svg>
   )
 }

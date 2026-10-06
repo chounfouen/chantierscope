@@ -98,8 +98,7 @@ export default async function JournalDeChantier({
     parDate.set(e.date, liste)
   }
 
-  const champ =
-    'border-input bg-background h-10 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40'
+  const champ = 'champ champ-compact'
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -150,8 +149,8 @@ export default async function JournalDeChantier({
       {peutSaisir && <FileAttente projetId={id} utilisateurId={utilisateur.id} />}
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-2" aria-label="Filtres">
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Lot</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Lot</span>
           <select name="lot" defaultValue={filtres.lotId ?? ''} className={champ}>
             <option value="">Tous les lots</option>
             {referentiel.lots.map((l) => (
@@ -161,16 +160,16 @@ export default async function JournalDeChantier({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Du</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Du</span>
           <input type="date" name="du" defaultValue={filtres.du ?? ''} className={champ} />
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Au</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Au</span>
           <input type="date" name="au" defaultValue={filtres.au ?? ''} className={champ} />
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Statut</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Statut</span>
           <select name="statut" defaultValue={filtres.statut ?? ''} className={champ}>
             <option value="">Tous</option>
             {statutReleve.enumValues.map((s) => (

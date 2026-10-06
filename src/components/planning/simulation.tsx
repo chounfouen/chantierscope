@@ -30,8 +30,7 @@ import { Icone } from '@/lib/icones'
 
 type Ligne = { cle: number; tacheId: string; decalageJ: string; allongementJ: string }
 
-const CHAMP =
-  'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40'
+const CHAMP = 'champ champ-compact'
 
 export function Simulation({
   projetId,
@@ -122,7 +121,7 @@ export function Simulation({
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <section aria-labelledby="titre-scenario" className="rounded-xl border p-4">
-          <h2 id="titre-scenario" className="text-sm font-medium">
+          <h2 id="titre-scenario" className="text-base font-extrabold">
             Scénario
           </h2>
           <p className="text-muted-foreground mt-1 text-xs">
@@ -136,7 +135,7 @@ export function Simulation({
                   aria-label="Tâche perturbée"
                   value={l.tacheId}
                   onChange={(e) => modifierLigne(l.cle, { tacheId: e.target.value })}
-                  className={CHAMP}
+                  className={`${CHAMP} self-end`}
                 >
                   <option value="">Choisir une tâche</option>
                   {taches.map((t) => (
@@ -146,8 +145,8 @@ export function Simulation({
                     </option>
                   ))}
                 </select>
-                <label className="grid gap-0.5 text-xs">
-                  <span className="text-muted-foreground">Retard (j)</span>
+                <label className="grid gap-1.5 text-xs">
+                  <span className="libelle-champ">Retard (j)</span>
                   <input
                     type="number"
                     min={0}
@@ -157,8 +156,8 @@ export function Simulation({
                     className={CHAMP}
                   />
                 </label>
-                <label className="grid gap-0.5 text-xs">
-                  <span className="text-muted-foreground">Allongement (j)</span>
+                <label className="grid gap-1.5 text-xs">
+                  <span className="libelle-champ">Allongement (j)</span>
                   <input
                     type="number"
                     min={0}
@@ -173,7 +172,7 @@ export function Simulation({
                   aria-label="Retirer cette perturbation"
                   disabled={lignes.length === 1}
                   onClick={() => setLignes(lignes.filter((x) => x.cle !== l.cle))}
-                  className="hover:bg-accent text-muted-foreground grid size-10 place-items-center self-end rounded-lg disabled:opacity-40"
+                  className="hover:bg-accent text-muted-foreground grid size-11 place-items-center self-end rounded-xl disabled:opacity-40"
                 >
                   <Icone.supprimer className="size-4" />
                 </button>
@@ -183,7 +182,7 @@ export function Simulation({
           <Button
             type="button"
             variant="outline"
-            className="mt-2 h-9"
+            className="mt-2"
             onClick={() =>
               setLignes([
                 ...lignes,
@@ -203,7 +202,7 @@ export function Simulation({
 
         {peutEnregistrer && (
           <section aria-labelledby="titre-enregistrer" className="rounded-xl border p-4">
-            <h2 id="titre-enregistrer" className="text-sm font-medium">
+            <h2 id="titre-enregistrer" className="text-base font-extrabold">
               Enregistrer le scénario
             </h2>
             <form
@@ -241,11 +240,11 @@ export function Simulation({
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className={`${CHAMP} h-auto py-2`}
+                className={CHAMP}
               />
               <Button
                 type="submit"
-                className="h-9"
+
                 disabled={enCours || perturbations.length === 0}
               >
                 Enregistrer
@@ -296,7 +295,7 @@ export function Simulation({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <section aria-labelledby="titre-jalons" className="rounded-xl border p-4">
-              <h2 id="titre-jalons" className="text-sm font-medium">
+              <h2 id="titre-jalons" className="text-base font-extrabold">
                 Jalons
               </h2>
               <table className="mt-2 w-full text-sm">
@@ -346,7 +345,7 @@ export function Simulation({
             </section>
 
             <section aria-labelledby="titre-critiques" className="rounded-xl border p-4">
-              <h2 id="titre-critiques" className="text-sm font-medium">
+              <h2 id="titre-critiques" className="text-base font-extrabold">
                 Effet sur le chemin critique
               </h2>
               {resultat.devenuesCritiques.length === 0 && resultat.liberees.length === 0 ? (
@@ -387,7 +386,7 @@ export function Simulation({
           </div>
 
           <section aria-labelledby="titre-superposition" className="space-y-2">
-            <h2 id="titre-superposition" className="text-sm font-medium">
+            <h2 id="titre-superposition" className="text-base font-extrabold">
               Planning simulé, référence en pointillés
             </h2>
             <Gantt
@@ -408,14 +407,14 @@ export function Simulation({
 
       {scenarios.length > 0 && (
         <section aria-labelledby="titre-scenarios" className="rounded-xl border p-4">
-          <h2 id="titre-scenarios" className="text-sm font-medium">
+          <h2 id="titre-scenarios" className="text-base font-extrabold">
             Scénarios enregistrés
           </h2>
           <ul className="mt-2 divide-y">
             {scenarios.map((s) => (
               <li key={s.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{s.nom}</p>
+                  <p className="text-sm font-bold">{s.nom}</p>
                   <p className="text-muted-foreground text-xs">
                     {s.perturbations
                       .map(

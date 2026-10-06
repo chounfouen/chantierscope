@@ -28,8 +28,7 @@ import { LIBELLE_LIAISON, type DonneesGantt } from '@/lib/gantt-donnees'
 import { ETAT } from '@/lib/etats'
 import { Icone } from '@/lib/icones'
 
-const CHAMP =
-  'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40'
+const CHAMP = 'champ champ-compact'
 
 export function PlanningInteractif({
   projetId,
@@ -211,10 +210,10 @@ function Panneau({
             executer(() => modifierTacheAction({ projetId, tacheId: id, ...modifs }))
           }}
         >
-          <p className="text-xs font-medium">Modifier la tâche</p>
+          <p className="text-sm font-bold">Modifier la tâche</p>
           <div className="grid grid-cols-2 gap-2">
-            <label className="grid gap-1 text-xs">
-              <span className="text-muted-foreground">Durée (jours)</span>
+            <label className="grid gap-1.5 text-xs">
+              <span className="libelle-champ">Durée (jours)</span>
               <input
                 type="number"
                 min={1}
@@ -224,8 +223,8 @@ function Panneau({
                 className={CHAMP}
               />
             </label>
-            <label className="grid gap-1 text-xs">
-              <span className="text-muted-foreground">Pas avant le</span>
+            <label className="grid gap-1.5 text-xs">
+              <span className="libelle-champ">Pas avant le</span>
               <input
                 type="date"
                 min={donnees.origine}
@@ -236,14 +235,14 @@ function Panneau({
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" className="h-9" disabled={enCours}>
+            <Button type="submit" disabled={enCours}>
               Recaler le planning
             </Button>
             {e.contrainte && (
               <Button
                 type="button"
                 variant="outline"
-                className="h-9"
+
                 disabled={enCours}
                 onClick={() =>
                   executer(() => modifierTacheAction({ projetId, tacheId: id, debutImpose: null }))
@@ -257,13 +256,13 @@ function Panneau({
       )}
 
       <div className="space-y-1.5 border-t pt-3">
-        <p className="text-xs font-medium">Prédécesseurs</p>
+        <p className="text-sm font-bold">Prédécesseurs</p>
         {entrantes.length === 0 ? (
           <p className="text-muted-foreground text-xs">Aucun.</p>
         ) : (
           <ul className="space-y-1.5">{entrantes.map((l) => ligneLiaison(l, l.amontId))}</ul>
         )}
-        <p className="pt-1 text-xs font-medium">Successeurs</p>
+        <p className="pt-1 text-sm font-bold">Successeurs</p>
         {sortantes.length === 0 ? (
           <p className="text-muted-foreground text-xs">Aucun.</p>
         ) : (
@@ -290,7 +289,7 @@ function Panneau({
             )
           }}
         >
-          <p className="text-xs font-medium">Ajouter une liaison</p>
+          <p className="text-sm font-bold">Ajouter une liaison</p>
           <select
             aria-label="Sens de la liaison"
             value={nouvelle.sens}
@@ -340,7 +339,7 @@ function Panneau({
           <Button
             type="submit"
             variant="outline"
-            className="h-9"
+
             disabled={enCours || !nouvelle.autre}
           >
             Ajouter la liaison
