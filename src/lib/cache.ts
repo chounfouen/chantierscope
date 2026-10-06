@@ -22,15 +22,32 @@ export const etiquetteProjet = (projetId: string) => `projet:${projetId}`
 /** Filet de securite : une entree oubliee par une invalidation vit une heure. */
 const DUREE_MAX_S = 3600
 
+/**
+ * Lectures mises en cache, chacune avec la VERSION de la forme de son
+ * resultat. Le cache survit aux redemarrages et aux deploiements, et sa cle
+ * ne change pas quand le code change : une lecture qui gagne un champ
+ * servirait sinon l'ancien resultat, sans ce champ, jusqu'a une heure. Toute
+ * modification de la forme d'une lecture incremente sa version.
+ */
+const LECTURES = {
+  synthese: 1,
+  tableau: 1,
+  analyses: 1,
+  // 2 : fonds de plan importes, champ `plans`.
+  plan: 2,
+} as const
+
+export type Lecture = keyof typeof LECTURES
+
 export function enCacheProjet<R>(
-  lecture: string,
+  lecture: Lecture,
   projetId: string,
   interne: boolean,
   charger: () => Promise<R>,
 ): Promise<R> {
   return unstable_cache(
     charger,
-    ['chantierscope', lecture, projetId, interne ? 'interne' : 'externe'],
+    ['chantierscope', `${lecture}@${LECTURES[lecture]}`, projetId, interne ? 'interne' : 'externe'],
     {
       tags: [etiquetteProjet(projetId)],
       revalidate: DUREE_MAX_S,

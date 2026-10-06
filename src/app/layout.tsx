@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 // Polices auto-hebergees : aucune requete vers un service tiers a
 // l'execution, et un rendu identique hors ligne, sur le terrain.
 import '@fontsource-variable/nunito'
@@ -27,11 +28,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        {/* Theme pose avant le premier affichage : voir src/lib/theme.ts. */}
-        <script dangerouslySetInnerHTML={{ __html: SCRIPT_THEME }} />
-      </head>
       <body className="antialiased">
+        {/*
+          Theme pose avant le premier affichage : voir src/lib/theme.ts.
+          Quand une page echoue en developpement, Next reconstruit la mise en
+          page dans le navigateur et React signale alors ce script : un
+          avertissement de plus a cote de l'erreur reelle, sans effet.
+        */}
+        <Script id="theme" strategy="beforeInteractive">
+          {SCRIPT_THEME}
+        </Script>
         <FournisseurTheme>
           {children}
           <Toaster />
