@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import Link from 'next/link'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { FileAttente } from '@/components/saisie/file-attente'
@@ -111,8 +112,8 @@ export default async function JournalDeChantier({
 
       <header className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Journal de chantier</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <TitrePage icone="releve">Journal de chantier</TitrePage>
+          <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
             {enAttente > 0 ? (
               <Link
                 href={`/projet/${id}/releve?statut=SOUMIS`}
@@ -200,7 +201,7 @@ export default async function JournalDeChantier({
         <ol className="mt-6 space-y-6">
           {[...parDate].map(([date, liste]) => (
             <li key={date}>
-              <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              <h2 className="text-muted-foreground mb-2 text-xs font-extrabold tracking-wide uppercase">
                 <time dateTime={date}>{dateLongue(date)}</time>
               </h2>
               <ul className="divide-border/70 divide-y rounded-xl border">

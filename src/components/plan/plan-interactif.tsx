@@ -328,18 +328,14 @@ export function PlanInteractif({
     <div className="mt-5 grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <section aria-label="Plan de niveau" className="surface overflow-hidden">
         <div className="border-border/70 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div role="group" aria-label="Niveau" className="bg-muted flex flex-wrap rounded-xl p-1">
+          <div role="group" aria-label="Niveau" className="segments">
             {niveaux.map((n) => (
               <button
                 key={n}
                 type="button"
                 aria-pressed={n === niveau}
                 onClick={() => changerNiveau(n)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
-                  n === niveau
-                    ? 'bg-card text-marque shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className="segment"
               >
                 {libelleNiveau(n)}
               </button>

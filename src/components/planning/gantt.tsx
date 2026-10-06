@@ -256,17 +256,14 @@ export function Gantt({
   return (
     <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Échelle de temps" className="flex rounded-lg border p-0.5">
+        <div role="group" aria-label="Échelle de temps" className="segments">
           {PALIERS.map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={palier === p}
               onClick={() => changerPalier(p)}
-              className={cn(
-                'h-8 rounded-md px-3 text-sm transition-colors',
-                palier === p ? 'bg-foreground text-background' : 'hover:bg-accent',
-              )}
+              className="segment"
             >
               {LIBELLE_PALIER[p]}
             </button>
@@ -276,7 +273,7 @@ export function Gantt({
           <button
             type="button"
             onClick={() => centrerSur(donnees.aujourdhui ?? 0, palier)}
-            className="hover:bg-accent h-9 rounded-lg border px-3 text-sm"
+            className="relief bg-card border-input hover:bg-muted h-10 rounded-xl border-2 px-3.5 text-sm font-bold [--relief:var(--input)]"
           >
             Aujourd’hui
           </button>
@@ -290,7 +287,7 @@ export function Gantt({
                 : new Set(donnees.elements.filter((e) => e.genre === 'lot').map((e) => e.id)),
             )
           }
-          className="hover:bg-accent h-9 rounded-lg border px-3 text-sm"
+          className="relief bg-card border-input hover:bg-muted h-10 rounded-xl border-2 px-3.5 text-sm font-bold [--relief:var(--input)]"
         >
           {replies.size > 0 ? 'Tout déplier' : 'Tout replier'}
         </button>

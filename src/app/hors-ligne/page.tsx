@@ -11,8 +11,10 @@ export const metadata: Metadata = { title: 'Hors ligne' }
 export default function HorsLigne() {
   return (
     <main className="mx-auto max-w-md px-4 py-20 text-center">
-      <Icone.horsLigne className="text-muted-foreground mx-auto size-10" aria-hidden />
-      <h1 className="mt-4 text-lg font-semibold">Pas de réseau</h1>
+      <span className="pastille mx-auto size-16 rounded-3xl">
+        <Icone.horsLigne className="size-8" strokeWidth={2} aria-hidden />
+      </span>
+      <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Pas de réseau</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         Cette page n’a pas encore été ouverte sur ce téléphone et ne peut pas s’afficher sans
         connexion. L’écran de saisie, s’il a déjà été ouvert une fois, reste utilisable : les

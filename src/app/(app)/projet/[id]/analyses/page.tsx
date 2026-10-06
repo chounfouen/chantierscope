@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import type { ReactNode } from 'react'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import {
@@ -112,9 +113,9 @@ export default async function Analyses({ params }: { params: Promise<{ id: strin
     <div className="mx-auto max-w-[78rem] px-4 py-6 sm:px-6 lg:px-8">
       <FilAriane maillons={[{ libelle: 'Analyses' }]} />
       <header className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <h1 className="text-[1.375rem] font-semibold">Analyses</h1>
-        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <Icone.calendrier className="size-3.5" strokeWidth={1.75} />
+        <TitrePage icone="analyses">Analyses</TitrePage>
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+          <Icone.calendrier className="size-3.5" strokeWidth={2} aria-hidden />
           Situation arrêtée au {dateLongue(dateAnalyse)}, relevés validés seulement
         </p>
       </header>

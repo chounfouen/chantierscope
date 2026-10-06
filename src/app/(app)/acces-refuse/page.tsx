@@ -12,8 +12,10 @@ export const metadata: Metadata = { title: 'Accès refusé' }
 export default function AccesRefuse() {
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
-      <Icone.nonConformite className="text-etat-critique mx-auto size-10" aria-hidden />
-      <h1 className="mt-4 text-lg font-semibold">Accès refusé</h1>
+      <span className="pastille mx-auto size-16 rounded-3xl">
+        <Icone.nonConformite className="size-8" strokeWidth={2} aria-hidden />
+      </span>
+      <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Accès refusé</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         Votre rôle ne donne pas accès à cet écran, ou ce chantier ne vous est pas rattaché.
       </p>

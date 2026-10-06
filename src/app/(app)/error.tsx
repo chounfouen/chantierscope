@@ -27,12 +27,16 @@ export default function Erreur({
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
       {refus ? (
-        <Icone.nonConformite className="text-etat-critique mx-auto size-10" />
+        <span className="pastille mx-auto size-16 rounded-3xl">
+          <Icone.nonConformite className="size-8" strokeWidth={2} aria-hidden />
+        </span>
       ) : (
-        <Icone.alerte className="text-etat-retard mx-auto size-10" />
+        <span className="pastille mx-auto size-16 rounded-3xl">
+          <Icone.alerte className="size-8" strokeWidth={2} aria-hidden />
+        </span>
       )}
 
-      <h1 className="mt-4 text-lg font-semibold">
+      <h1 className="mt-5 text-2xl font-extrabold tracking-tight">
         {refus ? 'Accès refusé' : 'Une erreur est survenue'}
       </h1>
 
