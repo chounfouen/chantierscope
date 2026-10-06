@@ -48,11 +48,22 @@ const RENDEMENT_LOT: Record<string, number> = {
   '08': 1.0,
 }
 
+/**
+ * Evenements scenarises, exprimes en JOURS DEPUIS L'ORDRE DE SERVICE et non
+ * en dates absolues.
+ *
+ * Recaler la demonstration avant une soutenance ne doit demander qu'un seul
+ * changement : les deux constantes de date de `catalogue.ts`. Tant que ces
+ * evenements portaient des dates absolues, les decaler imposait de corriger
+ * neuf valeurs reparties dans deux fichiers, et un oubli decalait l'histoire
+ * racontee par rapport aux chiffres calcules.
+ */
+
 /** Rupture d'approvisionnement en acier : tout ferraillage s'arrete. */
-const RUPTURE_ACIER = { debut: '2026-06-15', fin: '2026-06-20' }
+const RUPTURE_ACIER = { debut: 105, fin: 110 }
 
 /** Panne de la grue a tour. */
-const PANNE_GRUE = { debut: '2026-05-11', fin: '2026-05-13' }
+const PANNE_GRUE = { debut: 70, fin: 72 }
 
 /* -------------------------------------------------------------------------- */
 /* Types produits                                                             */
@@ -185,8 +196,8 @@ export function simulerExecution(): Execution {
     return true
   }
 
-  const dansFenetre = (j: number, f: { debut: string; fin: string }): boolean =>
-    j >= indiceJour(f.debut) && j <= indiceJour(f.fin)
+  const dansFenetre = (j: number, f: { debut: number; fin: number }): boolean =>
+    j >= f.debut && j <= f.fin
 
   /* --- Boucle journaliere -------------------------------------------------- */
 
@@ -320,7 +331,7 @@ export function simulerExecution(): Execution {
   aleas.push(...regrouperIntemperies(arretsMeteo))
 
   aleas.push({
-    date: RUPTURE_ACIER.debut,
+    date: jour(RUPTURE_ACIER.debut),
     lot: '04',
     tache: null,
     type: 'RUPTURE_APPROVISIONNEMENT',
@@ -328,14 +339,14 @@ export function simulerExecution(): Execution {
     description:
       'Rupture de stock du fournisseur d’acier à béton. Aucune livraison de barres haute adhérence ' +
       'pendant six jours. Le ferraillage des voiles et planchers est totalement interrompu.',
-    impactDelaiJ: indiceJour(RUPTURE_ACIER.fin) - indiceJour(RUPTURE_ACIER.debut) + 1,
+    impactDelaiJ: RUPTURE_ACIER.fin - RUPTURE_ACIER.debut + 1,
     impactCoutXof: 5_100_000,
     statut: 'SOLDE',
-    resoluLe: RUPTURE_ACIER.fin,
+    resoluLe: jour(RUPTURE_ACIER.fin),
   })
 
   aleas.push({
-    date: PANNE_GRUE.debut,
+    date: jour(PANNE_GRUE.debut),
     lot: '04',
     tache: null,
     type: 'PANNE_ENGIN',
@@ -346,7 +357,7 @@ export function simulerExecution(): Execution {
     impactDelaiJ: 3,
     impactCoutXof: 4_200_000,
     statut: 'SOLDE',
-    resoluLe: PANNE_GRUE.fin,
+    resoluLe: jour(PANNE_GRUE.fin),
   })
 
   aleas.push(...nonConformites(h))
@@ -413,60 +424,60 @@ function regrouperIntemperies(
 
 const NON_CONFORMITES = [
   {
-    date: '2026-04-22',
+    jour: 51,
     lot: '03',
     gravite: 3,
     description:
       'Enrobage insuffisant des aciers sur trois semelles isolées de l’axe C. Reprise par ' +
       'ragréage et contrôle contradictoire demandé par le bureau de contrôle.',
     cout: 2_400_000,
-    resolu: '2026-05-04',
+    resolu: 63,
   },
   {
-    date: '2026-06-02',
+    jour: 92,
     lot: '04',
     gravite: 2,
     description:
       'Défaut de planéité du plancher haut du rez-de-chaussée, écart de 18 mm sur une règle de ' +
       'deux mètres. Rattrapage prévu à la chape.',
     cout: 1_150_000,
-    resolu: '2026-06-18',
+    resolu: 108,
   },
   {
-    date: '2026-07-14',
+    jour: 134,
     lot: '04',
     gravite: 3,
     description:
       'Résistance à 28 jours insuffisante sur le prélèvement du voile V12 du R+1, 24,3 MPa pour ' +
       '25 MPa requis. Carottage et essai complémentaire demandés.',
     cout: 3_800_000,
-    resolu: '2026-08-08',
+    resolu: 159,
   },
   {
-    date: '2026-08-26',
+    jour: 177,
     lot: '02',
     gravite: 2,
     description:
       'Pente insuffisante sur trente mètres du réseau d’eaux usées entre les regards R4 et R5. ' +
       'Repose du tronçon exigé.',
     cout: 1_650_000,
-    resolu: null,
+    resolu: null as number | null,
   },
   {
-    date: '2026-09-15',
+    jour: 197,
     lot: '04',
     gravite: 2,
     description:
       'Fissuration de retrait sur l’acrotère de la façade est. Traitement par pontage et ' +
       'reprise d’étanchéité à prévoir.',
     cout: 890_000,
-    resolu: null,
+    resolu: null as number | null,
   },
 ] as const
 
 function nonConformites(h: ReturnType<typeof hasard>): AleaSimule[] {
   return NON_CONFORMITES.map((nc) => ({
-    date: nc.date,
+    date: jour(nc.jour),
     lot: nc.lot,
     tache: null,
     type: 'NON_CONFORMITE' as const,
@@ -475,7 +486,7 @@ function nonConformites(h: ReturnType<typeof hasard>): AleaSimule[] {
     impactDelaiJ: nc.resolu === null ? 0 : h.entier(2, 6),
     impactCoutXof: nc.cout,
     statut: nc.resolu === null ? ('EN_TRAITEMENT' as const) : ('SOLDE' as const),
-    resoluLe: nc.resolu,
+    resoluLe: nc.resolu === null ? null : jour(nc.resolu),
   }))
 }
 
