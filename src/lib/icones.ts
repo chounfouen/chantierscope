@@ -53,6 +53,13 @@ import {
   Truck,
   UserRound,
   Users,
+  Upload,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  PenTool,
+  Undo2,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -117,6 +124,13 @@ export const Icone = {
   suivant: ChevronRight,
   envoyer: Send,
   supprimer: Trash2,
+  importer: Upload,
+  zoomAvant: ZoomIn,
+  zoomArriere: ZoomOut,
+  recadrer: Maximize2,
+  dessiner: PenTool,
+  annuler: Undo2,
+  fermer: X,
 } as const satisfies Record<string, LucideIcon>
 
 export type NomIcone = keyof typeof Icone

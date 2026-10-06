@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm'
 import type { QuantitePlan, TachePlan } from '@/db/compute/plan'
 import { jourDepuis } from '@/db/compute/tableau'
 import type { db as instanceDb } from '@/db/index'
-import type { MethodeAvancement } from '@/db/schema'
+import type { FormatPlan, MethodeAvancement } from '@/db/schema'
 
 type Db = ReturnType<typeof instanceDb>
 
@@ -27,20 +27,36 @@ export type TacheZone = TachePlan & {
   dateFinPrevue: string
 }
 
+/** Fond de plan importe d'un niveau. Le chemin se lit par URL signee, hors cache. */
+export type PlanLu = {
+  niveau: number
+  chemin: string
+  largeur: number
+  hauteur: number
+  nomFichier: string
+  formatSource: FormatPlan
+  importeLe: string
+}
+
 export type DonneesPlan = {
   origine: string
   dateAnalyse: string | null
+  plans: PlanLu[]
   zones: ZoneLue[]
   taches: TacheZone[]
   quantites: QuantitePlan[]
 }
 
 export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan> {
-  const [projets, dates, zones, taches, lignes, quantites] = await Promise.all([
+  const [projets, dates, plans, zones, taches, lignes, quantites] = await Promise.all([
     db.execute<{ origine: string }>(sql`
       select date_ordre_service as origine from projet where id = ${projetId}`),
     db.execute<{ date: string | null }>(sql`
       select max(date) as date from snapshot_avancement where projet_id = ${projetId}`),
+    db.execute<PlanLu>(sql`
+      select niveau, chemin, largeur, hauteur, nom_fichier as "nomFichier",
+             format_source as "formatSource", importe_le::text as "importeLe"
+        from plan_niveau where projet_id = ${projetId} order by niveau`),
     db.execute<ZoneLue>(sql`
       select z.id, z.nom, z.niveau, z.path_svg as "pathSvg",
              coalesce(array_agg(zt.tache_id order by zt.tache_id)
@@ -108,6 +124,7 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
   return {
     origine,
     dateAnalyse: dates[0]?.date ?? null,
+    plans: [...plans],
     zones: [...zones],
     taches: taches.map((t) => ({
       ...t,
@@ -122,4 +139,23 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
         quantite: q.quantite,
       })),
   }
+}
+
+export type TacheRattachable = {
+  id: string
+  codeWbs: string
+  nom: string
+  lotCode: string
+  lotNom: string
+}
+
+/** Taches elementaires du projet, proposees au rattachement d'une zone. */
+export async function tachesRattachables(db: Db, projetId: string): Promise<TacheRattachable[]> {
+  const r = await db.execute<TacheRattachable>(sql`
+    select t.id, t.code_wbs as "codeWbs", t.nom, l.code as "lotCode", l.nom as "lotNom"
+      from tache t join lot l on l.id = t.lot_id
+     where l.projet_id = ${projetId}
+       and not exists (select 1 from tache e where e.parent_id = t.id)
+     order by t.code_wbs`)
+  return [...r]
 }
