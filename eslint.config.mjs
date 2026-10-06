@@ -57,6 +57,12 @@ const eslintConfig = [
       'coverage/**',
       'drizzle/**',
       'next-env.d.ts',
+      // Copies de travail temporaires des sessions d'agent : ce sont des
+      // instantanes d'anciens commits, pas du code du projet. Les analyser
+      // ferait echouer la verification sur du code deja remplace.
+      '.claude/**',
+      'playwright-report/**',
+      'test-results/**',
       // Composants generes par shadcn, non modifies.
       'src/components/ui/**',
     ],
