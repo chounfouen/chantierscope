@@ -61,7 +61,7 @@ export function PlanningInteractif({
             }
           : {})}
       />
-      <aside aria-label="Tâche sélectionnée" className="rounded-xl border p-4 text-sm">
+      <aside aria-label="Tâche sélectionnée" className="surface p-5 text-sm">
         {element ? (
           <Panneau
             key={element.id}
@@ -72,11 +72,17 @@ export function PlanningInteractif({
             simulationPermise={simulationPermise}
           />
         ) : (
-          <p className="text-muted-foreground">
-            Sélectionner une tâche dans le diagramme pour en voir le détail
-            {editable ? ', modifier sa durée ou ses liaisons' : ''}.
-            {simulationPermise && ' Glisser une barre ouvre la simulation, sans rien modifier.'}
-          </p>
+          <div className="grid justify-items-center gap-3 py-6 text-center">
+            <span className="pastille size-12 rounded-2xl">
+              <Icone.tache className="size-6" strokeWidth={2} aria-hidden />
+            </span>
+            <p className="font-bold">Aucune tâche sélectionnée</p>
+            <p className="text-muted-foreground max-w-64">
+              Sélectionner une tâche dans le diagramme pour en voir le détail
+              {editable ? ', modifier sa durée ou ses liaisons' : ''}.
+              {simulationPermise && ' Glisser une barre ouvre la simulation, sans rien modifier.'}
+            </p>
+          </div>
         )}
       </aside>
     </div>
@@ -169,7 +175,7 @@ function Panneau({
     <div className="space-y-4">
       <div>
         <p className="text-muted-foreground font-mono text-xs">{e.codeWbs}</p>
-        <h2 className="font-medium">{e.nom}</h2>
+        <h2 className="text-base leading-snug font-extrabold">{e.nom}</h2>
         {e.critique && (
           <p className="[&>svg]:text-etat-critique flex items-center gap-1 text-xs">
             <ETAT.CRITIQUE.icone className="size-3.5" aria-hidden />

@@ -60,6 +60,20 @@ export function cheminPhoto(
   return `projets/${projetId}/photos/${photoId}${variante === 'vignette' ? '-vignette' : ''}.webp`
 }
 
+/** Fond de plan d'un niveau. Un identifiant neuf a chaque import : l'image remplacee ne reste pas en cache. */
+export function cheminPlan(projetId: string, planId: string): string {
+  return `projets/${projetId}/plans/${planId}.webp`
+}
+
+/**
+ * Taille maximale d'un depot. Une photo compressee pese environ 120 Ko : au-dela
+ * de 3 Mo, ce n'en est pas une. Un plan A0 converti en image de 8 192 pixels
+ * peut atteindre une dizaine de mega-octets.
+ */
+export function tailleMaxDepot(chemin: string): number {
+  return (/^projets\/[^/]+\/plans\//.test(chemin) ? 16 : 3) * 1024 * 1024
+}
+
 /* -------------------------------------------------------------------------- */
 /* Signature des URL du pilote local                                          */
 /* -------------------------------------------------------------------------- */

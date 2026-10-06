@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import { sql } from 'drizzle-orm'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { semaineFinissantLe } from '@/db/compute/rapport'
@@ -33,8 +34,10 @@ export default async function Rapports({ params }: { params: Promise<{ id: strin
   return (
     <div className="mx-auto max-w-[56rem] px-4 py-6 sm:px-6 lg:px-8">
       <FilAriane maillons={[{ libelle: 'Rapports' }]} />
-      <h1 className="mt-2.5 text-[1.375rem] font-semibold">Rapports hebdomadaires</h1>
-      <p className="text-muted-foreground mt-1 text-sm">
+      <div className="mt-2.5">
+        <TitrePage icone="rapports">Rapports hebdomadaires</TitrePage>
+      </div>
+      <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
         Page de garde, synthèse des indicateurs, avancement par lot, faits marquants, aléas, météo
         {interne ? ', effectifs' : ''}, planche photographique et jalons à venir. Le rapport est
         calculé à la demande sur les relevés validés.
@@ -52,21 +55,26 @@ export default async function Rapports({ params }: { params: Promise<{ id: strin
       ) : (
         <ul className="surface divide-border/60 mt-5 divide-y">
           {semaines.map((s, k) => (
-            <li key={s.fin} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-              <div>
-                <p className="text-sm font-medium">
+            <li key={s.fin} className="flex flex-wrap items-center gap-4 px-5 py-3.5">
+              <span className="pastille size-10 rounded-xl">
+                <Icone.rapports className="size-5" strokeWidth={2} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] font-bold">
                   Semaine du {dateLongue(s.debut)} au {dateLongue(s.fin)}
                 </p>
                 {k === 0 && (
-                  <p className="text-muted-foreground text-xs">Situation la plus récente</p>
+                  <p className="bg-soleil text-soleil-encre mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-extrabold">
+                    Situation la plus récente
+                  </p>
                 )}
               </div>
               <a
                 href={`/api/projet/${id}/rapport?fin=${s.fin}`}
                 download
-                className="border-input hover:bg-accent flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium"
+                className="relief bg-card border-input hover:bg-muted flex h-10 items-center gap-2 rounded-xl border-2 px-3.5 text-sm font-bold [--relief:var(--input)]"
               >
-                <Icone.exporter className="size-4" strokeWidth={1.75} aria-hidden />
+                <Icone.exporter className="size-4" strokeWidth={2.25} aria-hidden />
                 Télécharger le PDF
                 <span className="sr-only">
                   {' '}

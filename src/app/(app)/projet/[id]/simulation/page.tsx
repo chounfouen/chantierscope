@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { Simulation } from '@/components/planning/simulation'
 import { estOuvrable, ferie } from '@/db/compute/calendrier'
@@ -72,8 +73,8 @@ export default async function PageSimulation({
         ]}
       />
       <header className="mt-3">
-        <h1 className="text-xl font-semibold tracking-tight">Simulation d’aléa</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <TitrePage icone="simulation">Simulation d’aléa</TitrePage>
+        <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
           Que se passe-t-il si une tâche glisse ? Le calcul ne modifie rien au planning.
         </p>
         {valable && decalage < 0 && (

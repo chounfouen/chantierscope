@@ -690,7 +690,7 @@ function EtapeQuantites({
 
   const bloc = (t: TacheSaisie) => (
     <section key={t.id} className="border-border/80 rounded-xl border p-3">
-      <h3 className="text-sm font-medium">
+      <h3 className="text-sm font-bold">
         <span className="text-muted-foreground mr-2 font-mono text-xs">{t.codeWbs}</span>
         {t.nom}
       </h3>

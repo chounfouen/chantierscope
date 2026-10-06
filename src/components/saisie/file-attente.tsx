@@ -205,7 +205,7 @@ export function FileAttente({
       className="border-etat-retard/40 mt-5 rounded-xl border border-dashed p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="titre-file" className="flex items-center gap-2 text-sm font-medium">
+        <h2 id="titre-file" className="flex items-center gap-2 text-base font-extrabold">
           <Icone.enFile className="size-4" aria-hidden />
           Sur ce téléphone, en attente d’envoi
         </h2>

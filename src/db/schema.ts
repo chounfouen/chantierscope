@@ -122,6 +122,9 @@ export const typeRessource = pgEnum('type_ressource', ['EQUIPE', 'ENGIN', 'MATER
 
 export const uniteCout = pgEnum('unite_cout', ['JOUR', 'HEURE', 'UNITE'])
 
+/** Format du fichier importe comme fond de plan, avant conversion en image. */
+export const formatPlan = pgEnum('format_plan', ['DXF', 'PDF', 'SVG', 'IMAGE'])
+
 /* ========================================================================== */
 /* Utilisateurs et acces                                                     */
 /* ========================================================================== */
@@ -461,6 +464,41 @@ export const zone = pgTable(
   ],
 ).enableRLS()
 
+/**
+ * Fond de plan d'un niveau, importe par le conducteur de travaux : un export
+ * DXF d'AutoCAD, un PDF, un SVG ou une image, converti dans le navigateur en
+ * une image WebP deposee dans le magasin de fichiers. Les contours des zones
+ * du niveau sont exprimes dans le repere de cette image, en pixels.
+ */
+export const planNiveau = pgTable(
+  'plan_niveau',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    niveau: smallint().notNull(),
+    /** Chemin de l'image dans le magasin de fichiers. Aucun binaire en base. */
+    chemin: text().notNull(),
+    largeur: integer().notNull(),
+    hauteur: integer().notNull(),
+    octets: integer().notNull(),
+    formatSource: formatPlan().notNull(),
+    nomFichier: text().notNull(),
+    importeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    importePar: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    unique('plan_niveau_unique').on(t.projetId, t.niveau),
+    check(
+      'plan_niveau_dimensions',
+      sql`${t.largeur} between 1 and 8192 and ${t.hauteur} between 1 and 8192`,
+    ),
+    check('plan_niveau_octets_positif', sql`${t.octets} > 0`),
+    check('plan_niveau_borne', sql`${t.niveau} between -9 and 199`),
+  ],
+).enableRLS()
+
 /** Rattachement des taches aux zones du plan. Table de liaison. */
 export const zoneTache = pgTable(
   'zone_tache',
@@ -780,6 +818,8 @@ export type ReleveQuantite = typeof releveQuantite.$inferSelect
 export type Jalon = typeof jalon.$inferSelect
 export type Alea = typeof alea.$inferSelect
 export type Zone = typeof zone.$inferSelect
+export type PlanNiveau = typeof planNiveau.$inferSelect
+export type FormatPlan = (typeof formatPlan.enumValues)[number]
 export type Photo = typeof photo.$inferSelect
 export type PointDeVue = typeof pointDeVue.$inferSelect
 export type Ressource = typeof ressource.$inferSelect

@@ -149,7 +149,7 @@ export function Timeline({
       <div className="mt-4 space-y-6">
         {parDate(photos).map((g) => (
           <section key={g.date} aria-label={dateLongue(g.date)}>
-            <h2 className="mb-2 text-sm font-medium">{dateLongue(g.date)}</h2>
+            <h2 className="mb-2.5 text-base font-extrabold">{dateLongue(g.date)}</h2>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {g.photos.map((p) => (
                 <li key={p.id}>
@@ -186,12 +186,10 @@ export function Timeline({
     <div className="mt-4">
       <div className="surface px-5 py-4">
         <label className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <Icone.calendrier
-              className="text-muted-foreground size-4"
-              strokeWidth={1.75}
-              aria-hidden
-            />
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <span className="pastille size-7">
+              <Icone.calendrier className="size-3.5" strokeWidth={2.25} aria-hidden />
+            </span>
             Curseur temporel
           </span>
           <input
@@ -219,8 +217,10 @@ export function Timeline({
           return (
             <section key={cle} aria-label={nom} className="surface px-4 py-3.5">
               <div className="mb-2 flex items-baseline justify-between gap-3">
-                <h2 className="text-sm font-medium">{nom}</h2>
-                <span className="text-muted-foreground text-xs">{g.photos.length} prises</span>
+                <h2 className="text-base font-extrabold">{nom}</h2>
+                <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-bold">
+                  {g.photos.length} prises
+                </span>
               </div>
               {comparer === cle && g.photos.length > 1 ? (
                 <Comparateur photos={g.photos} nom={nom} />

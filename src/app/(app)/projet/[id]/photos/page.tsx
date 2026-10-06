@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import Link from 'next/link'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { Timeline, type PhotoAffichee } from '@/components/photos/timeline'
@@ -67,12 +68,12 @@ export default async function Photos({
       <FilAriane maillons={[{ libelle: 'Photos' }]} />
       <header className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h1 className="text-[1.375rem] font-semibold">Timeline photographique</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <TitrePage icone="photos">Timeline photographique</TitrePage>
+          <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
             {donnees.photos.length} photos, {donnees.pointsDeVue.length} points de vue de référence
           </p>
         </div>
-        <nav aria-label="Présentation" className="bg-muted flex rounded-lg p-0.5 text-sm">
+        <nav aria-label="Présentation" className="segments">
           {(
             [
               ['chronologie', 'Par point de vue'],
@@ -83,7 +84,7 @@ export default async function Photos({
               key={v}
               href={lienVue(v)}
               aria-current={vue === v ? 'page' : undefined}
-              className={`rounded-md px-3 py-1 ${vue === v ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`}
+              className="segment"
             >
               {libelle}
             </Link>

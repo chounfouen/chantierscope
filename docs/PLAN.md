@@ -1293,3 +1293,46 @@ le deploiement fait.
 - Le refus general de la RLS, prouve en jouant le role d'un client de l'API.
 - La restauration prouvee, table par table.
 - Le rapport PDF dont les chiffres concordent avec le tableur.
+
+### Apres le sprint 8 — identite visuelle et import des plans
+
+Demandes du porteur du projet apres une premiere prise en main : une
+interface jugee austere (« on dirait une interface de log »), des plans a
+importer depuis AutoCAD, un theme clair trop brun.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/app/globals.css`, `src/components/ui/` | Identite : bleu nuit de marque, jaune securite reserve a l'identite, Nunito, boutons en relief, champs et choix segmentes communs. Neutres du theme clair en gris ardoise |
+| `src/components/tableau/accueil.tsx`, `src/lib/accueil.ts` | Accueil du tableau de bord : la situation en une phrase, l'anneau d'avancement |
+| `src/components/saisie/`, `src/db/compute/serie.ts` | Saisie a une question par etape ; felicitations et serie de releves, seul element de jeu |
+| `src/components/coquille/titre-page.tsx` | Titre d'ecran commun, a la pastille de l'ecran |
+| `src/lib/plan/dxf.ts` | Lecture du DXF et dessin en SVG : polylignes a renflement, arcs, ellipses, blocs, cotations, textes, calques |
+| `src/lib/plan/format.ts`, `conversion.ts`, `webp.ts` | Reconnaissance du fichier par sa signature, conversion en WebP dans le navigateur, lecture des dimensions par le serveur |
+| `src/lib/plan/zones.ts`, `cadre.ts` | Contours de zone, remise a l'echelle reversible, zoom et deplacement |
+| `drizzle/0008` | Table `plan_niveau`, audit des plans et des zones |
+| `src/db/mutations/plan.ts`, ecran `plan` | Import, retrait, dessin et rattachement des zones, reserves au conducteur |
+| `e2e/plan.spec.ts`, `e2e/fixtures/` | Import DXF et PDF, refus du DWG, dessin d'une zone, lecture seule du maitre d'ouvrage |
+
+#### Decisions prises
+
+| Decision | Motif |
+|---|---|
+| Le DXF est accepte, le DWG refuse avec la marche a suivre | Le DWG est un format ferme ; ses decodeurs libres sont sous GPL et pesent plusieurs mega-octets. Tout logiciel de DAO exporte le DXF |
+| Tout plan est converti en image WebP dans le navigateur | Le serveur ne recoit et ne sert qu'un type de fichier, deja admis pour les photos ; un SVG ou un PDF servi depuis l'origine de l'application pourrait porter du script |
+| Le serveur relit l'en-tete de l'image deposee | Les contours des zones sont en pixels du plan : leurs dimensions doivent etre celles du fichier, pas celles annoncees |
+| Les zones suivent un plan importe a leur position relative | Une remise a l'echelle proportionnelle « contenue » derivait a chaque import puis retrait ; la position relative est exactement reversible |
+| pdf.js en version legacy | La version courante appelle `Map.prototype.getOrInsertComputed`, absente des navigateurs encore en service |
+| Le theme sombre inverse l'image du plan | Une seule image stockee ; une feuille blanche au milieu d'un ecran sombre eblouit |
+| Les etats d'une zone restent la palette d'etats, a opacite reduite sur un plan | Le trace du plan doit rester lisible sous la zone |
+
+#### Limites assumees
+
+- Le dessin d'une zone se fait a la souris : il n'a pas d'equivalent au
+  clavier. Le nom et les taches d'une zone, eux, se modifient au clavier.
+- Les hachures, les images inserees et les objets propres a un logiciel
+  (murs Revit, objets ArchiCAD) ne sont pas repris du DXF ; leur nombre est
+  annonce a l'import.
+- L'image d'un plan remplace reste dans le magasin de fichiers : le magasin
+  n'expose pas de suppression.

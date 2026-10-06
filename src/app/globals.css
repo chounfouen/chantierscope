@@ -57,13 +57,14 @@
 
 :root {
   /* ------------------------------------------------------------------------
-     Neutres legerement teintees, hue 255.
-     Un gris pur donne un rendu plat et clinique ; une pointe de chroma le
-     rechauffe imperceptiblement et rapproche le rendu d un papier technique.
+     Neutres legerement teintees de bleu ardoise, hue 250.
+     Un gris pur donne un rendu plat et clinique ; une pointe de chroma froide
+     l accorde au bleu de la marque. Les beiges essayes d abord tiraient le
+     theme clair vers le brun : la chaleur vient des formes, pas du fond.
      La chroma reste sous 0.016 : la couleur ne doit jamais concurrencer les
      donnees, qui sont seules a porter du sens colore.
      ------------------------------------------------------------------------ */
-  --background: oklch(0.975 0.006 85);
+  --background: oklch(0.974 0.006 250);
   --foreground: oklch(0.22 0.025 255);
 
   --card: oklch(1 0 0);
@@ -76,17 +77,17 @@
   --primary: oklch(0.42 0.12 258);
   --primary-foreground: oklch(0.99 0.004 255);
   --primary-ombre: oklch(0.32 0.11 258);
-  --secondary: oklch(0.955 0.012 85);
+  --secondary: oklch(0.955 0.01 250);
   --secondary-foreground: oklch(0.26 0.025 255);
 
-  --muted: oklch(0.955 0.01 85);
+  --muted: oklch(0.957 0.008 250);
   --muted-foreground: oklch(0.47 0.022 255);
   --accent: oklch(0.94 0.02 258);
   --accent-foreground: oklch(0.3 0.08 258);
 
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.012 85);
-  --input: oklch(0.88 0.014 85);
+  --border: oklch(0.915 0.011 250);
+  --input: oklch(0.875 0.014 250);
   --ring: oklch(0.55 0.12 258);
 
   --radius: 0.875rem;
@@ -99,12 +100,12 @@
   --marque-douce: oklch(0.95 0.025 258);
   --soleil: oklch(0.86 0.16 88);
   --soleil-encre: oklch(0.3 0.06 70);
-  --soleil-doux: oklch(0.96 0.05 92);
+  --soleil-doux: oklch(0.975 0.04 95);
 
   /* Ombre de carte, douce et diffuse : la profondeur sans lourdeur. */
   --ombre-carte: 0 1px 2px oklch(0.3 0.03 255 / 6%), 0 4px 16px oklch(0.3 0.03 255 / 5%);
 
-  --sidebar: oklch(0.985 0.005 85);
+  --sidebar: oklch(0.986 0.004 250);
   --sidebar-foreground: oklch(0.22 0.025 255);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
@@ -194,6 +195,13 @@
 
   /* Un anneau de focus visible, unique pour toute l application, et jamais
      supprime : la saisie de chantier se fait souvent au clavier. */
+  /* Curseurs et cases a cocher a la couleur de la marque. */
+  input[type='range'],
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--marque);
+  }
+
   :focus-visible {
     @apply ring-ring/70 ring-offset-background ring-2 ring-offset-2 outline-none;
   }
@@ -286,6 +294,30 @@
   }
   .champ-compact {
     @apply h-10 px-3 text-sm;
+  }
+
+  /**
+   * Fond de plan importe : trait sombre sur blanc, comme un tirage. Le theme
+   * sombre l'inverse, en conservant les teintes, plutot que d'exposer une
+   * feuille blanche au milieu d'un ecran sombre.
+   */
+  .dark .fond-plan {
+    filter: invert(0.88) hue-rotate(180deg);
+  }
+
+  /**
+   * Choix segmente : echelle de temps, niveau du plan, presentation. Le
+   * segment actif se detache en carte, a la couleur de la marque.
+   */
+  .segments {
+    @apply bg-muted flex flex-wrap rounded-xl p-1;
+  }
+  .segment {
+    @apply text-muted-foreground hover:text-foreground rounded-lg px-3 py-1.5 text-sm font-bold transition-colors;
+  }
+  .segment[aria-pressed='true'],
+  .segment[aria-current='page'] {
+    @apply bg-card text-marque shadow-sm;
   }
 
   /* Libelle de champ : court, en gras, au-dessus du champ. */

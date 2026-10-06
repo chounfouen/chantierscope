@@ -7,12 +7,9 @@
  */
 
 import { env } from '@/lib/env'
-import { ecrireLocal, signatureValide } from '@/services/stockage'
+import { ecrireLocal, signatureValide, tailleMaxDepot } from '@/services/stockage'
 
 export const dynamic = 'force-dynamic'
-
-/** Une photo compressee pese environ 120 Ko ; au-dela de 3 Mo, ce n'en est pas une. */
-const TAILLE_MAX = 3 * 1024 * 1024
 
 export async function PUT(requete: Request) {
   const q = new URL(requete.url).searchParams
@@ -29,7 +26,7 @@ export async function PUT(requete: Request) {
     return new Response('Seules les images WebP sont acceptées.', { status: 415 })
   }
   const contenu = new Uint8Array(await requete.arrayBuffer())
-  if (contenu.byteLength === 0 || contenu.byteLength > TAILLE_MAX) {
+  if (contenu.byteLength === 0 || contenu.byteLength > tailleMaxDepot(chemin)) {
     return new Response('Taille de fichier hors limites.', { status: 413 })
   }
   await ecrireLocal(chemin, contenu)

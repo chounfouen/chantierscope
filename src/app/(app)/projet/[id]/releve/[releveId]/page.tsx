@@ -62,12 +62,14 @@ export default async function FicheReleve({
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="mt-1.5 h-4 w-1.5 shrink-0 rounded-full"
+            className="mt-1 h-7 w-2 shrink-0 rounded-full"
             style={{ background: teinteSerie(r.lot.rangCouleur) }}
           />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{dateLongue(r.date)}</h1>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <h1 className="text-[1.625rem] leading-tight font-extrabold tracking-tight">
+              {dateLongue(r.date)}
+            </h1>
+            <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
               Lot {r.lot.code} — {r.lot.nom}
             </p>
           </div>

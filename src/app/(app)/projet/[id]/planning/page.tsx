@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { TitrePage } from '@/components/coquille/titre-page'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { PlanningInteractif } from '@/components/planning/planning-interactif'
 import { estOuvrable, ferie } from '@/db/compute/calendrier'
@@ -39,8 +40,8 @@ export default async function Planning({ params }: { params: Promise<{ id: strin
       />
       <header className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Planning</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <TitrePage icone="planning">Planning</TitrePage>
+          <p className="text-muted-foreground mt-1.5 text-[0.9375rem]">
             {reseau.cheminCritique.length} tâches critiques sur{' '}
             {planning.taches.filter((t) => t.feuille).length}. Réseau de {reseau.dureeTotale} jours
             {finReseau > 0

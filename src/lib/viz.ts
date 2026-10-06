@@ -79,3 +79,17 @@ export const MARQUE = {
 
 /** Tirets de la projection, au-dela de la date du jour. */
 export const TIRETS_PROJECTION = '4 4'
+
+/**
+ * Encres du fond de plan importe. Ce dessin est converti en image avant
+ * depot : une image ne lit pas les variables CSS, d'ou des valeurs fixes.
+ * Trait sombre sur fond blanc, comme un tirage ; le theme sombre inverse
+ * l'image a l'affichage plutot que d'en stocker une seconde.
+ */
+export const FOND_DE_PLAN = {
+  fond: '#ffffff',
+  trait: '#2f3542',
+  texte: '#4a5160',
+  /** Epaisseur du trait, en pixels de l'image. */
+  epaisseur: 1.6,
+} as const

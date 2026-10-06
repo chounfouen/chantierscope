@@ -19,8 +19,10 @@ export default async function Accueil() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
-      <Icone.projet className="text-muted-foreground mx-auto size-10" />
-      <h1 className="mt-4 text-lg font-semibold">Aucun projet accessible</h1>
+      <span className="pastille mx-auto size-16 rounded-3xl">
+        <Icone.projet className="size-8" strokeWidth={2} aria-hidden />
+      </span>
+      <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Aucun projet accessible</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         Votre compte n&apos;est rattaché à aucun chantier. Demandez à l&apos;administrateur de vous
         donner accès à une opération.

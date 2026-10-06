@@ -195,7 +195,9 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
 
       <header className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-extrabold tracking-tight">{projet.nom}</h1>
+          <h1 className="text-[1.625rem] leading-tight font-extrabold tracking-tight">
+            {projet.nom}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {projet.lieu}
             <span className="mx-2 opacity-40">·</span>
@@ -430,7 +432,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
 
       <section aria-label="Données du marché" className="mt-4 mb-2">
         <div className="surface px-5 py-4">
-          <h2 className="mb-3 text-sm font-medium">Le marché</h2>
+          <h2 className="mb-3 text-base font-extrabold">Le marché</h2>
           <dl className="grid gap-x-10 gap-y-2.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {[
               ['Code', projet.code],

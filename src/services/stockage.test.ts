@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   cheminPhoto,
+  cheminPlan,
   cheminValide,
   fichierLocal,
   piloteLocal,
   piloteSupabase,
   signatureValide,
   signer,
+  tailleMaxDepot,
 } from '@/services/stockage'
 
 const SECRET = 's'.repeat(32)
@@ -15,6 +17,13 @@ describe('chemins du magasin', () => {
   it('compose le chemin d une photo et de sa vignette', () => {
     expect(cheminPhoto('p1', 'f1', 'image')).toBe('projets/p1/photos/f1.webp')
     expect(cheminPhoto('p1', 'f1', 'vignette')).toBe('projets/p1/photos/f1-vignette.webp')
+  })
+
+  it('compose le chemin d un plan, et lui accorde une taille de depot plus grande', () => {
+    expect(cheminPlan('p1', 'n1')).toBe('projets/p1/plans/n1.webp')
+    expect(tailleMaxDepot(cheminPlan('p1', 'n1'))).toBe(16 * 1024 * 1024)
+    expect(tailleMaxDepot(cheminPhoto('p1', 'f1', 'image'))).toBe(3 * 1024 * 1024)
+    expect(tailleMaxDepot('projets/p1/photos/plans/x.webp')).toBe(3 * 1024 * 1024)
   })
 
   it('refuse toute remontee de repertoire et tout chemin absolu', () => {
