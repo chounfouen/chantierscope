@@ -7,9 +7,16 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --font-heading: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+  --color-marque: var(--marque);
+  --color-marque-ombre: var(--marque-ombre);
+  --color-marque-douce: var(--marque-douce);
+  --color-soleil: var(--soleil);
+  --color-soleil-encre: var(--soleil-encre);
+  --color-soleil-doux: var(--soleil-doux);
+  --color-primary-ombre: var(--primary-ombre);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -56,39 +63,55 @@
      La chroma reste sous 0.016 : la couleur ne doit jamais concurrencer les
      donnees, qui sont seules a porter du sens colore.
      ------------------------------------------------------------------------ */
-  --background: oklch(0.994 0.0015 255);
-  --foreground: oklch(0.19 0.012 255);
+  --background: oklch(0.975 0.006 85);
+  --foreground: oklch(0.22 0.025 255);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.012 255);
+  --card-foreground: oklch(0.22 0.025 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.012 255);
+  --popover-foreground: oklch(0.22 0.025 255);
 
-  --primary: oklch(0.24 0.016 255);
-  --primary-foreground: oklch(0.99 0.002 255);
-  --secondary: oklch(0.965 0.004 255);
-  --secondary-foreground: oklch(0.26 0.014 255);
+  /* Bleu nuit de chantier : boutons, navigation, liens. Couleur d'interface,
+     jamais couleur de donnee. Son ombre donne le relief des boutons. */
+  --primary: oklch(0.42 0.12 258);
+  --primary-foreground: oklch(0.99 0.004 255);
+  --primary-ombre: oklch(0.32 0.11 258);
+  --secondary: oklch(0.955 0.012 85);
+  --secondary-foreground: oklch(0.26 0.025 255);
 
-  --muted: oklch(0.966 0.004 255);
-  --muted-foreground: oklch(0.505 0.014 255);
-  --accent: oklch(0.955 0.006 255);
-  --accent-foreground: oklch(0.24 0.016 255);
+  --muted: oklch(0.955 0.01 85);
+  --muted-foreground: oklch(0.47 0.022 255);
+  --accent: oklch(0.94 0.02 258);
+  --accent-foreground: oklch(0.3 0.08 258);
 
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.915 0.006 255);
-  --input: oklch(0.905 0.007 255);
-  --ring: oklch(0.55 0.035 255);
+  --border: oklch(0.91 0.012 85);
+  --input: oklch(0.88 0.014 85);
+  --ring: oklch(0.55 0.12 258);
 
-  --radius: 0.625rem;
+  --radius: 0.875rem;
 
-  --sidebar: oklch(0.985 0.003 255);
-  --sidebar-foreground: oklch(0.19 0.012 255);
-  --sidebar-primary: oklch(0.24 0.016 255);
-  --sidebar-primary-foreground: oklch(0.99 0.002 255);
-  --sidebar-accent: oklch(0.955 0.006 255);
-  --sidebar-accent-foreground: oklch(0.24 0.016 255);
-  --sidebar-border: oklch(0.915 0.006 255);
-  --sidebar-ring: oklch(0.55 0.035 255);
+  /* Marque et soleil. La marque est le bleu nuit ; le jaune securite, signe
+     du chantier, est reserve a l'identite et aux moments de satisfaction :
+     jamais a un etat, dont le jaune « en cours » doit rester distinct. */
+  --marque: var(--primary);
+  --marque-ombre: var(--primary-ombre);
+  --marque-douce: oklch(0.95 0.025 258);
+  --soleil: oklch(0.86 0.16 88);
+  --soleil-encre: oklch(0.3 0.06 70);
+  --soleil-doux: oklch(0.96 0.05 92);
+
+  /* Ombre de carte, douce et diffuse : la profondeur sans lourdeur. */
+  --ombre-carte: 0 1px 2px oklch(0.3 0.03 255 / 6%), 0 4px 16px oklch(0.3 0.03 255 / 5%);
+
+  --sidebar: oklch(0.985 0.005 85);
+  --sidebar-foreground: oklch(0.22 0.025 255);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
   /* Les emplacements de graphique de shadcn pointent sur la palette validee. */
   --chart-1: var(--serie-1);
@@ -99,37 +122,47 @@
 }
 
 .dark {
-  --background: oklch(0.152 0.006 255);
-  --foreground: oklch(0.962 0.003 255);
+  --background: oklch(0.155 0.012 258);
+  --foreground: oklch(0.96 0.006 85);
 
   --card: oklch(0.192 0.007 255);
-  --card-foreground: oklch(0.962 0.003 255);
-  --popover: oklch(0.212 0.009 255);
-  --popover-foreground: oklch(0.962 0.003 255);
+  --card-foreground: oklch(0.96 0.006 85);
+  --popover: oklch(0.215 0.012 258);
+  --popover-foreground: oklch(0.96 0.006 85);
 
-  --primary: oklch(0.93 0.005 255);
-  --primary-foreground: oklch(0.2 0.012 255);
-  --secondary: oklch(0.252 0.009 255);
-  --secondary-foreground: oklch(0.95 0.003 255);
+  --primary: oklch(0.72 0.13 255);
+  --primary-foreground: oklch(0.18 0.04 258);
+  --primary-ombre: oklch(0.56 0.13 257);
+  --secondary: oklch(0.25 0.014 258);
+  --secondary-foreground: oklch(0.95 0.006 85);
 
-  --muted: oklch(0.245 0.009 255);
-  --muted-foreground: oklch(0.685 0.014 255);
-  --accent: oklch(0.275 0.012 255);
-  --accent-foreground: oklch(0.962 0.003 255);
+  --muted: oklch(0.24 0.012 258);
+  --muted-foreground: oklch(0.72 0.016 255);
+  --accent: oklch(0.28 0.04 258);
+  --accent-foreground: oklch(0.93 0.03 255);
 
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 13%);
-  --ring: oklch(0.62 0.035 255);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.12 255);
 
-  --sidebar: oklch(0.172 0.007 255);
-  --sidebar-foreground: oklch(0.962 0.003 255);
-  --sidebar-primary: oklch(0.93 0.005 255);
-  --sidebar-primary-foreground: oklch(0.2 0.012 255);
-  --sidebar-accent: oklch(0.275 0.012 255);
-  --sidebar-accent-foreground: oklch(0.962 0.003 255);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.62 0.035 255);
+  --marque: var(--primary);
+  --marque-ombre: var(--primary-ombre);
+  --marque-douce: oklch(0.27 0.05 258);
+  --soleil: oklch(0.84 0.15 88);
+  --soleil-encre: oklch(0.25 0.05 70);
+  --soleil-doux: oklch(0.3 0.05 85);
+
+  --ombre-carte: 0 1px 2px oklch(0 0 0 / 30%), 0 6px 20px oklch(0 0 0 / 22%);
+
+  --sidebar: oklch(0.172 0.01 258);
+  --sidebar-foreground: oklch(0.96 0.006 85);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
   --chart-1: var(--serie-1);
   --chart-2: var(--serie-2);
@@ -190,17 +223,42 @@
   /**
    * Surface d une carte.
    *
-   * Aucune ombre portee : sur un outil dense, les ombres empilees produisent
-   * un rendu boursoufle. La profondeur vient d un filet de bordure et d un
-   * ecart de luminosite avec le fond, ce qui reste lisible en clair comme en
-   * sombre et supporte l impression.
+   * Coins genereux et ombre douce et diffuse : des cartes posees sur un fond
+   * chaud, comme des fiches sur une table de chantier. Le filet de bordure
+   * reste, pour l impression et le contraste force, ou l ombre disparait.
    */
   .surface {
-    @apply bg-card border-border/80 rounded-xl border;
+    @apply bg-card border-border/70 rounded-2xl border;
+    box-shadow: var(--ombre-carte);
   }
 
   .surface-interactive {
-    @apply bg-card border-border/80 hover:border-border rounded-xl border transition-colors;
+    @apply bg-card border-border/70 rounded-2xl border transition-[transform,box-shadow] duration-200;
+    box-shadow: var(--ombre-carte);
+  }
+  .surface-interactive:hover {
+    transform: translateY(-2px);
+  }
+
+  /**
+   * Bouton en relief : une tranche plus sombre sous le bouton, qui s ecrase
+   * a l appui. Le geste se sent avant meme que la page reagisse.
+   */
+  .relief {
+    box-shadow: 0 4px 0 var(--relief, var(--primary-ombre));
+    transition:
+      transform 0.08s ease-out,
+      box-shadow 0.08s ease-out,
+      background-color 0.15s;
+  }
+  .relief:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--relief, var(--primary-ombre));
+  }
+
+  /* Pastille d icone : un fond doux, l icone a la couleur de la marque. */
+  .pastille {
+    @apply bg-marque-douce text-marque grid shrink-0 place-items-center rounded-xl;
   }
 
   /**
@@ -226,6 +284,20 @@
 }
 
 @layer utilities {
+  /* Entree douce des blocs a l affichage, en cascade. */
+  .entree {
+    animation: entree 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .entree-1 {
+    animation-delay: 60ms;
+  }
+  .entree-2 {
+    animation-delay: 120ms;
+  }
+  .entree-3 {
+    animation-delay: 180ms;
+  }
+
   /* Degrade de masquage en bas d une zone defilante. */
   .fondu-bas {
     mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent 100%);
@@ -362,5 +434,60 @@
   .hachure-chome {
     background-image: none;
     border: 1px dashed CanvasText;
+  }
+}
+
+@keyframes entree {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Mouvement reduit a la demande du systeme : les animations s effacent, les
+   etats finaux s affichent directement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Felicitations : la coche jaillit, les confettis retombent. */
+.jaillir {
+  animation: jaillir 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes jaillir {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.confetti {
+  opacity: 0;
+  animation: confetti 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+@keyframes confetti {
+  0% {
+    transform: translateY(-20px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(260px) rotate(320deg);
+    opacity: 0;
   }
 }

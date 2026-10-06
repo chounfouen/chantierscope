@@ -6,9 +6,12 @@ import { ActionsReleve } from '@/components/saisie/actions-releve'
 import { PastilleStatut } from '@/components/saisie/statut-releve'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { db } from '@/db/index'
-import { chargerReleve } from '@/db/queries/saisie'
+import { chargerReleve, journeesDeReleve } from '@/db/queries/saisie'
+import { palierAtteint, serieDeReleves } from '@/db/compute/serie'
+import { Felicitations } from '@/components/saisie/felicitations'
+import { prenom } from '@/lib/accueil'
 import { actionsSurReleve, exigerPage, PEUT_CONSULTER_JOURNAL } from '@/lib/garde'
-import { dateLongue, fcfa, instant, libelleMeteo, quantite } from '@/lib/format'
+import { aujourdhui, dateLongue, fcfa, instant, libelleMeteo, quantite } from '@/lib/format'
 import { Icone } from '@/lib/icones'
 import { LIBELLE_GRAVITE, LIBELLE_TYPE_ALEA } from '@/lib/releve'
 import { teinteSerie } from '@/lib/viz'
@@ -18,10 +21,13 @@ export const metadata: Metadata = { title: 'Relevé journalier' }
 
 export default async function FicheReleve({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; releveId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { id, releveId } = await params
+  const envoye = (await searchParams)['envoye'] === '1'
   const utilisateur = await exigerPage(id, PEUT_CONSULTER_JOURNAL)
 
   const r = /^[0-9a-f-]{36}$/i.test(releveId) ? await chargerReleve(db(), releveId) : null
@@ -30,6 +36,11 @@ export default async function FicheReleve({
   if (!r || r.projetId !== id) notFound()
 
   const actions = actionsSurReleve(r.statut, utilisateur.role)
+  // Les felicitations ne concernent que l'auteur, juste apres son envoi.
+  const fete = envoye && r.auteurId === utilisateur.id
+  const serie = fete
+    ? serieDeReleves(await journeesDeReleve(db(), id, utilisateur.id), aujourdhui())
+    : 0
   const photos = await Promise.all(
     r.photos.map(async (p) => ({
       ...p,
@@ -63,6 +74,16 @@ export default async function FicheReleve({
         </div>
         <PastilleStatut statut={r.statut} />
       </header>
+
+      {fete && (
+        <Felicitations
+          prenom={prenom(utilisateur.nom)}
+          serie={serie}
+          palier={palierAtteint(serie)}
+          journal={`/projet/${id}/releve`}
+          nouveau={`/projet/${id}/releve/nouveau`}
+        />
+      )}
 
       {r.remplacePar && (
         <p className="border-border bg-muted/40 mt-4 flex items-start gap-2 rounded-lg border p-3 text-sm">

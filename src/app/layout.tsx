@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+// Polices auto-hebergees : aucune requete vers un service tiers a
+// l'execution, et un rendu identique hors ligne, sur le terrain.
+import '@fontsource-variable/nunito'
+import '@fontsource-variable/jetbrains-mono'
 import { FournisseurTheme } from '@/components/fournisseur-theme'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
-
-const sans = Geist({ variable: '--font-sans', subsets: ['latin'] })
-const mono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: {
@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${sans.variable} ${mono.variable} antialiased`}>
+      <body className="antialiased">
         <FournisseurTheme>
           {children}
           <Toaster />

@@ -22,7 +22,7 @@ test('saisie, validation, gel : l avancement bouge des la validation', async ({
     ouvriers: 6,
     quantite: { ligne, valeur: '3,5' },
   })
-  await page.waitForURL(/\/releve\/[0-9a-f-]{36}$/)
+  await page.waitForURL(/\/releve\/[0-9a-f-]{36}(\?envoye=1)?$/)
   const fiche = page.url()
   await expect(page.getByText('Soumis', { exact: true })).toBeVisible()
   // Le chef de chantier ne valide pas ce qu'il a saisi.
@@ -67,7 +67,7 @@ test('deux saisies sur le meme lot et le meme jour : la seconde est refusee clai
   await page.goto(`/projet/${projet}/releve/nouveau`)
   await autre.goto(`/projet/${projet}/releve/nouveau`)
   await saisirReleve(page, { lot: 'Second œuvre', date, ouvriers: 4 })
-  await page.waitForURL(/\/releve\/[0-9a-f-]{36}$/)
+  await page.waitForURL(/\/releve\/[0-9a-f-]{36}(\?envoye=1)?$/)
 
   await saisirReleve(autre, { lot: 'Second œuvre', date, ouvriers: 7 })
   await expect(autre.getByText(/existe déjà pour ce lot/)).toBeVisible()

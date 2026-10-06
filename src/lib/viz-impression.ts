@@ -27,7 +27,7 @@ export const IMPRESSION = {
   encreDiscrete: '#7b8187',
   grille: '#e4e6e9',
   ligneBase: '#ced1d6',
-  fond: '#f2f4f6',
+  fond: '#f3f0e9',
 } as const
 
 /** Equivalences des cles d'impression et des variables de la feuille de style. */

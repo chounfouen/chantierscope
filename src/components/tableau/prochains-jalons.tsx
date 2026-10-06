@@ -24,8 +24,10 @@ export function ProchainsJalons({
   return (
     <section aria-labelledby="titre-jalons" className="surface overflow-hidden">
       <div className="border-border/70 flex items-baseline justify-between gap-4 border-b px-5 py-3.5">
-        <h2 id="titre-jalons" className="flex items-center gap-2 text-sm font-medium">
-          <Icone.jalon className="text-muted-foreground size-4" strokeWidth={1.75} aria-hidden />
+        <h2 id="titre-jalons" className="flex items-center gap-2.5 text-base font-extrabold">
+          <span className="pastille size-8">
+            <Icone.jalon className="size-4" strokeWidth={2} aria-hidden />
+          </span>
           Prochains jalons
         </h2>
         <p className="text-muted-foreground text-xs">Date prévue, puis projetée</p>
@@ -36,30 +38,39 @@ export function ProchainsJalons({
       ) : (
         <ul className="divide-border/60 divide-y">
           {jalons.slice(0, maximum).map((j) => (
-            <li key={j.id} className="flex items-start justify-between gap-4 px-5 py-3">
-              <div className="min-w-0">
-                <p className="text-sm leading-snug font-medium">{j.nom}</p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {j.contractuel ? 'Contractuel' : 'Interne'}
-                  <span className="mx-1.5 opacity-40">·</span>
-                  prévu le {dateCourte(j.datePrevue)}
+            <li key={j.id} className="flex items-center gap-4 px-5 py-3.5">
+              {/* Compte a rebours en pastille : le nombre de jours d'abord. */}
+              <span
+                className="grid size-14 shrink-0 place-content-center rounded-2xl text-center"
+                style={{
+                  background: j.menace
+                    ? 'color-mix(in oklab, var(--etat-critique) 13%, var(--card))'
+                    : 'var(--marque-douce)',
+                }}
+              >
+                <span className="chiffres-alignes text-xl leading-none font-extrabold">
+                  {Math.abs(j.joursRestants)}
+                </span>
+                <span className="text-muted-foreground mt-0.5 text-[0.6875rem] leading-none font-bold">
+                  {j.joursRestants < 0 ? 'j passés' : 'jours'}
+                </span>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] leading-snug font-bold">{j.nom}</p>
+                <p className="text-muted-foreground mt-0.5 text-[0.8125rem]">
+                  {j.contractuel ? 'Contractuel' : 'Interne'}, prévu le {dateCourte(j.datePrevue)}
                   {j.dateProjetee !== null && j.glissementJ !== 0 && (
-                    <>
-                      <span className="mx-1.5 opacity-40">·</span>
-                      projeté le {dateCourte(j.dateProjetee)}
-                    </>
+                    <>, projeté le {dateCourte(j.dateProjetee)}</>
                   )}
                 </p>
                 {j.menace && (
-                  <p className="[&>svg]:text-etat-critique mt-1 flex items-center gap-1 text-xs font-medium">
-                    <Menace className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  <p className="[&>svg]:text-etat-critique mt-1 flex items-center gap-1 text-xs font-bold">
+                    <Menace className="size-3.5" strokeWidth={2.25} aria-hidden />
                     Menacé, {j.glissementJ} j de glissement
                   </p>
                 )}
               </div>
-              <p className="chiffres-alignes shrink-0 text-right text-sm font-semibold">
-                {restants(j.joursRestants)}
-              </p>
+              <span className="sr-only">{restants(j.joursRestants)}</span>
             </li>
           ))}
         </ul>

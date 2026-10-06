@@ -79,6 +79,21 @@ const TITRES: Record<Etape, string> = {
   envoi: 'Récapitulatif et envoi',
 }
 
+/**
+ * Chaque etape pose une question, en francais de chantier. Le titre technique
+ * reste annonce aux lecteurs d'ecran et sert de repere au-dessus.
+ */
+const QUESTIONS: Record<Etape, string> = {
+  dateLot: 'Quel jour, et sur quel lot ?',
+  meteo: 'Quel temps a-t-il fait ?',
+  moyens: 'Qui était sur le chantier ?',
+  quantites: 'Qu’avez-vous réalisé aujourd’hui ?',
+  photos: 'Une photo de la journée ?',
+  observations: 'Quelque chose à signaler ?',
+  alea: 'Un imprévu est-il survenu ?',
+  envoi: 'Tout est bon ? On envoie.',
+}
+
 export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoyer }: Proprietes) {
   const router = useRouter()
   // Un nouveau releve recoit son identifiant ici, dans le navigateur, et non
@@ -190,7 +205,9 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
               ? 'Relevé soumis à la validation.'
               : 'Brouillon enregistré.',
         )
-        router.push(`/projet/${referentiel.projet.id}/releve/${issue.releveId}`)
+        // Une soumission merite des felicitations, affichees par la fiche.
+        const fete = soumettre && mode !== 'rectification' ? '?envoye=1' : ''
+        router.push(`/projet/${referentiel.projet.id}/releve/${issue.releveId}${fete}`)
         router.refresh()
       } else if (issue.issue === 'reporte') {
         toast.info(issue.message)
@@ -361,21 +378,36 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
 
 function EnTeteEtapes({ indice, mode }: { indice: number; mode: ModeFormulaire }) {
   const etape = ORDRE[indice] as Etape
+  const part = (indice + 1) / ORDRE.length
   return (
     <div>
-      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        Étape {indice + 1} sur {ORDRE.length}
-        {mode === 'rectification' && ' — rectification'}
-      </p>
-      <h2 className="mt-1 text-lg font-semibold">{TITRES[etape]}</h2>
-      <ol aria-hidden className="mt-3 flex gap-1">
-        {ORDRE.map((e, i) => (
-          <li
-            key={e}
-            className={cn('h-1 flex-1 rounded-full', i <= indice ? 'bg-foreground' : 'bg-border')}
+      {/* Barre de progression epaisse, a reflet : on voit d'un coup d'oeil le
+          chemin parcouru, et elle avance a chaque etape. */}
+      <div
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={ORDRE.length}
+        aria-valuenow={indice + 1}
+        aria-label={`Étape ${indice + 1} sur ${ORDRE.length}`}
+        className="bg-muted h-4 overflow-hidden rounded-full"
+      >
+        <div
+          className="bg-marque relative h-full rounded-full transition-[width] duration-500 ease-out"
+          style={{ width: `${part * 100}%` }}
+        >
+          <span
+            aria-hidden
+            className="bg-card/35 absolute inset-x-2 top-[3px] h-[3px] rounded-full"
           />
-        ))}
-      </ol>
+        </div>
+      </div>
+      <p className="text-muted-foreground mt-4 text-sm font-bold">
+        {TITRES[etape]} · étape {indice + 1} sur {ORDRE.length}
+        {mode === 'rectification' && ' · rectification'}
+      </p>
+      <h2 key={etape} className="entree mt-1 text-[1.625rem] leading-tight font-extrabold">
+        {QUESTIONS[etape]}
+      </h2>
     </div>
   )
 }
@@ -418,16 +450,16 @@ function EtapeDateLot({
       </Champ>
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium">Lot</legend>
-        <div className="grid gap-2">
+        <legend className="mb-2 text-sm font-bold">Lot</legend>
+        <div className="grid gap-3">
           {referentiel.lots.map((l) => (
             <label
               key={l.id}
               className={cn(
-                'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
+                'relief has-[:focus-visible]:ring-ring/50 flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-2.5 transition-colors has-[:focus-visible]:ring-3',
                 etat.lotId === l.id
-                  ? 'border-foreground bg-accent'
-                  : 'border-input hover:bg-accent/60',
+                  ? 'border-marque bg-marque-douce [--relief:var(--marque)]'
+                  : 'border-input bg-card hover:bg-muted [--relief:var(--input)]',
               )}
             >
               <input
@@ -436,15 +468,26 @@ function EtapeDateLot({
                 value={l.id}
                 checked={etat.lotId === l.id}
                 onChange={() => surLot(l.id)}
-                className="size-4"
+                className="sr-only"
               />
               <span
                 aria-hidden
-                className="h-4 w-1 shrink-0 rounded-full"
+                className="size-3.5 shrink-0 rounded-[5px]"
                 style={{ background: teinteSerie(l.rangCouleur) }}
               />
               <span className="text-muted-foreground font-mono text-xs">{l.code}</span>
-              <span className="text-base">{l.nom}</span>
+              <span className="flex-1 text-base font-bold">{l.nom}</span>
+              <span
+                aria-hidden
+                className={cn(
+                  'grid size-6 place-items-center rounded-full border-2 transition-colors',
+                  etat.lotId === l.id
+                    ? 'border-marque bg-marque text-primary-foreground'
+                    : 'border-input',
+                )}
+              >
+                {etat.lotId === l.id && <Icone.valide className="size-4" strokeWidth={2.5} />}
+              </span>
             </label>
           ))}
         </div>

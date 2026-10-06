@@ -5,10 +5,16 @@ import { FileAttente } from '@/components/saisie/file-attente'
 import { PastilleStatut } from '@/components/saisie/statut-releve'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/index'
-import { chargerJournal, chargerReferentielSaisie, type FiltresJournal } from '@/db/queries/saisie'
+import {
+  chargerJournal,
+  chargerReferentielSaisie,
+  journeesDeReleve,
+  type FiltresJournal,
+} from '@/db/queries/saisie'
+import { serieDeReleves } from '@/db/compute/serie'
 import { statutReleve, type StatutReleve } from '@/db/schema'
 import { STATUT_RELEVE } from '@/lib/etats'
-import { dateLongue } from '@/lib/format'
+import { aujourdhui, dateLongue } from '@/lib/format'
 import { exigerPage, habilite, PEUT_CONSULTER_JOURNAL, PEUT_SAISIR } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
 import { DateSimple } from '@/lib/releve'
@@ -59,6 +65,9 @@ export default async function JournalDeChantier({
   ])
   const { entrees, tronque, enAttente } = journal
   const peutSaisir = habilite(utilisateur.role, PEUT_SAISIR)
+  const serie = peutSaisir
+    ? serieDeReleves(await journeesDeReleve(base, id, utilisateur.id), aujourdhui())
+    : 0
   const filtre = Object.values(filtres).some((v) => v !== undefined)
 
   /*
@@ -118,12 +127,23 @@ export default async function JournalDeChantier({
           </p>
         </div>
         {peutSaisir && (
-          <Button asChild className="h-11">
-            <Link href={`/projet/${id}/releve/nouveau`}>
-              <Icone.ajouter className="size-4" />
-              Nouveau relevé
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {serie > 0 && (
+              <p
+                className="bg-soleil text-soleil-encre flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-extrabold"
+                title="Journées ouvrables consécutives couvertes par vos relevés"
+              >
+                <Icone.calendrier className="size-4" strokeWidth={2.5} aria-hidden />
+                Série de {serie} {serie > 1 ? 'jours' : 'jour'}
+              </p>
+            )}
+            <Button asChild className="h-11">
+              <Link href={`/projet/${id}/releve/nouveau`}>
+                <Icone.ajouter className="size-4" />
+                Nouveau relevé
+              </Link>
+            </Button>
+          </div>
         )}
       </header>
 

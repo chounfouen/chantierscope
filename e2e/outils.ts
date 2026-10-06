@@ -52,7 +52,7 @@ export async function saisirReleve(
   await suivant(page) // observations
   await suivant(page) // alea
   await suivant(page) // recapitulatif
-  await expect(page.getByRole('heading', { name: 'Récapitulatif et envoi' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tout est bon ? On envoie.' })).toBeVisible()
   await page
     .getByRole('button', { name: o.soumettre === false ? 'Brouillon' : 'Soumettre' })
     .click()

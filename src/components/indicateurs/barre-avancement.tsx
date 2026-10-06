@@ -34,7 +34,7 @@ export function BarreAvancement({
   return (
     <div className="flex items-center gap-3">
       <div
-        className="bg-muted relative h-2 flex-1 overflow-hidden rounded-full"
+        className="bg-muted relative h-3 flex-1 overflow-hidden rounded-full"
         role="img"
         aria-label={`${intitule} : ${pourcent(realise)} réalisés pour ${pourcent(prevu)} prévus`}
         title={`Prévu : ${pourcent(prevu)}, réalisé : ${pourcent(realise)}`}
@@ -54,7 +54,7 @@ export function BarreAvancement({
         />
       </div>
 
-      <span className="chiffres-alignes w-[3.25rem] shrink-0 text-right text-sm font-medium">
+      <span className="chiffres-alignes w-[3.5rem] shrink-0 text-right text-sm font-extrabold">
         {pourcent(realise)}
       </span>
       <span
