@@ -5,6 +5,7 @@ import '@fontsource-variable/nunito'
 import '@fontsource-variable/jetbrains-mono'
 import { FournisseurTheme } from '@/components/fournisseur-theme'
 import { Toaster } from '@/components/ui/sonner'
+import { SCRIPT_THEME } from '@/lib/theme'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -26,6 +27,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* Theme pose avant le premier affichage : voir src/lib/theme.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_THEME }} />
+      </head>
       <body className="antialiased">
         <FournisseurTheme>
           {children}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/components/fournisseur-theme'
 import { Button } from '@/components/ui/button'
 import { Icone } from '@/lib/icones'
 
