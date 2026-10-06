@@ -51,6 +51,7 @@ import {
   TrendingDown,
   TrendingUp,
   Truck,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -65,6 +66,7 @@ export const Icone = {
   ressource: Package,
   engin: Truck,
   equipe: Users,
+  compte: UserRound,
 
   /* Ecrans */
   tableauBord: TrendingUp,

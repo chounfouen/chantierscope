@@ -103,16 +103,16 @@ export default async function CoquilleApplication({
   return (
     <div className="flex min-h-dvh flex-col">
       <EnregistrementServiceWorker actif={!enDeveloppement()} />
-      <header className="bg-background/80 border-border/70 sticky top-0 z-30 border-b backdrop-blur-xl">
-        <div className="flex h-[3.25rem] items-center gap-3 px-4 sm:px-5">
+      <header className="bg-card/85 border-border/70 sticky top-0 z-30 border-b backdrop-blur-xl">
+        <div className="flex h-[3.75rem] items-center gap-3 px-4 sm:px-5">
           <Link href="/" className="flex shrink-0 items-center gap-2.5">
             <span
               aria-hidden
-              className="bg-foreground text-background grid size-7 place-items-center rounded-lg"
+              className="bg-soleil text-soleil-encre grid size-8 -rotate-3 place-items-center rounded-xl shadow-[0_3px_0_var(--soleil-encre)]"
             >
-              <Icone.projet className="size-4" strokeWidth={2} />
+              <Icone.projet className="size-[1.125rem]" strokeWidth={2.25} />
             </span>
-            <span className="text-[0.9375rem] font-semibold">ChantierScope</span>
+            <span className="text-[1.0625rem] font-extrabold tracking-tight">ChantierScope</span>
           </Link>
 
           {projet && (
@@ -138,7 +138,7 @@ export default async function CoquilleApplication({
       </header>
 
       <div className="flex flex-1">
-        <aside className="bg-sidebar border-border/70 sticky top-[3.25rem] hidden h-[calc(100dvh-3.25rem)] w-[15rem] shrink-0 overflow-y-auto border-r px-2.5 py-5 md:block">
+        <aside className="bg-sidebar border-border/70 sticky top-[3.75rem] hidden h-[calc(100dvh-3.75rem)] w-[15.5rem] shrink-0 overflow-y-auto border-r px-2.5 py-5 md:block">
           <Navigation groupes={groupes} />
         </aside>
 

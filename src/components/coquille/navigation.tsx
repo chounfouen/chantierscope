@@ -39,10 +39,10 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
     <nav aria-label="Navigation principale" className="space-y-6">
       {groupes.map((groupe) => (
         <div key={groupe.titre}>
-          <p className="text-muted-foreground mb-1.5 px-3 text-[0.6875rem] font-medium tracking-wider uppercase">
+          <p className="text-muted-foreground mb-2 px-3 text-xs font-bold tracking-wide uppercase">
             {groupe.titre}
           </p>
-          <ul className="space-y-px">
+          <ul className="space-y-1">
             {groupe.entrees.map((e) => {
               const IconeEntree = Icone[e.icone]
               const actif = e.href === hrefActif
@@ -69,7 +69,7 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
                   {actif && (
                     <span
                       aria-hidden
-                      className="bg-foreground absolute top-1/2 left-0 h-4 w-0.5 -translate-y-1/2 rounded-r-full"
+                      className="bg-marque absolute top-1/2 left-0 h-5 w-1 -translate-y-1/2 rounded-r-full"
                     />
                   )}
                   <Link
@@ -77,16 +77,13 @@ export function Navigation({ groupes }: { groupes: readonly Groupe[] }) {
                     prefetch={e.prechargement === 'complet' ? true : 'auto'}
                     aria-current={actif ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-lg px-3 py-[0.4375rem] text-sm transition-colors duration-150',
+                      'flex items-center gap-3 rounded-xl px-3 py-2 text-[0.9375rem] font-semibold transition-colors duration-150',
                       actif
-                        ? 'bg-accent text-accent-foreground font-medium'
-                        : 'text-muted-foreground hover:bg-accent/55 hover:text-foreground',
+                        ? 'bg-marque-douce text-marque font-bold'
+                        : 'text-foreground/75 hover:bg-muted hover:text-foreground',
                     )}
                   >
-                    <IconeEntree
-                      className="size-[1.0625rem] shrink-0"
-                      strokeWidth={actif ? 2 : 1.75}
-                    />
+                    <IconeEntree className="size-5 shrink-0" strokeWidth={actif ? 2.25 : 1.9} />
                     {e.libelle}
                     <Attente />
                   </Link>

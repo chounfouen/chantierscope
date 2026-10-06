@@ -49,8 +49,10 @@ function Bloc({
   return (
     <section aria-label={titre} className="surface px-5 py-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <I className="text-muted-foreground size-4" strokeWidth={1.75} aria-hidden />
+        <h2 className="flex items-center gap-2.5 text-base font-extrabold">
+          <span className="pastille size-8">
+            <I className="size-4" strokeWidth={2} aria-hidden />
+          </span>
           {titre}
         </h2>
         {sousTitre !== undefined && <p className="text-muted-foreground text-xs">{sousTitre}</p>}

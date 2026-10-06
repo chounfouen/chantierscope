@@ -81,7 +81,9 @@ test('le maitre d ouvrage ne voit ni cout ni effectif', async ({ page }) => {
   await page.goto(`/projet/${projet}`)
   await expect(page.getByRole('region', { name: 'Indicateurs de synthèse' })).toBeVisible()
   expect(await texte(page, 'main')).not.toMatch(/CPI|Coût réel|Coût estimé final/)
-  await expect(page.getByText('Fin projetée')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Indicateurs de synthèse' }).getByText('Fin projetée'),
+  ).toBeVisible()
 
   await page.goto(`/projet/${projet}/analyses`)
   await expect(page.getByRole('region', { name: 'Consommation des matériaux clés' })).toBeVisible()

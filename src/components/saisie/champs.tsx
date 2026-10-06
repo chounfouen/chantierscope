@@ -13,7 +13,7 @@ import { useId } from 'react'
 import { cn } from '@/lib/utils'
 
 export const CLASSE_CHAMP =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-12 w-full rounded-lg border px-3 text-base outline-none transition-colors focus-visible:ring-3 aria-invalid:ring-3 disabled:opacity-50'
+  'border-input focus-visible:border-ring focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-13 w-full rounded-xl border-2 bg-card px-4 text-lg font-semibold outline-none transition-colors focus-visible:ring-3 aria-invalid:ring-3 disabled:opacity-50'
 
 type ProprietesChamp = {
   libelle: string
@@ -37,7 +37,7 @@ export function Champ({ libelle, aide, erreur, unite, children, className }: Pro
 
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label htmlFor={id} className="block text-sm font-medium">
+      <label htmlFor={id} className="block text-sm font-bold">
         {libelle}
       </label>
       <div className="relative">
@@ -113,8 +113,8 @@ export function Bascule({
 }) {
   return (
     <fieldset className="space-y-1.5">
-      <legend className="text-sm font-medium">{libelle}</legend>
-      <div className="grid grid-cols-2 gap-2">
+      <legend className="mb-2 text-sm font-bold">{libelle}</legend>
+      <div className="grid grid-cols-2 gap-3">
         {[
           { v: true, texte: oui },
           { v: false, texte: non },
@@ -125,10 +125,10 @@ export function Bascule({
             aria-pressed={valeur === o.v}
             onClick={() => surChangement(o.v)}
             className={cn(
-              'h-12 rounded-lg border text-base transition-colors',
+              'relief h-14 rounded-2xl border-2 text-base font-bold transition-colors',
               valeur === o.v
-                ? 'border-foreground bg-foreground text-background font-medium'
-                : 'border-input hover:bg-accent',
+                ? 'border-marque bg-marque-douce text-marque [--relief:var(--marque)]'
+                : 'border-input bg-card hover:bg-muted [--relief:var(--input)]',
             )}
           >
             {o.texte}

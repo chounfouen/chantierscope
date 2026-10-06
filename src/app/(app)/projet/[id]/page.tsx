@@ -4,6 +4,7 @@ import { FilAriane } from '@/components/coquille/fil-ariane'
 import { CourbeS } from '@/components/graphiques/courbe-s'
 import { BarreAvancement } from '@/components/indicateurs/barre-avancement'
 import { Tuile, type Sens, type Ton } from '@/components/indicateurs/tuile'
+import { Accueil, type Repere } from '@/components/tableau/accueil'
 import { PanneauAlertes } from '@/components/tableau/panneau-alertes'
 import { ProchainsJalons } from '@/components/tableau/prochains-jalons'
 import { db } from '@/db/index'
@@ -12,6 +13,7 @@ import { chargerSynthese } from '@/db/queries/lecture'
 import { chargerTableau } from '@/db/queries/tableau'
 import { exigerPage, voitDonneesInternes } from '@/lib/garde'
 import {
+  dateCourte,
   dateLongue,
   ecartJours,
   fcfa,
@@ -22,6 +24,8 @@ import {
   pourcent,
 } from '@/lib/format'
 import { Icone } from '@/lib/icones'
+import { teinteSerie } from '@/lib/viz'
+import { prenom, salutation, sousTitreSituation, titreSituation } from '@/lib/accueil'
 import { construireTableau } from '@/lib/tableau-donnees'
 
 export const metadata: Metadata = { title: 'Tableau de bord' }
@@ -72,12 +76,58 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
       : null
   const t = tableau?.tendances
 
+  const prochainJalon = tableau?.jalons[0]
+  const alertesCritiques = tableau?.alertes.filter((a) => a.niveau === 'critique').length ?? 0
+  const situation = {
+    ecartDelaiJ: retardJ,
+    jalonsMenaces: tableau?.jalons.filter((j) => j.menace).length ?? 0,
+    alertesCritiques,
+    avancement: ind?.avancement ?? 0,
+  }
+  const reperes: Repere[] = [
+    ...(global?.dateFinProjetee
+      ? [
+          {
+            icone: 'calendrier' as const,
+            libelle: 'Fin projetée',
+            valeur: dateCourte(global.dateFinProjetee),
+          },
+        ]
+      : []),
+    ...(prochainJalon
+      ? [
+          {
+            icone: 'jalon' as const,
+            libelle: prochainJalon.nom,
+            valeur: `dans ${prochainJalon.joursRestants} j`,
+          },
+        ]
+      : []),
+    ...(ind && ind.penaliteXof > 0
+      ? [
+          {
+            icone: 'cout' as const,
+            libelle: 'Pénalité prévue',
+            valeur: fcfaCompact(ind.penaliteXof),
+          },
+        ]
+      : []),
+    {
+      icone: 'alerte' as const,
+      libelle: 'Alertes',
+      valeur: String(tableau?.alertes.length ?? 0),
+      href: '#alertes',
+    },
+  ]
+
   const blocLots = (
     <section aria-label="Avancement par lot">
       <div className="surface overflow-hidden">
         <div className="border-border/70 flex items-baseline justify-between gap-4 border-b px-5 py-3.5">
-          <h2 className="flex items-center gap-2 text-sm font-medium">
-            <Icone.lot className="text-muted-foreground size-4" strokeWidth={1.75} aria-hidden />
+          <h2 className="flex items-center gap-2.5 text-base font-extrabold">
+            <span className="pastille size-8">
+              <Icone.lot className="size-4" strokeWidth={2} aria-hidden />
+            </span>
             Avancement par lot
           </h2>
           <p className="text-muted-foreground flex items-center gap-3 text-xs">
@@ -95,13 +145,20 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
 
         <ul className="divide-border/60 divide-y">
           {lots.map((lot) => (
-            <li key={lot.id} className="hover:bg-accent/35 px-5 py-3 transition-colors">
+            <li key={lot.id} className="hover:bg-muted/50 px-5 py-3.5 transition-colors">
               <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
                 <Link
                   href={`/projet/${projet.id}/lot/${lot.id}`}
-                  className="focus-visible:ring-ring/70 -mx-1 rounded px-1 text-sm font-medium hover:underline"
+                  className="focus-visible:ring-ring/70 -mx-1 inline-flex items-center gap-2 rounded px-1 text-[0.9375rem] font-bold hover:underline"
                 >
-                  <span className="text-muted-foreground mr-2 font-mono text-xs">{lot.code}</span>
+                  <span
+                    aria-hidden
+                    className="size-3 shrink-0 rounded-[4px]"
+                    style={{ background: teinteSerie(lot.rangCouleur) }}
+                  />
+                  <span className="text-muted-foreground font-mono text-xs font-medium">
+                    {lot.code}
+                  </span>
                   {lot.nom}
                 </Link>
                 <span className="text-muted-foreground chiffres-alignes text-xs">
@@ -138,7 +195,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
 
       <header className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-semibold">{projet.nom}</h1>
+          <h1 className="text-[1.375rem] font-extrabold tracking-tight">{projet.nom}</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {projet.lieu}
             <span className="mx-2 opacity-40">·</span>
@@ -170,11 +227,23 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
         </div>
       ) : (
         <>
-          <section aria-label="Indicateurs de synthèse" className="mt-5">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5">
+            <Accueil
+              salutation={`${salutation(new Date().getUTCHours())} ${prenom(utilisateur.nom)},`}
+              titre={titreSituation(situation)}
+              sousTitre={sousTitreSituation(situation)}
+              realise={ind.avancement}
+              prevu={ind.avancementPrevu}
+              reperes={reperes}
+            />
+          </div>
+
+          <section aria-label="Indicateurs de synthèse" className="entree entree-1 mt-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Tuile
                 intitule="Avancement"
                 valeur={pourcent(ind.avancement)}
+                anime={{ valeur: ind.avancement, format: 'pourcent' }}
                 precision={`${pourcent(ind.avancementPrevu)} prévus à cette date, soit ${
                   ecart >= 0 ? '+' : ''
                 }${pourcent(ecart)}`}
@@ -195,6 +264,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               <Tuile
                 intitule="Écart de délai"
                 valeur={jours(-Math.round(retardJ))}
+                anime={{ valeur: -retardJ, format: 'jours' }}
                 precision="lecture horizontale de la courbe en S"
                 icone="planning"
                 ton={retardJ > 20 ? 'critique' : retardJ > 5 ? 'alerte' : 'bon'}
@@ -214,6 +284,9 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               <Tuile
                 intitule="SPI — délai"
                 valeur={ind.spi === null ? '—' : indice(ind.spi)}
+                {...(ind.spi === null
+                  ? {}
+                  : { anime: { valeur: ind.spi, format: 'indice' as const } })}
                 precision="valeur acquise sur valeur planifiée"
                 icone="hausse"
                 ton={tonIndice(ind.spi)}
@@ -231,6 +304,9 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                 <Tuile
                   intitule="CPI — coût"
                   valeur={ind.cpi === null ? '—' : indice(ind.cpi)}
+                  {...(ind.cpi === null
+                    ? {}
+                    : { anime: { valeur: ind.cpi, format: 'indice' as const } })}
                   precision="valeur acquise au coût budgété sur coût réel"
                   icone="cout"
                   ton={tonIndice(ind.cpi)}
@@ -291,11 +367,9 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                     },
                   ]
               ).map((c) => (
-                <div key={c.cle} className="px-5 py-3.5">
-                  <dt className="text-muted-foreground text-[0.6875rem] font-medium tracking-wide uppercase">
-                    {c.cle}
-                  </dt>
-                  <dd className="chiffres-alignes mt-1 text-[0.9375rem] font-semibold">
+                <div key={c.cle} className="px-5 py-4">
+                  <dt className="text-muted-foreground text-sm font-bold">{c.cle}</dt>
+                  <dd className="chiffres-alignes mt-1 text-lg font-extrabold tracking-tight">
                     {c.valeur}
                   </dd>
                   {'note' in c && c.note !== undefined && (
@@ -322,12 +396,10 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
           <section aria-label="Courbe en S" className="mt-4">
             <div className="surface px-5 py-4">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="flex items-center gap-2 text-sm font-medium">
-                  <Icone.analyses
-                    className="text-muted-foreground size-4"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
+                <h2 className="flex items-center gap-2.5 text-base font-extrabold">
+                  <span className="pastille size-8">
+                    <Icone.analyses className="size-4" strokeWidth={2} aria-hidden />
+                  </span>
                   Courbe en S
                 </h2>
                 <p className="text-muted-foreground text-xs">

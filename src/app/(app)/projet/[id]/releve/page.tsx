@@ -5,10 +5,16 @@ import { FileAttente } from '@/components/saisie/file-attente'
 import { PastilleStatut } from '@/components/saisie/statut-releve'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/index'
-import { chargerJournal, chargerReferentielSaisie, type FiltresJournal } from '@/db/queries/saisie'
+import {
+  chargerJournal,
+  chargerReferentielSaisie,
+  journeesDeReleve,
+  type FiltresJournal,
+} from '@/db/queries/saisie'
+import { serieDeReleves } from '@/db/compute/serie'
 import { statutReleve, type StatutReleve } from '@/db/schema'
 import { STATUT_RELEVE } from '@/lib/etats'
-import { dateLongue } from '@/lib/format'
+import { aujourdhui, dateLongue } from '@/lib/format'
 import { exigerPage, habilite, PEUT_CONSULTER_JOURNAL, PEUT_SAISIR } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
 import { DateSimple } from '@/lib/releve'
@@ -59,6 +65,9 @@ export default async function JournalDeChantier({
   ])
   const { entrees, tronque, enAttente } = journal
   const peutSaisir = habilite(utilisateur.role, PEUT_SAISIR)
+  const serie = peutSaisir
+    ? serieDeReleves(await journeesDeReleve(base, id, utilisateur.id), aujourdhui())
+    : 0
   const filtre = Object.values(filtres).some((v) => v !== undefined)
 
   /*
@@ -89,8 +98,7 @@ export default async function JournalDeChantier({
     parDate.set(e.date, liste)
   }
 
-  const champ =
-    'border-input bg-background h-10 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40'
+  const champ = 'champ champ-compact'
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -118,20 +126,31 @@ export default async function JournalDeChantier({
           </p>
         </div>
         {peutSaisir && (
-          <Button asChild className="h-11">
-            <Link href={`/projet/${id}/releve/nouveau`}>
-              <Icone.ajouter className="size-4" />
-              Nouveau relevé
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {serie > 0 && (
+              <p
+                className="bg-soleil text-soleil-encre flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-extrabold"
+                title="Journées ouvrables consécutives couvertes par vos relevés"
+              >
+                <Icone.calendrier className="size-4" strokeWidth={2.5} aria-hidden />
+                Série de {serie} {serie > 1 ? 'jours' : 'jour'}
+              </p>
+            )}
+            <Button asChild className="h-11">
+              <Link href={`/projet/${id}/releve/nouveau`}>
+                <Icone.ajouter className="size-4" />
+                Nouveau relevé
+              </Link>
+            </Button>
+          </div>
         )}
       </header>
 
       {peutSaisir && <FileAttente projetId={id} utilisateurId={utilisateur.id} />}
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-2" aria-label="Filtres">
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Lot</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Lot</span>
           <select name="lot" defaultValue={filtres.lotId ?? ''} className={champ}>
             <option value="">Tous les lots</option>
             {referentiel.lots.map((l) => (
@@ -141,16 +160,16 @@ export default async function JournalDeChantier({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Du</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Du</span>
           <input type="date" name="du" defaultValue={filtres.du ?? ''} className={champ} />
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Au</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Au</span>
           <input type="date" name="au" defaultValue={filtres.au ?? ''} className={champ} />
         </label>
-        <label className="grid gap-1 text-xs">
-          <span className="text-muted-foreground">Statut</span>
+        <label className="grid gap-1.5 text-xs">
+          <span className="libelle-champ">Statut</span>
           <select name="statut" defaultValue={filtres.statut ?? ''} className={champ}>
             <option value="">Tous</option>
             {statutReleve.enumValues.map((s) => (

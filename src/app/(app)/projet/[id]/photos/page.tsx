@@ -15,8 +15,7 @@ type Recherche = Record<string, string | string[] | undefined>
 const premier = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
 const date = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '')
 
-const CHAMP =
-  'border-input bg-background h-8 rounded-md border px-2 text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none'
+const CHAMP = 'champ champ-compact'
 
 export default async function Photos({
   params,
@@ -100,8 +99,8 @@ export default async function Photos({
         className="surface mt-4 flex flex-wrap items-end gap-x-4 gap-y-3 px-5 py-3.5"
       >
         <input type="hidden" name="vue" value={vue} />
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Point de vue</span>
+        <label className="flex flex-col gap-1.5 text-xs">
+          <span className="libelle-champ">Point de vue</span>
           <select name="pdv" defaultValue={filtre.pointDeVueId} className={CHAMP}>
             <option value="">Tous</option>
             {donnees.pointsDeVue.map((v) => (
@@ -111,8 +110,8 @@ export default async function Photos({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Lot</span>
+        <label className="flex flex-col gap-1.5 text-xs">
+          <span className="libelle-champ">Lot</span>
           <select name="lot" defaultValue={filtre.lotId} className={CHAMP}>
             <option value="">Tous</option>
             {donnees.lots.map((l) => (
@@ -122,24 +121,24 @@ export default async function Photos({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Du</span>
+        <label className="flex flex-col gap-1.5 text-xs">
+          <span className="libelle-champ">Du</span>
           <input type="date" name="du" defaultValue={filtre.du} className={CHAMP} />
         </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Au</span>
+        <label className="flex flex-col gap-1.5 text-xs">
+          <span className="libelle-champ">Au</span>
           <input type="date" name="au" defaultValue={filtre.au} className={CHAMP} />
         </label>
         <button
           type="submit"
-          className="bg-primary text-primary-foreground h-8 rounded-md px-3 text-sm font-medium"
+          className="relief bg-primary text-primary-foreground h-10 rounded-xl px-4 text-sm font-bold hover:brightness-110"
         >
           Filtrer
         </button>
         {(filtre.pointDeVueId || filtre.lotId || filtre.du || filtre.au) && (
           <Link
             href={`/projet/${id}/photos?vue=${vue}`}
-            className="text-muted-foreground h-8 text-sm leading-8 underline"
+            className="text-muted-foreground h-10 text-sm leading-10 font-semibold underline"
           >
             Effacer les filtres
           </Link>

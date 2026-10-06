@@ -214,6 +214,7 @@ export type DetailReleve = {
   lot: { id: string; code: string; nom: string; rangCouleur: number }
   statut: StatutReleve
   auteur: string | null
+  auteurId: string | null
   creeLe: Date
   modifieLe: Date
   validePar: string | null
@@ -259,7 +260,7 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
       select r.id, r.projet_id as "projetId", r.date, r.statut::text as statut,
              r.lot_id as "lotId", l.code as "lotCode", l.nom as "lotNom",
              l.rang_couleur as "rangCouleur",
-             a.nom as auteur, r.cree_le as "creeLe", r.modifie_le as "modifieLe",
+             a.nom as auteur, r.auteur_id as "auteurId", r.cree_le as "creeLe", r.modifie_le as "modifieLe",
              v.nom as "validePar", r.valide_le as "valideLe",
              r.meteo_code as "meteoCode", r.temperature_c::float8 as "temperatureC",
              r.precipitations_mm::float8 as "precipitationsMm",
@@ -337,4 +338,26 @@ export function versSaisie(d: DetailReleve): Omit<ReleveSaisi, 'id' | 'soumettre
     observations: d.observations,
     alea: d.alea,
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Serie de releves                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Journees couvertes par les releves transmis par un auteur sur un projet,
+ * sur les deux dernieres annees au plus. Les brouillons ne comptent pas : la
+ * serie recompense un releve transmis, pas un releve commence.
+ */
+export async function journeesDeReleve(
+  db: Db,
+  projetId: string,
+  auteurId: string,
+): Promise<string[]> {
+  const lignes = await db.execute<{ date: string }>(sql`
+    select distinct date::text as date from releve_journalier
+     where projet_id = ${projetId}::uuid and auteur_id = ${auteurId}::uuid
+       and statut in ('SOUMIS', 'VALIDE', 'RECTIFIE')
+       and date >= current_date - interval '2 years'`)
+  return lignes.map((l) => l.date)
 }
