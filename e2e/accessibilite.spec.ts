@@ -17,6 +17,7 @@ const ECRANS = [
   '/planning',
   '/analyses',
   '/plan',
+  '/maquette',
   '/photos',
   '/rapports',
   '/releve',

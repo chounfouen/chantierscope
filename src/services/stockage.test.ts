@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cheminMaquette,
   cheminPhoto,
   cheminPlan,
   cheminValide,
@@ -9,6 +10,7 @@ import {
   signatureValide,
   signer,
   tailleMaxDepot,
+  typeContenu,
 } from '@/services/stockage'
 
 const SECRET = 's'.repeat(32)
@@ -24,6 +26,16 @@ describe('chemins du magasin', () => {
     expect(tailleMaxDepot(cheminPlan('p1', 'n1'))).toBe(16 * 1024 * 1024)
     expect(tailleMaxDepot(cheminPhoto('p1', 'f1', 'image'))).toBe(3 * 1024 * 1024)
     expect(tailleMaxDepot('projets/p1/photos/plans/x.webp')).toBe(3 * 1024 * 1024)
+  })
+
+  it('range la maquette a part, en GLB, avec sa propre limite de taille', () => {
+    const c = cheminMaquette('p1', 'm1')
+    expect(c).toBe('projets/p1/maquettes/m1.glb')
+    expect(typeContenu(c)).toBe('model/gltf-binary')
+    expect(tailleMaxDepot(c)).toBe(50 * 1024 * 1024)
+    // Un GLB ailleurs que dans les maquettes reste traite comme une image.
+    expect(typeContenu('projets/p1/photos/m1.glb')).toBe('image/webp')
+    expect(typeContenu(cheminPlan('p1', 'n1'))).toBe('image/webp')
   })
 
   it('refuse toute remontee de repertoire et tout chemin absolu', () => {

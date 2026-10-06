@@ -1336,3 +1336,47 @@ importer depuis AutoCAD, un theme clair trop brun.
   annonce a l'import.
 - L'image d'un plan remplace reste dans le magasin de fichiers : le magasin
   n'expose pas de suppression.
+
+### Maquette 3D (IFC) — avancement element par element
+
+Demande du porteur du projet : aller au-dela des plans 2D, avec la maquette
+numerique du batiment.
+
+#### Ce qui a ete produit
+
+| Fichier | Role |
+|---|---|
+| `src/lib/maquette/ifc.ts` | Extraction d'un IFC par web-ifc : geometrie en axe Y vertical, inventaire (classe, nom, etage), niveaux des etages comptes depuis le rez-de-chaussee |
+| `src/lib/maquette/glb.ts`, `inventaire.ts` | Ecriture d'un GLB, inventaire compris dans le fichier ; relecture et validation par le serveur |
+| `src/lib/maquette/regles.ts` | Familles d'ouvrages, regles tache vers elements (famille, etage, mot du nom), propositions automatiques a partir du nom des taches |
+| `drizzle/0009` | Tables `maquette`, `element_maquette`, `regle_maquette`, audit de la maquette et des regles |
+| `src/db/queries/plan.ts` | `chargerSuivi`, lecture commune au plan et a la maquette : memes taches, meme avancement, memes etats |
+| ecran `maquette`, `src/components/maquette/` | Visionneuse three.js, etages, rejeu, detail d'un element, import, editeur de rattachements |
+| `scripts/maquette-demo.py`, `src/db/seed/residence-palmiers.ifc` | Maquette IFC de demonstration, produite avec ifcopenshell ; le peuplement la convertit en GLB dans le dossier public, comme les planches photographiques |
+| `e2e/maquette.spec.ts` | Coloration, selection, rattachements, import IFC, refus d'un fichier Revit, lecture seule du maitre d'ouvrage |
+
+#### Decisions prises
+
+| Decision | Motif |
+|---|---|
+| L'IFC est accepte, les formats natifs (Revit, ArchiCAD) refuses avec la marche a suivre | L'IFC est le format ouvert du BIM, exporte par tous les logiciels ; les formats natifs sont fermes |
+| La maquette est convertie en GLB a l'import, dans le navigateur | La visionneuse ne charge ni le moteur IFC ni le fichier source ; le GLB de la demonstration pese 380 Ko pour 289 elements |
+| L'inventaire voyage dans le GLB, relu par le serveur | Une Server Action est bornee a un mega-octet : l'inventaire d'une vraie maquette le depasse |
+| Une tache se rattache par regle, pas element par element | Une maquette compte des milliers d'elements ; une regle « murs du R+2 dont le nom contient voile » suit aussi la maquette suivante |
+| Les regles appartiennent au projet, pas a la maquette | Remplacer la maquette par une version a jour garde les rattachements |
+| Les propositions lisent le nom des taches : famille, etage, mot distinctif | Sur la demonstration, 25 propositions exactes sans saisie ; le mot garde ses accents a l'affichage |
+| Le plancher haut d'un etage est cherche a l'etage du dessus | C'est la convention des maquettes : la dalle porte le niveau qu'elle soutient |
+| Les elements de memes taches forment un groupe, calcule comme une zone | Un seul calcul d'etat par groupe, le meme que le plan interactif |
+| Rendu a la demande, materiaux partages par etat | Une visionneuse ouverte ne vide pas la batterie d'un telephone |
+| Sans WebGL, l'ecran reste utilisable par son panneau | Le bilan par etat et les taches suivies sont lisibles sans la 3D |
+
+#### Limites assumees
+
+- La conversion d'une tres grosse maquette (plusieurs centaines de
+  mega-octets) se fait dans le fil principal du navigateur : l'onglet se fige
+  le temps de la lecture. Un travailleur web la deporterait.
+- Le GLB est borne a 50 Mo, limite par fichier du stockage Supabase de base.
+- La vue 3D n'est pas accessible au lecteur d'ecran ; son contenu l'est par
+  le panneau voisin (bilan par etat, taches suivies, detail).
+- Les proprietes IFC (materiaux, quantites) ne sont pas lues : seuls la
+  classe, le nom et l'etage servent au rattachement.

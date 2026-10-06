@@ -1,7 +1,7 @@
 /** Lecture d'un fichier du magasin local, par URL signee. */
 
 import { env } from '@/lib/env'
-import { lireLocal, signatureValide } from '@/services/stockage'
+import { lireLocal, signatureValide, typeContenu } from '@/services/stockage'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +19,10 @@ export async function GET(requete: Request) {
   const contenu = await lireLocal(chemin)
   if (!contenu) return new Response(null, { status: 404 })
   return new Response(new Uint8Array(contenu), {
-    headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=3600' },
+    headers: {
+      'Content-Type': typeContenu(chemin),
+      'Cache-Control': 'private, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
+    },
   })
 }

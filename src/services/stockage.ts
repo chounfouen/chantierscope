@@ -65,13 +65,28 @@ export function cheminPlan(projetId: string, planId: string): string {
   return `projets/${projetId}/plans/${planId}.webp`
 }
 
+/** Maquette du batiment, convertie en GLB. Un identifiant neuf a chaque import. */
+export function cheminMaquette(projetId: string, maquetteId: string): string {
+  return `projets/${projetId}/maquettes/${maquetteId}.glb`
+}
+
+const estPlan = (chemin: string) => /^projets\/[^/]+\/plans\//.test(chemin)
+const estMaquette = (chemin: string) => /^projets\/[^/]+\/maquettes\/[^/]+\.glb$/.test(chemin)
+
 /**
  * Taille maximale d'un depot. Une photo compressee pese environ 120 Ko : au-dela
  * de 3 Mo, ce n'en est pas une. Un plan A0 converti en image de 8 192 pixels
- * peut atteindre une dizaine de mega-octets.
+ * peut atteindre une dizaine de mega-octets. Une maquette est bornee a
+ * 50 Mo, limite par fichier du stockage Supabase de base.
  */
 export function tailleMaxDepot(chemin: string): number {
-  return (/^projets\/[^/]+\/plans\//.test(chemin) ? 16 : 3) * 1024 * 1024
+  if (estMaquette(chemin)) return 50 * 1024 * 1024
+  return (estPlan(chemin) ? 16 : 3) * 1024 * 1024
+}
+
+/** Type de contenu d'un fichier du magasin, deduit de son chemin, jamais du navigateur. */
+export function typeContenu(chemin: string): 'model/gltf-binary' | 'image/webp' {
+  return estMaquette(chemin) ? 'model/gltf-binary' : 'image/webp'
 }
 
 /* -------------------------------------------------------------------------- */
