@@ -122,6 +122,22 @@ export const typeRessource = pgEnum('type_ressource', ['EQUIPE', 'ENGIN', 'MATER
 
 export const uniteCout = pgEnum('unite_cout', ['JOUR', 'HEURE', 'UNITE'])
 
+/** Familles d'ouvrages d'une maquette, regroupant les classes IFC. Voir src/lib/maquette/regles.ts. */
+export const familleOuvrage = pgEnum('famille_ouvrage', [
+  'MURS',
+  'POTEAUX',
+  'POUTRES',
+  'DALLES',
+  'FONDATIONS',
+  'ESCALIERS',
+  'TOITURE',
+  'MENUISERIES',
+  'GARDE_CORPS',
+  'REVETEMENTS',
+  'EQUIPEMENTS',
+  'AUTRES',
+])
+
 /** Format du fichier importe comme fond de plan, avant conversion en image. */
 export const formatPlan = pgEnum('format_plan', ['DXF', 'PDF', 'SVG', 'IMAGE'])
 
@@ -499,6 +515,78 @@ export const planNiveau = pgTable(
   ],
 ).enableRLS()
 
+/**
+ * Maquette numerique du batiment, une par projet : un export IFC (Revit,
+ * ArchiCAD, Tekla...) converti dans le navigateur en un fichier GLB depose
+ * dans le magasin de fichiers. Les etages, peu nombreux et toujours lus
+ * ensemble, sont gardes avec elle.
+ */
+export const maquette = pgTable(
+  'maquette',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .unique('maquette_projet_unique')
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    /** Chemin du GLB dans le magasin de fichiers. Aucun binaire en base. */
+    chemin: text().notNull(),
+    octets: integer().notNull(),
+    nomFichier: text().notNull(),
+    schemaIfc: text().notNull(),
+    /** Etages, du plus bas au plus haut : nom, altitude en metres, niveau. */
+    etages: jsonb().$type<{ nom: string; altitude: number; niveau: number }[]>().notNull(),
+    importeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    importePar: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [check('maquette_octets_positif', sql`${t.octets} > 0`)],
+).enableRLS()
+
+/** Inventaire des elements de la maquette, cle par leur GlobalId IFC. */
+export const elementMaquette = pgTable(
+  'element_maquette',
+  {
+    maquetteId: uuid()
+      .notNull()
+      .references(() => maquette.id, { onDelete: 'cascade' }),
+    globalId: text().notNull(),
+    classe: text().notNull(),
+    nom: text(),
+    etage: text(),
+  },
+  (t) => [primaryKey({ columns: [t.maquetteId, t.globalId] })],
+).enableRLS()
+
+/**
+ * Regle de rattachement d'une tache a des elements de la maquette : une
+ * famille d'ouvrages, un niveau d'etage, un mot du nom. Attachee au projet,
+ * et non a la maquette : elle survit au remplacement de la maquette.
+ */
+export const regleMaquette = pgTable(
+  'regle_maquette',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    tacheId: uuid()
+      .notNull()
+      .references(() => tache.id, { onDelete: 'cascade' }),
+    famille: familleOuvrage().notNull(),
+    /** Null : tous les etages. */
+    niveau: smallint(),
+    /** Null : tous les elements de la famille. */
+    nomContient: text(),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('regle_maquette_unique')
+      .on(t.tacheId, t.famille, t.niveau, t.nomContient)
+      .nullsNotDistinct(),
+    index('regle_maquette_projet_idx').on(t.projetId),
+  ],
+).enableRLS()
+
 /** Rattachement des taches aux zones du plan. Table de liaison. */
 export const zoneTache = pgTable(
   'zone_tache',
@@ -819,6 +907,9 @@ export type Jalon = typeof jalon.$inferSelect
 export type Alea = typeof alea.$inferSelect
 export type Zone = typeof zone.$inferSelect
 export type PlanNiveau = typeof planNiveau.$inferSelect
+export type Maquette = typeof maquette.$inferSelect
+export type RegleMaquette = typeof regleMaquette.$inferSelect
+export type FamilleOuvrage = (typeof familleOuvrage.enumValues)[number]
 export type FormatPlan = (typeof formatPlan.enumValues)[number]
 export type Photo = typeof photo.$inferSelect
 export type PointDeVue = typeof pointDeVue.$inferSelect

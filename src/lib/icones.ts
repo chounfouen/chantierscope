@@ -12,6 +12,7 @@
 import {
   AlertTriangle,
   Banknote,
+  Box,
   Building2,
   Calendar,
   Camera,
@@ -81,6 +82,7 @@ export const Icone = {
   releve: ClipboardList,
   quantitatif: ListChecks,
   plan: MapIcon,
+  maquette: Box,
   photos: Camera,
   analyses: TrendingUp,
   simulation: FlaskConical,

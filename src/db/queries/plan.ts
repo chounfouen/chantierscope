@@ -3,7 +3,7 @@
  * validees de ces seules taches, pour rejouer l'avancement dans le temps.
  */
 
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import type { QuantitePlan, TachePlan } from '@/db/compute/plan'
 import { jourDepuis } from '@/db/compute/tableau'
 import type { db as instanceDb } from '@/db/index'
@@ -47,23 +47,26 @@ export type DonneesPlan = {
   quantites: QuantitePlan[]
 }
 
-export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan> {
-  const [projets, dates, plans, zones, taches, lignes, quantites] = await Promise.all([
+/** Taches suivies, et quantites validees de ces seules taches, pour rejouer leur avancement. */
+export type Suivi = {
+  origine: string
+  dateAnalyse: string | null
+  taches: TacheZone[]
+  quantites: QuantitePlan[]
+}
+
+/**
+ * Taches d'un perimetre et leurs quantites validees. Le perimetre est une
+ * sous-requete qui rend des identifiants de taches : celles des zones du
+ * plan, ou celles rattachees a la maquette. Meme lecture, meme calcul
+ * d'avancement, memes etats d'un ecran a l'autre.
+ */
+export async function chargerSuivi(db: Db, projetId: string, perimetre: SQL): Promise<Suivi> {
+  const [projets, dates, taches, lignes, quantites] = await Promise.all([
     db.execute<{ origine: string }>(sql`
       select date_ordre_service as origine from projet where id = ${projetId}`),
     db.execute<{ date: string | null }>(sql`
       select max(date) as date from snapshot_avancement where projet_id = ${projetId}`),
-    db.execute<PlanLu>(sql`
-      select niveau, chemin, largeur, hauteur, nom_fichier as "nomFichier",
-             format_source as "formatSource", importe_le::text as "importeLe"
-        from plan_niveau where projet_id = ${projetId} order by niveau`),
-    db.execute<ZoneLue>(sql`
-      select z.id, z.nom, z.niveau, z.path_svg as "pathSvg",
-             coalesce(array_agg(zt.tache_id order by zt.tache_id)
-                      filter (where zt.tache_id is not null), '{}') as "tacheIds"
-        from zone z left join zone_tache zt on zt.zone_id = z.id
-       where z.projet_id = ${projetId}
-       group by z.id order by z.niveau, z.nom`),
     db.execute<{
       id: string
       codeWbs: string
@@ -75,13 +78,12 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
       duree: number
       critique: boolean
     }>(sql`
-      select distinct t.id, t.code_wbs as "codeWbs", t.nom, t.lot_id as "lotId",
+      select t.id, t.code_wbs as "codeWbs", t.nom, t.lot_id as "lotId",
              t.methode_avancement as methode,
              t.date_debut_prevue as "dateDebutPrevue", t.date_fin_prevue as "dateFinPrevue",
              t.duree_prevue_j as duree, t.critique
-        from tache t join zone_tache zt on zt.tache_id = t.id
-        join zone z on z.id = zt.zone_id
-       where z.projet_id = ${projetId}
+        from tache t
+       where t.id in (${perimetre})
        order by t.code_wbs`),
     db.execute<{
       id: string
@@ -93,9 +95,7 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
              q.quantite_prevue::float8 as "quantitePrevue",
              q.prix_unitaire_xof::float8 as "prixUnitaireXof"
         from ligne_quantitatif q
-       where q.tache_id in (
-               select zt.tache_id from zone_tache zt join zone z on z.id = zt.zone_id
-                where z.projet_id = ${projetId})
+       where q.tache_id in (${perimetre})
        order by q.tache_id, q.id`),
     db.execute<{ ligneId: string; date: string; quantite: number }>(sql`
       select rq.ligne_quantitatif_id as "ligneId", r.date,
@@ -124,8 +124,6 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
   return {
     origine,
     dateAnalyse: dates[0]?.date ?? null,
-    plans: [...plans],
-    zones: [...zones],
     taches: taches.map((t) => ({
       ...t,
       debut: jourDepuis(origine, t.dateDebutPrevue),
@@ -139,6 +137,29 @@ export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan
         quantite: q.quantite,
       })),
   }
+}
+
+export async function chargerPlan(db: Db, projetId: string): Promise<DonneesPlan> {
+  const [suivi, plans, zones] = await Promise.all([
+    chargerSuivi(
+      db,
+      projetId,
+      sql`select zt.tache_id from zone_tache zt join zone z on z.id = zt.zone_id
+           where z.projet_id = ${projetId}`,
+    ),
+    db.execute<PlanLu>(sql`
+      select niveau, chemin, largeur, hauteur, nom_fichier as "nomFichier",
+             format_source as "formatSource", importe_le::text as "importeLe"
+        from plan_niveau where projet_id = ${projetId} order by niveau`),
+    db.execute<ZoneLue>(sql`
+      select z.id, z.nom, z.niveau, z.path_svg as "pathSvg",
+             coalesce(array_agg(zt.tache_id order by zt.tache_id)
+                      filter (where zt.tache_id is not null), '{}') as "tacheIds"
+        from zone z left join zone_tache zt on zt.zone_id = z.id
+       where z.projet_id = ${projetId}
+       group by z.id order by z.niveau, z.nom`),
+  ])
+  return { ...suivi, plans: [...plans], zones: [...zones] }
 }
 
 export type TacheRattachable = {

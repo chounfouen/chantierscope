@@ -7,7 +7,7 @@
  */
 
 import { env } from '@/lib/env'
-import { ecrireLocal, signatureValide, tailleMaxDepot } from '@/services/stockage'
+import { ecrireLocal, signatureValide, tailleMaxDepot, typeContenu } from '@/services/stockage'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,8 +22,8 @@ export async function PUT(requete: Request) {
     q.get('sig') ?? '',
   )
   if (!ok) return new Response('Signature invalide ou échue.', { status: 403 })
-  if (requete.headers.get('content-type') !== 'image/webp') {
-    return new Response('Seules les images WebP sont acceptées.', { status: 415 })
+  if (requete.headers.get('content-type') !== typeContenu(chemin)) {
+    return new Response('Type de fichier refusé pour cet emplacement.', { status: 415 })
   }
   const contenu = new Uint8Array(await requete.arrayBuffer())
   if (contenu.byteLength === 0 || contenu.byteLength > tailleMaxDepot(chemin)) {

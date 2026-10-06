@@ -10,6 +10,8 @@
  * valeur probante.
  */
 
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import bcrypt from 'bcryptjs'
 import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns'
 import { sql } from 'drizzle-orm'
@@ -31,6 +33,9 @@ import {
 import { simulerExecution } from '@/db/seed/execution'
 import { fabriquerPlanches } from '@/db/seed/photos'
 import { montantLigne } from '@/db/seed/planning'
+import { extraireMaquette, glbMaquette } from '@/lib/maquette/ifc'
+import { classer, proposerRegles } from '@/lib/maquette/regles'
+import { IfcAPI } from 'web-ifc'
 
 /**
  * Mot de passe des cinq comptes de demonstration.
@@ -47,6 +52,10 @@ const TABLES_A_VIDER = [
   'snapshot_avancement',
   'photo',
   'point_de_vue',
+  'regle_maquette',
+  'element_maquette',
+  'maquette',
+  'plan_niveau',
   'zone_tache',
   'zone',
   'affectation',
@@ -70,7 +79,15 @@ const TABLES_AUDITEES = [
   'ligne_quantitatif',
   'tache',
   'liaison',
+  'zone',
+  'plan_niveau',
+  'maquette',
+  'regle_maquette',
 ]
+
+/** Maquette de demonstration : source IFC, et GLB produit dans le dossier public. */
+const IFC_DEMO = 'src/db/seed/residence-palmiers.ifc'
+const CHEMIN_GLB_DEMO = '/uploads/demo/residence-palmiers.glb'
 
 const jourDepuisOs = (n: number): string =>
   formatISO(addDays(parseISO(DATE_ORDRE_SERVICE), n), { representation: 'date' })
@@ -322,6 +339,51 @@ async function peupler(): Promise<void> {
         })),
     )
     await db.insert(t.zoneTache).values(liensZone)
+
+    /* --- Maquette ----------------------------------------------------------- */
+
+    // Maquette IFC de demonstration, convertie en GLB comme a l'import et
+    // servie par le dossier public, comme les planches photographiques. Les
+    // rattachements sont ceux que l'ecran propose automatiquement.
+    console.log('Chargement de la maquette de demonstration...')
+    const ifc = new IfcAPI()
+    await ifc.Init()
+    const maq = extraireMaquette(ifc, new Uint8Array(readFileSync(IFC_DEMO)))
+    const glb = glbMaquette(maq)
+    mkdirSync(dirname(`public${CHEMIN_GLB_DEMO}`), { recursive: true })
+    writeFileSync(`public${CHEMIN_GLB_DEMO}`, glb)
+    const [maquetteInseree] = await db
+      .insert(t.maquette)
+      .values({
+        projetId,
+        chemin: CHEMIN_GLB_DEMO,
+        octets: glb.byteLength,
+        nomFichier: 'residence-palmiers.ifc',
+        schemaIfc: maq.schema,
+        etages: maq.etages,
+      })
+      .returning({ id: t.maquette.id })
+    const maquetteId = maquetteInseree?.id as string
+    for (let i = 0; i < maq.elements.length; i += 1000) {
+      await db
+        .insert(t.elementMaquette)
+        .values(maq.elements.slice(i, i + 1000).map((el) => ({ maquetteId, ...el })))
+    }
+    const feuilles = await client<{ id: string; nom: string }[]>`
+      select t.id, t.nom from tache t
+       where not exists (select 1 from tache e where e.parent_id = t.id) order by t.code_wbs`
+    const propositions = proposerRegles(feuilles, classer(maq.elements, maq.etages))
+    if (propositions.length > 0) {
+      await db.insert(t.regleMaquette).values(
+        propositions.map((r) => ({
+          projetId,
+          tacheId: r.tacheId,
+          famille: r.famille,
+          niveau: r.niveau,
+          nomContient: r.nomContient,
+        })),
+      )
+    }
 
     /* --- Releves journaliers ------------------------------------------------ */
 

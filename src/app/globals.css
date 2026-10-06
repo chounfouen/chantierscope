@@ -316,6 +316,7 @@
     @apply text-muted-foreground hover:text-foreground rounded-lg px-3 py-1.5 text-sm font-bold transition-colors;
   }
   .segment[aria-pressed='true'],
+  .segment[aria-selected='true'],
   .segment[aria-current='page'] {
     @apply bg-card text-marque shadow-sm;
   }

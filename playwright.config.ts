@@ -31,6 +31,8 @@ export default defineConfig({
     locale: 'fr-FR',
     timezoneId: 'Africa/Abidjan',
     trace: 'retain-on-failure',
+    // Rendu WebGL logiciel, pour la maquette 3D dans le navigateur sans ecran.
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   projects: [
     { name: 'bureau', use: { ...devices['Desktop Chrome'] } },

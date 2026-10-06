@@ -35,6 +35,7 @@ const LECTURES = {
   analyses: 1,
   // 2 : fonds de plan importes, champ `plans`.
   plan: 2,
+  maquette: 1,
 } as const
 
 export type Lecture = keyof typeof LECTURES

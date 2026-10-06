@@ -75,6 +75,7 @@ export default async function CoquilleApplication({
           prechargement: 'complet',
           icone: 'plan',
         },
+        { libelle: 'Maquette 3D', href: `${base}/maquette`, icone: 'maquette' },
         { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
       ],
     },
