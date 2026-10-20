@@ -34,6 +34,9 @@ const Noeud = z.object({
       .max(64),
     nom: z.string().max(200).nullable(),
     etage: z.string().max(120).nullable(),
+    // Facultatifs : une maquette deposee avant le metre ne les porte pas.
+    volume: z.number().nonnegative().max(1e6).nullable().optional(),
+    source: z.enum(['QTO', 'GEOMETRIE']).nullable().optional(),
   }),
 })
 
@@ -61,6 +64,8 @@ export function inventaireGlb(o: Uint8Array): Inventaire | { refus: string } {
       classe: e.data.extras.classe,
       nom: e.data.extras.nom,
       etage: e.data.extras.etage,
+      volumeM3: e.data.extras.volume ?? null,
+      sourceQuantite: e.data.extras.source ?? null,
     })
   }
   return { schema: scene.data.schema, etages: scene.data.etages, elements }

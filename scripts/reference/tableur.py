@@ -141,6 +141,28 @@ def extraire() -> dict:
              join tache t on t.id = a.tache_id join lot l on l.id = t.lot_id
             where r.type = 'EQUIPE' order by l.code, a.date_debut"""
     )
+    # Heures d'engin relevees, avec le cout de la ressource : la valorisation
+    # est une formule du classeur. Les engins comptes dans les frais de
+    # chantier (la grue a tour) n'y figurent pas.
+    engins = requete(
+        """select l.code as lot, r.date, e.heures, res.cout_unitaire_xof as cout,
+                  res.unite_cout as unite
+             from releve_engin e
+             join releve_journalier r on r.id = e.releve_journalier_id
+             join lot l on l.id = r.lot_id
+             join ressource res on res.id = e.ressource_id
+            where r.statut = 'VALIDE' and not res.dans_frais_chantier
+            order by r.date, l.code, res.nom"""
+    )
+    engins_prevus = requete(
+        """select l.code as lot, a.date_debut as debut, a.date_fin as fin, a.quantite,
+                  res.cout_unitaire_xof as cout, res.unite_cout as unite
+             from affectation a
+             join ressource res on res.id = a.ressource_id
+             join tache t on t.id = a.tache_id join lot l on l.id = t.lot_id
+            where res.type in ('ENGIN', 'MATERIEL') and not res.dans_frais_chantier
+            order by l.code, a.date_debut, res.nom"""
+    )
     # Actes qui modifient le delai ou le montant du marche, chacun a sa date :
     # le contrat en vigueur a une date d'analyse ne retient que ceux qui la
     # precedent. Les suspensions (ordre d'arret a ordre de reprise) ne sont
@@ -164,6 +186,8 @@ def extraire() -> dict:
         "moyens": moyens,
         "aleas": aleas,
         "equipes": equipes,
+        "engins": engins,
+        "engins_prevus": engins_prevus,
     }
 
 
@@ -253,12 +277,44 @@ def construire(d: dict, chemin: str) -> None:
         equ.append([code_lot(e["lot"]), jour(e["debut"]), jour(e["fin"]), int(e["ouvriers"])])
     ne = len(d["equipes"]) + 1
 
+    eng = classeur.create_sheet("Engins")
+    entete(eng, ["Lot", "Date", "Heures", "Coût unitaire", "Unité", "Coût"])
+    for k, e in enumerate(d["engins"], start=2):
+        eng.append(
+            [
+                code_lot(e["lot"]),
+                jour(e["date"]),
+                float(e["heures"]),
+                int(e["cout"]),
+                e["unite"],
+                f'=IF(E{k}="HEURE",C{k}*D{k},IF(E{k}="JOUR",C{k}/{P_HJOUR}*D{k},0))',
+            ]
+        )
+    ng = max(len(d["engins"]) + 1, 2)
+
+    enp = classeur.create_sheet("EnginsPrevus")
+    entete(enp, ["Lot", "Début", "Fin", "Quantité", "Coût unitaire", "Unité", "Coût prévu"])
+    for k, e in enumerate(d["engins_prevus"], start=2):
+        enp.append(
+            [
+                code_lot(e["lot"]),
+                jour(e["debut"]),
+                jour(e["fin"]),
+                float(e["quantite"]),
+                int(e["cout"]),
+                e["unite"],
+                f'=(C{k}-B{k}+1)*D{k}*IF(F{k}="JOUR",E{k},IF(F{k}="HEURE",{P_HJOUR}*E{k},0))',
+            ]
+        )
+    ngp = max(len(d["engins_prevus"]) + 1, 2)
+
     # --- Lignes de quantitatif ------------------------------------------------
-    # Par date : cumul valide, valeur acquise plafonnee (4.1), ligne achevee.
+    # Par date : cumul valide, valeur acquise plafonnee (4.1), ligne achevee,
+    # depassement au prix du marche : la matiere consommee au-dela du prevu.
     lig = classeur.create_sheet("Lignes")
     titres = ["Clé", "Tâche", "Lot", "Désignation", "Quantité prévue", "Prix unitaire", "Montant"]
     for t in DATES:
-        titres += [f"Cumul au {t}", f"Acquis au {t}", f"Achevée au {t}"]
+        titres += [f"Cumul au {t}", f"Acquis au {t}", f"Achevée au {t}", f"Dépassement au {t}"]
     entete(lig, titres)
     nl = len(d["lignes"]) + 1
     for i, l in enumerate(d["lignes"], start=2):
@@ -272,17 +328,18 @@ def construire(d: dict, chemin: str) -> None:
             f"=E{i}*F{i}",
         ]
         for n in range(len(DATES)):
-            c = get_column_letter(8 + 3 * n)
+            c = get_column_letter(8 + 4 * n)
             rang += [
                 f'=SUMIFS(Quantites!$C$2:$C${nq},Quantites!$A$2:$A${nq},A{i},'
                 f'Quantites!$B$2:$B${nq},"<="&{cellule_date(n)})',
                 f"=MIN({c}{i},E{i})*F{i}",
                 f"=IF({c}{i}>=E{i}-0.000001,1,0)",
+                f"=MAX(0,{c}{i}-E{i})*F{i}",
             ]
         lig.append(rang)
 
     def col_ligne(n: int, decalage: int) -> str:
-        c = get_column_letter(8 + 3 * n + decalage)
+        c = get_column_letter(8 + 4 * n + decalage)
         return f"Lignes!${c}$2:${c}${nl}"
 
     # --- Taches feuilles ------------------------------------------------------
@@ -362,6 +419,8 @@ def construire(d: dict, chemin: str) -> None:
             f"Aléas au {t}",
             f"VA au {t}",
             f"VP au {t}",
+            f"Dépassements au {t}",
+            f"Engins au {t}",
             f"CR au {t}",
         ]
     entete(lot, titres)
@@ -378,14 +437,20 @@ def construire(d: dict, chemin: str) -> None:
         ]
         for n in range(len(DATES)):
             dt = cellule_date(n)
-            h, en, al, va, _vp, _cr = (get_column_letter(6 + 6 * n + k) for k in range(6))
+            h, en, al, va, _vp, dep, eg, _cr = (get_column_letter(6 + 8 * n + k) for k in range(8))
             rang += [
                 f'=SUMIFS(Moyens!$C$2:$C${nm},Moyens!$A$2:$A${nm},A{i},Moyens!$B$2:$B${nm},"<="&{dt})',
                 f'=SUMIFS(Moyens!$D$2:$D${nm},Moyens!$A$2:$A${nm},A{i},Moyens!$B$2:$B${nm},"<="&{dt})',
                 f'=SUMIFS(Aleas!$C$2:$C${na},Aleas!$A$2:$A${na},A{i},Aleas!$B$2:$B${na},"<="&{dt})',
                 f"=SUMIFS({col_tache(n, 1)},Taches!$B$2:$B${nt},A{i})",
                 f"=ROUND(SUMIFS({col_tache(n, 3)},Taches!$B$2:$B${nt},A{i}),0)",
-                f"=ROUND({h}{i}*{P_TAUX_H}+{en}{i}*{P_ENC}+{va}{i}*{P_MAT}+{al}{i},0)",
+                f"=SUMIFS({col_ligne(n, 3)},Lignes!$C$2:$C${nl},A{i})",
+                f'=SUMIFS(Engins!$F$2:$F${ng},Engins!$A$2:$A${ng},A{i},Engins!$B$2:$B${ng},"<="&{dt})',
+                # Part materiaux hors engins prevus : les engins sont dans le
+                # prix ; releves, ils sortent du forfait materiaux.
+                f"=ROUND({h}{i}*{P_TAUX_H}+{en}{i}*{P_ENC}+({va}{i}+{dep}{i})*"
+                f"IF(B{i}>0,MAX(0,{P_MAT}-SUMIFS(EnginsPrevus!$G$2:$G${ngp},"
+                f"EnginsPrevus!$A$2:$A${ngp},A{i})/B{i}),{P_MAT})+{al}{i}+{eg}{i},0)",
             ]
         lot.append(rang)
     nlots = len(codes) + 1
@@ -425,7 +490,7 @@ def construire(d: dict, chemin: str) -> None:
         return f"{col}{rang}"
 
     def somme_lots(n: int, decalage: int) -> str:
-        c = get_column_letter(6 + 6 * n + decalage)
+        c = get_column_letter(6 + 8 * n + decalage)
         return f"SUM(Lots!{c}2:{c}{nlots})"
 
     ajouter("Jour d'analyse", "jour", lambda n, c: f"={cellule_jour(n)}")
@@ -462,7 +527,7 @@ def construire(d: dict, chemin: str) -> None:
     ajouter(
         "CR, coût réel",
         "cr",
-        lambda n, c: f'={somme_lots(n, 5)}+({ref("jour", c)}+1)*{P_FRAIS}'
+        lambda n, c: f'={somme_lots(n, 7)}+({ref("jour", c)}+1)*{P_FRAIS}'
         f'+SUMIFS(Aleas!$C$2:$C${na},Aleas!$A$2:$A${na},"SANS-LOT",Aleas!$B$2:$B${na},"<="&{cellule_date(n)})',
     )
     ajouter("Avancement réel", "avancement", lambda n, c: f"={ref('va', c)}/{ref('bac', c)}")

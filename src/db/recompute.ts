@@ -21,6 +21,7 @@ import { addDays, differenceInCalendarDays, formatISO, parseISO } from 'date-fns
 import { sql } from 'drizzle-orm'
 import { agreger, avancementPrevu, avancementTache } from '@/db/compute/avancement'
 import { calculerReseau } from '@/db/compute/cpm'
+import { calendrierDepuis, type CalendrierTravail } from '@/db/compute/ouvre'
 import {
   budgetDebourse,
   coefficientDebourse,
@@ -28,6 +29,7 @@ import {
   coutReel,
   ecartDelaiJours,
   encadrementNecessaire,
+  partMateriauxHorsEngins,
   indicateurs,
 } from '@/db/compute/evm'
 import { projeterReseau, type TacheSuivie } from '@/db/compute/tableau'
@@ -173,6 +175,8 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
     aujourdhui,
   )
   const jourAnalyse = jourDepuis(origine, dateAnalyse)
+  // Calendrier de travail des taches en jours ouvres, indexe comme le reseau.
+  const cal = calendrierDepuis(origine)
 
   /* --- Quantites cumulees a la date d'analyse ---------------------------- */
 
@@ -209,8 +213,10 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
           lignes: lignesParTache.get(t.id) ?? [],
           debut: jourDepuis(origine, t.dateDebutPrevue),
           duree: t.dureePrevueJ,
+          ouvre: t.ouvre,
         },
         jourAnalyse,
+        cal,
       ),
     )
   }
@@ -229,6 +235,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
     taches: feuilles.map((t) => ({
       id: t.id,
       duree: t.dureePrevueJ,
+      ...(t.ouvre ? { ouvre: true } : {}),
       ...(t.debutImpose !== null ? { debutImpose: jourDepuis(origine, t.debutImpose) } : {}),
     })),
     liaisons: liaisons.map((l) => ({
@@ -237,6 +244,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
       type: l.type,
       decalage: l.decalage,
     })),
+    calendrier: cal,
   }
   const resultatReseau = calculerReseau(reseau)
 
@@ -258,6 +266,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
 
   const instantanes = construireInstantanes(contexte, {
     origine,
+    cal,
     dateAnalyse,
     jourAnalyse,
     feuilles,
@@ -328,6 +337,7 @@ function construireInstantanes(
   contexte: Contexte,
   p: {
     origine: string
+    cal: CalendrierTravail
     dateAnalyse: string
     jourAnalyse: number
     feuilles: Contexte['taches']
@@ -418,6 +428,7 @@ function construireInstantanes(
   /* Cumuls de moyens, qui ne redescendent jamais. */
   const heuresParLot = new Map<string, number>()
   const encadrementParLot = new Map<string, number>()
+  const enginsParLot = new Map<string, number>()
   const aleasCumulParLot = new Map<string, number>()
   let aleasSansLotCumul = 0
 
@@ -434,6 +445,7 @@ function construireInstantanes(
     for (const m of moyensParDate.get(date) ?? []) {
       heuresParLot.set(m.lotId, (heuresParLot.get(m.lotId) ?? 0) + m.heuresOuvrier)
       encadrementParLot.set(m.lotId, (encadrementParLot.get(m.lotId) ?? 0) + m.encadrement)
+      enginsParLot.set(m.lotId, (enginsParLot.get(m.lotId) ?? 0) + m.coutEnginsXof)
     }
 
     aleasSansLotCumul += aleasSansLotParDate.get(date) ?? 0
@@ -444,6 +456,8 @@ function construireInstantanes(
     /* Avancement de chaque tache a cette date, methode appliquee. */
     const vaParLot = new Map<string, number>()
     const vpParLot = new Map<string, number>()
+    /** Quantites au-dela du prevu, au prix du marche : de la matiere consommee non acquise. */
+    const depassementParLot = new Map<string, number>()
     const suivies: TacheSuivie[] = []
 
     for (const t of p.feuilles) {
@@ -457,10 +471,19 @@ function construireInstantanes(
           lignes: lignesTache,
           debut: debutTache,
           duree: t.dureePrevueJ,
+          ouvre: t.ouvre,
         },
         j,
+        p.cal,
       )
       vaParLot.set(t.lotId, (vaParLot.get(t.lotId) ?? 0) + a.valeurAcquise)
+      const depasse = lignesTache.reduce(
+        (s, l) => s + Math.max(0, l.quantiteRealisee - l.quantitePrevue) * l.prixUnitaireXof,
+        0,
+      )
+      if (depasse > 0) {
+        depassementParLot.set(t.lotId, (depassementParLot.get(t.lotId) ?? 0) + depasse)
+      }
       const ref = contexte.reference.get(t.id)
 
       if (a.avancement > 1e-9 && !debutReelParTache.has(t.id)) debutReelParTache.set(t.id, j)
@@ -473,6 +496,7 @@ function construireInstantanes(
         nom: t.nom,
         debut: debutTache,
         duree: t.dureePrevueJ,
+        ouvre: t.ouvre,
         debutImpose: t.debutImpose === null ? null : jourDepuis(p.origine, t.debutImpose),
         debutReel:
           debutBase !== null && debutBase <= j ? debutBase : (debutReelParTache.get(t.id) ?? null),
@@ -486,9 +510,10 @@ function construireInstantanes(
       // planning courant : recaler le planning ne reecrit pas l'historique.
       const prevu = avancementPrevu(
         ref
-          ? { debut: jourDepuis(p.origine, ref.debut), duree: ref.duree }
-          : { debut: debutTache, duree: t.dureePrevueJ },
+          ? { debut: jourDepuis(p.origine, ref.debut), duree: ref.duree, ouvre: ref.ouvre }
+          : { debut: debutTache, duree: t.dureePrevueJ, ouvre: t.ouvre },
         j,
+        p.cal,
       )
       vpParLot.set(t.lotId, (vpParLot.get(t.lotId) ?? 0) + prevu * a.budget)
     }
@@ -505,6 +530,9 @@ function construireInstantanes(
         heuresOuvrier: heuresParLot.get(lot.id) ?? 0,
         journeesEncadrement: encadrementParLot.get(lot.id) ?? 0,
         valeurAcquiseXof: va,
+        depassementsXof: depassementParLot.get(lot.id) ?? 0,
+        coutEnginsXof: enginsParLot.get(lot.id) ?? 0,
+        partMateriaux: k.partMateriaux.get(lot.id),
         // Les frais de chantier sont indirects : ils sont portes par le
         // projet, jamais repartis arbitrairement sur les lots.
         joursEcoules: 0,
@@ -537,7 +565,7 @@ function construireInstantanes(
      * Une seule methode pour toutes les dates, si bien que l'historique et
      * l'ecran racontent la meme fin.
      */
-    const fins = projeterReseau(suivies, liaisonsReseau, j)
+    const fins = projeterReseau(suivies, liaisonsReseau, j, p.cal)
     const dateFinProjetee =
       fins.size === 0
         ? null
@@ -650,6 +678,8 @@ export type CoefficientsDebourse = {
   /** Budgets au cout correspondants, en FCFA entiers. */
   coutParLot: Map<string, number>
   coutProjet: number
+  /** Part materiaux de chaque lot, engins prevus deduits. */
+  partMateriaux: Map<string, number>
 }
 
 /**
@@ -684,8 +714,14 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
     ouvriersLotJour.set(e.lotId, parJour)
   }
 
+  const enginsParLot = new Map<string, number>()
+  for (const e of contexte.enginsPrevus) {
+    enginsParLot.set(e.lotId, (enginsParLot.get(e.lotId) ?? 0) + e.coutXof)
+  }
+
   const parLot = new Map<string, number>()
   const coutParLot = new Map<string, number>()
+  const partMateriaux = new Map<string, number>()
   let coutProjet = 0
   let venteProjet = 0
   for (const lot of contexte.lots) {
@@ -697,6 +733,7 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
       journeesEncadrementPrevues: jours.reduce((s, o) => s + encadrementNecessaire(o), 0),
       joursFrais: 0,
     })
+    partMateriaux.set(lot.id, partMateriauxHorsEngins(vente, enginsParLot.get(lot.id) ?? 0))
     parLot.set(lot.id, coefficientDebourse(cout, vente))
     coutParLot.set(lot.id, cout)
     coutProjet += cout
@@ -714,6 +751,7 @@ export function debourse(contexte: Contexte): CoefficientsDebourse {
     projet: coefficientDebourse(coutProjet, venteProjet),
     coutParLot,
     coutProjet,
+    partMateriaux,
   }
 }
 

@@ -5,6 +5,7 @@
  * ne fait que le brancher, pour que la page reste une mise en forme.
  */
 
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import {
   achevement,
   alertes,
@@ -51,8 +52,10 @@ export function construireTableau(d: DonneesTableau, aujourdhui?: string): Table
   if (situation === undefined) return null
 
   const indicateurs = syntheseA(d.courbe, jourAnalyse, d.cadre)
-  const courbeVp = courbePlanifiee(tachesBudgetees(d))
-  const fins = projeterReseau(d.taches, d.liaisons, jourAnalyse)
+  // Calendrier de travail des taches en jours ouvres.
+  const cal = calendrierDepuis(d.origine)
+  const courbeVp = courbePlanifiee(tachesBudgetees(d), cal)
+  const fins = projeterReseau(d.taches, d.liaisons, jourAnalyse, cal)
   const fin = achevement({
     origine: d.origine,
     fins,

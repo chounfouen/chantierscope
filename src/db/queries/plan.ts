@@ -76,12 +76,13 @@ export async function chargerSuivi(db: Db, projetId: string, perimetre: SQL): Pr
       dateDebutPrevue: string
       dateFinPrevue: string
       duree: number
+      ouvre: boolean
       critique: boolean
     }>(sql`
       select t.id, t.code_wbs as "codeWbs", t.nom, t.lot_id as "lotId",
              t.methode_avancement as methode,
              t.date_debut_prevue as "dateDebutPrevue", t.date_fin_prevue as "dateFinPrevue",
-             t.duree_prevue_j as duree, t.critique
+             t.duree_prevue_j as duree, t.calendrier = 'OUVRE' as ouvre, t.critique
         from tache t
        where t.id in (${perimetre})
        order by t.code_wbs`),

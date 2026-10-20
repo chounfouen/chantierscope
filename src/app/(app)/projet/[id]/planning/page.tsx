@@ -33,7 +33,8 @@ export default async function Planning({ params }: { params: Promise<{ id: strin
     dateEtat(base, id),
     chargerContrat(base, id, aujourdhui()),
   ])
-  const reseau = calculerReseau(reseauDuPlanning(planning))
+  const entree = reseauDuPlanning(planning)
+  const reseau = calculerReseau(entree)
   const origine = planning.projet.dateOrdreService
 
   // Le planning rejoue a la date d'etat, contre la fin contractuelle : ses
@@ -48,6 +49,7 @@ export default async function Planning({ params }: { params: Promise<{ id: strin
           jourDepuis(origine, etat),
           // Butoir : la fin contractuelle EN VIGUEUR, prolongations comprises.
           contrat.cadre.dureeJ - 1,
+          entree.calendrier,
         )
   const margesRecalees: Record<string, number> = {}
   for (const [idTache, d] of recale?.dates ?? []) margesRecalees[idTache] = d.margeTotale

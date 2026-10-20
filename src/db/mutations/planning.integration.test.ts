@@ -6,6 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import { recaler } from '@/db/compute/planning'
 import { dbScript } from '@/db/index'
 import { RefusMetier } from '@/db/mutations/erreurs'
@@ -113,6 +114,40 @@ describe('modification d une tache', () => {
     expect(trace?.auteur).toBe(conducteurId)
 
     await modifierTachePlanning(db, projetId, t.id, { dureeJ: t.duree }, conducteurId)
+    expect(await empreinteDates()).toBe(initiale)
+  })
+
+  it('passer une tache en jours ouvres convertit sa duree sur ses dates, et se defait', async () => {
+    const initiale = await empreinteDates()
+    const t = await tache('03.1.1')
+    const planning = await chargerPlanning(db, projetId)
+    const origine = planning.projet.dateOrdreService
+    const debut = jourDuPlanning(origine, t.debut)
+    const fin = jourDuPlanning(origine, t.fin)
+    const ouvrables = calendrierDepuis(origine).compter(debut, fin)
+    expect(ouvrables).toBeLessThan(t.duree)
+
+    await modifierTachePlanning(db, projetId, t.id, { calendrier: 'OUVRE' }, conducteurId)
+    const ouvree = await tache('03.1.1')
+    const [cal] = await client<{ calendrier: string }[]>`
+      select calendrier from tache where id = ${t.id}::uuid`
+    expect(cal?.calendrier).toBe('OUVRE')
+    expect(ouvree.duree).toBe(ouvrables)
+    expect(ouvree.debut).toBe(t.debut)
+    // La barre ne s'allonge pas : elle finit au dernier jour ouvrable de l'intervalle.
+    expect(ouvree.fin <= t.fin).toBe(true)
+    // Un dimanche de plus dans la tache ne la rallonge pas d'une journee de travail.
+    const recalee = await chargerPlanning(db, projetId)
+    const r = recaler(reseauDuPlanning(recalee)).dates.get(t.id)
+    expect(r?.fin).toBe(jourDuPlanning(origine, ouvree.fin))
+
+    await modifierTachePlanning(
+      db,
+      projetId,
+      t.id,
+      { calendrier: 'CALENDAIRE', dureeJ: t.duree },
+      conducteurId,
+    )
     expect(await empreinteDates()).toBe(initiale)
   })
 

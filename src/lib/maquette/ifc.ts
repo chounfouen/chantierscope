@@ -12,6 +12,7 @@
 
 import type { IfcAPI } from 'web-ifc'
 import { ecrireGlb, type Maillage } from '@/lib/maquette/glb'
+import { volumeMaillage, volumeQto, type SourceQuantite } from '@/lib/maquette/metre'
 
 export type Etage = { nom: string; altitude: number; niveau: number }
 
@@ -22,6 +23,9 @@ export type ElementMaquette = {
   nom: string | null
   /** Nom de l'etage qui contient l'element, ou null s'il n'est rattache a aucun. */
   etage: string | null
+  /** Volume en m3, des quantites IFC ou de la geometrie. Facultatif. */
+  volumeM3?: number | null
+  sourceQuantite?: SourceQuantite | null
 }
 
 export type MaquetteExtraite = {
@@ -35,6 +39,9 @@ export type MaquetteExtraite = {
 const IFCBUILDINGSTOREY = 3124254112
 const IFCRELCONTAINEDINSPATIALSTRUCTURE = 3242617779
 const IFCRELAGGREGATES = 160246688
+const IFCRELDEFINESBYPROPERTIES = 4186316022
+const IFCELEMENTQUANTITY = 1883228015
+const IFCQUANTITYVOLUME = 2405470396
 
 /** Au-dela, la maquette n'est plus un batiment mais un quartier : refusee. */
 export const ELEMENTS_MAX = 50_000
@@ -101,6 +108,27 @@ export function extraireMaquette(api: IfcAPI, octets: Uint8Array): MaquetteExtra
       for (const e of liste(l, 'RelatedObjects')) if (!etageDe.has(e)) etageDe.set(e, etage)
     }
 
+    // Quantites IFC : volumes declares par element, quand le modeleur les a
+    // exportees. La geometrie prend le relais sinon.
+    const volumesQto = new Map<number, { nom: string; volume: number }[]>()
+    for (const id of ids(api, modele, IFCRELDEFINESBYPROPERTIES)) {
+      const rel = api.GetLine(modele, id) as Ligne
+      const defId = Number(valeur(rel, 'RelatingPropertyDefinition'))
+      if (!Number.isFinite(defId) || api.GetLineType(modele, defId) !== IFCELEMENTQUANTITY) continue
+      const def = api.GetLine(modele, defId) as Ligne
+      const volumes = liste(def, 'Quantities')
+        .filter((q) => api.GetLineType(modele, q) === IFCQUANTITYVOLUME)
+        .map((q) => {
+          const l = api.GetLine(modele, q) as Ligne
+          return { nom: String(valeur(l, 'Name') ?? ''), volume: Number(valeur(l, 'VolumeValue')) }
+        })
+        .filter((q) => Number.isFinite(q.volume))
+      if (volumes.length === 0) continue
+      for (const e of liste(rel, 'RelatedObjects')) {
+        volumesQto.set(e, [...(volumesQto.get(e) ?? []), ...volumes])
+      }
+    }
+
     const elements: ElementMaquette[] = []
     const maillages: Maillage[] = []
     api.StreamAllMeshes(modele, (m) => {
@@ -141,18 +169,29 @@ export function extraireMaquette(api: IfcAPI, octets: Uint8Array): MaquetteExtra
       const l = api.GetLine(modele, m.expressID) as Ligne
       const globalId = String(valeur(l, 'GlobalId') ?? `#${m.expressID}`)
       const nom = valeur(l, 'Name')
+      const qto = volumeQto(volumesQto.get(m.expressID) ?? [])
+      const geometrie = volumeMaillage(pos, ind)
+      const volumeM3 = qto ?? (geometrie > 0 ? Math.round(geometrie * 1000) / 1000 : null)
       const element: ElementMaquette = {
         globalId,
         classe: api.GetNameFromTypeCode(api.GetLineType(modele, m.expressID)).toUpperCase(),
         nom: typeof nom === 'string' && nom.trim() !== '' ? nom.trim().slice(0, 200) : null,
         etage: etageDe.get(m.expressID) ?? null,
+        volumeM3,
+        sourceQuantite: qto !== null ? 'QTO' : volumeM3 !== null ? 'GEOMETRIE' : null,
       }
       elements.push(element)
       maillages.push({
         nom: globalId,
         // L'inventaire voyage dans le GLB : le serveur le relit du fichier
         // depose, sans second envoi.
-        extras: { classe: element.classe, nom: element.nom, etage: element.etage },
+        extras: {
+          classe: element.classe,
+          nom: element.nom,
+          etage: element.etage,
+          volume: element.volumeM3,
+          source: element.sourceQuantite,
+        },
         positions: new Float32Array(pos),
         normales: new Float32Array(nor),
         indices: new Uint32Array(ind),

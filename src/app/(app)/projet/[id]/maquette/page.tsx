@@ -3,13 +3,15 @@ import { FilAriane } from '@/components/coquille/fil-ariane'
 import { TitrePage } from '@/components/coquille/titre-page'
 import { MaquetteInteractive } from '@/components/maquette/maquette-interactive'
 import type { Releve3 } from '@/components/plan/plan-interactif'
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import { joursEchantillonnes, rejouerZones } from '@/db/compute/plan'
 import { dateApres, jourDepuis } from '@/db/compute/tableau'
 import { db } from '@/db/index'
-import { chargerMaquette } from '@/db/queries/maquette'
+import { betonParTache, chargerMaquette } from '@/db/queries/maquette'
 import { tachesRattachables } from '@/db/queries/plan'
 import { enCacheProjet } from '@/lib/cache'
-import { dateLongue } from '@/lib/format'
+import { dateLongue, nombre, pourcentSigne } from '@/lib/format'
+import { ETAT } from '@/lib/etats'
 import { exigerPage, habilite, PEUT_PLANIFIER } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
 import {
@@ -19,6 +21,7 @@ import {
   proposerRegles,
   tachesParElement,
 } from '@/lib/maquette/regles'
+import { comparerMetre, FAMILLES_BETON, SEUIL_ECART_METRE } from '@/lib/maquette/metre'
 import { urlAffichage } from '@/services/stockage'
 
 export const metadata: Metadata = { title: 'Maquette 3D' }
@@ -28,9 +31,10 @@ export default async function Maquette({ params }: { params: Promise<{ id: strin
   const utilisateur = await exigerPage(id)
   const editable = habilite(utilisateur.role, PEUT_PLANIFIER)
   // Comme le plan, la maquette ne porte aucune donnee interne.
-  const [d, rattachables] = await Promise.all([
+  const [d, rattachables, beton] = await Promise.all([
     enCacheProjet('maquette', id, false, () => chargerMaquette(db(), id)),
     editable ? tachesRattachables(db(), id) : Promise.resolve([]),
+    betonParTache(db(), id),
   ])
   // L'URL de lecture est signee pour une heure : jamais mise en cache.
   const url = d.maquette ? await urlAffichage(d.maquette.chemin) : null
@@ -43,7 +47,18 @@ export default async function Maquette({ params }: { params: Promise<{ id: strin
     niveau: r.niveau,
     nomContient: r.nomContient,
   }))
-  const { groupes, groupeDe } = grouper(tachesParElement(elements, regles))
+  const parElement = tachesParElement(elements, regles)
+  const { groupes, groupeDe } = grouper(parElement)
+  const metre = comparerMetre({
+    taches: beton,
+    elements: d.elements.map((e) => ({
+      globalId: e.globalId,
+      volumeM3: e.volumeM3 ?? null,
+      source: e.sourceQuantite ?? null,
+    })),
+    tachesParElement: parElement,
+    tachesBeton: new Set(regles.filter((r) => FAMILLES_BETON.has(r.famille)).map((r) => r.tacheId)),
+  })
 
   // Chaque semaine depuis l'ordre de service, et la date de la situation.
   const jours =
@@ -53,6 +68,7 @@ export default async function Maquette({ params }: { params: Promise<{ id: strin
     d.taches,
     d.quantites,
     jours,
+    calendrierDepuis(d.origine),
   )
   const serie = (cle: string): Releve3[] =>
     etats.map((m) => {
@@ -114,6 +130,86 @@ export default async function Maquette({ params }: { params: Promise<{ id: strin
         rattachables={rattachables}
         propositions={propositions}
       />
+
+      {metre.length > 0 && d.maquette && (
+        <section aria-labelledby="titre-metre" className="surface mt-5 overflow-hidden">
+          <h2
+            id="titre-metre"
+            className="border-border/70 border-b px-5 py-3.5 text-base font-extrabold"
+          >
+            Métré de la maquette et quantitatif du marché
+          </h2>
+          <p className="text-muted-foreground px-5 pt-3 text-sm">
+            Volume des éléments rattachés à chaque tâche, lu dans les quantités IFC ou calculé sur
+            la géométrie, face au béton prévu au quantitatif. Au-delà de{' '}
+            {pourcentSigne(SEUIL_ECART_METRE, 0).replace('+', '')}, le métré mérite d’être repris
+            avant le décompte ; une tâche modélisée sans ligne de béton signale un oubli.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="mt-2 w-full text-sm">
+              <caption className="sr-only">
+                Volumes de béton par tâche : maquette, quantitatif, écart
+              </caption>
+              <thead className="bg-muted/40">
+                <tr>
+                  <th scope="col" className="px-3 py-2 text-left font-bold">
+                    Tâche
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-bold">
+                    Maquette
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-bold">
+                    Quantitatif
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-bold">
+                    Écart
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {metre.map((l) => {
+                  const fort = l.ecart !== null && Math.abs(l.ecart) > SEUIL_ECART_METRE
+                  return (
+                    <tr key={l.tacheId} className="border-border/60 border-t">
+                      <td className="px-3 py-2">
+                        <span className="text-muted-foreground mr-1.5 font-mono text-xs">
+                          {l.codeWbs}
+                        </span>
+                        {l.tache}
+                        {l.elements > 0 && (
+                          <span className="text-muted-foreground block text-xs">
+                            {l.elements} élément{l.elements > 1 ? 's' : ''}
+                            {l.source === 'GEOMETRIE' && ', volume géométrique'}
+                            {l.source === 'QTO' && ', quantités IFC'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="chiffres-alignes px-3 py-2 text-right whitespace-nowrap">
+                        {l.maquetteM3 === null ? 'non modélisé' : `${nombre(l.maquetteM3, 1)} m³`}
+                      </td>
+                      <td className="chiffres-alignes px-3 py-2 text-right whitespace-nowrap">
+                        {l.quantitatifM3 === null
+                          ? 'aucune ligne de béton'
+                          : `${nombre(l.quantitatifM3, 1)} m³`}
+                      </td>
+                      <td className="chiffres-alignes px-3 py-2 text-right font-bold whitespace-nowrap">
+                        {/* Le texte garde sa teinte, lisible sur les deux themes ; l'icone porte l'etat. */}
+                        {fort && (
+                          <ETAT.CRITIQUE.icone
+                            className={`mr-1 inline size-3.5 align-[-2px] ${ETAT.CRITIQUE.teinte}`}
+                            aria-label="Hors tolérance"
+                          />
+                        )}
+                        {l.ecart === null ? '—' : pourcentSigne(l.ecart)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

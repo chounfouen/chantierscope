@@ -99,7 +99,23 @@ export async function mettreEnFile(
     etat: 'en_attente',
     motif,
   })
+  demanderStockagePersistant()
   signaler()
+}
+
+/**
+ * Demande au navigateur de ne pas effacer la file sous la pression de
+ * l'espace disque ou de l'inactivite. Le premier releve mis en file est le
+ * bon moment : avant, il n'y a rien a perdre. Chrome accorde la demande sans
+ * question a une application installee ; un refus n'empeche rien, il laisse
+ * seulement la file au regime ordinaire.
+ */
+function demanderStockagePersistant(): void {
+  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return
+  void navigator.storage
+    .persisted()
+    .then((deja) => (deja ? true : navigator.storage.persist()))
+    .catch(() => false)
 }
 
 export async function lister(projetId: string, utilisateurId: string): Promise<EntreeFile[]> {

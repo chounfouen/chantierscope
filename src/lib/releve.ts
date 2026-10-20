@@ -87,6 +87,15 @@ export const EtapeMeteo = z.object({
   meteoCorrigee: z.boolean(),
 })
 
+export const EnginSaisi = z.object({
+  ressourceId: Identifiant,
+  heures: z
+    .number('Heures attendues.')
+    .positive('Des heures saisies sont strictement positives.')
+    .max(2400)
+    .refine((v) => auPlusDecimales(v, 2), 'Au plus 2 décimales.'),
+})
+
 export const EtapeMoyens = z
   .object({
     journeeTravaillee: z.boolean(),
@@ -95,6 +104,18 @@ export const EtapeMoyens = z
     effectifEncadrement: z.number().int().min(0).max(50),
     /** Total des heures-ouvriers de la journee. */
     heuresTravaillees: z.number().min(0).max(9999.99),
+    /**
+     * Heures d'engin et de materiel. Valeur par defaut : un releve mis en
+     * file avant leur introduction reste recevable.
+     */
+    engins: z
+      .array(EnginSaisi)
+      .max(30)
+      .default([])
+      .refine(
+        (e) => new Set(e.map((x) => x.ressourceId)).size === e.length,
+        'Un même engin est saisi deux fois.',
+      ),
   })
   .superRefine((m, ctx) => {
     if (!m.journeeTravaillee && (m.motifArret === null || m.motifArret === '')) {
@@ -165,6 +186,8 @@ export const CoulageSaisi = z.object({
   /** Essai au cone d'Abrams, facultatif. */
   affaissementMm: z.number().int().min(0).max(300).nullable(),
   eprouvettes: z.number().int().min(0).max(60),
+  /** Point d'arret : vrai, faux, ou nul pour un beton non arme. */
+  ferraillageReceptionne: z.boolean().nullable().default(null),
 })
 
 export const LivraisonSaisie = z
@@ -251,6 +274,13 @@ export const ReleveSaisi = z
         message: 'Une journée non travaillée ne porte aucune quantité réalisée.',
       })
     }
+    if (!r.journeeTravaillee && r.engins.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['engins'],
+        message: 'Une journée non travaillée ne porte aucune heure d’engin.',
+      })
+    }
     if (!r.journeeTravaillee && r.coulages.length > 0) {
       ctx.addIssue({
         code: 'custom',
@@ -264,6 +294,7 @@ export type ReleveSaisi = z.infer<typeof ReleveSaisi>
 export type AleaSaisi = z.infer<typeof AleaSaisi>
 export type QuantiteSaisie = z.infer<typeof QuantiteSaisie>
 export type CoulageSaisi = z.infer<typeof CoulageSaisi>
+export type EnginSaisi = z.infer<typeof EnginSaisi>
 export type LivraisonSaisie = z.infer<typeof LivraisonSaisie>
 
 /** Les etapes du formulaire, dans l'ordre, avec le schema qui les valide. */

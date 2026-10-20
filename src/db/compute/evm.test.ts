@@ -4,6 +4,8 @@ import {
   coefficientDebourse,
   COUT,
   coutReel,
+  coutRessource,
+  partMateriauxHorsEngins,
   ecartDelaiJours,
   encadrementNecessaire,
   indicateurs,
@@ -348,5 +350,41 @@ describe('base de comparaison du cout : le debourse', () => {
     expect(encadrementNecessaire(12)).toBe(2)
     expect(encadrementNecessaire(13)).toBe(3)
     expect(encadrementNecessaire(27)).toBe(4)
+  })
+})
+
+describe('cout reel : depassements et engins', () => {
+  const base = {
+    heuresOuvrier: 0,
+    journeesEncadrement: 0,
+    valeurAcquiseXof: 1_000_000,
+    joursEcoules: 0,
+    coutAleasXof: 0,
+  }
+
+  it('la matiere consommee au-dela du prevu coute, sans etre acquise', () => {
+    expect(coutReel({ ...base, depassementsXof: 100_000 }) - coutReel(base)).toBe(
+      Math.round(100_000 * COUT.partMateriaux),
+    )
+  })
+
+  it('les heures d engin s ajoutent telles quelles', () => {
+    expect(coutReel({ ...base, coutEnginsXof: 265_000 }) - coutReel(base)).toBe(265_000)
+  })
+
+  it('une ressource a la journee coute au prorata d une journee de travail', () => {
+    expect(coutRessource(16, 118_000, 'JOUR')).toBe(236_000)
+    expect(coutRessource(3, 20_000, 'HEURE')).toBe(60_000)
+    expect(coutRessource(8, 1_000, 'UNITE')).toBe(0)
+  })
+
+  it('des engins au rythme prevu laissent le cout reel inchange ; plus longs, ils le chargent', () => {
+    // Lot vendu 10 M, dont 2 M d'engins prevus : la part materiaux tombe a 38 %.
+    const part = partMateriauxHorsEngins(10_000_000, 2_000_000)
+    expect(part).toBeCloseTo(0.38, 12)
+    const aMiParcours = { ...base, valeurAcquiseXof: 5_000_000, partMateriaux: part }
+    const prevu = coutReel({ ...aMiParcours, coutEnginsXof: 1_000_000 })
+    expect(prevu).toBe(coutReel({ ...base, valeurAcquiseXof: 5_000_000 }))
+    expect(coutReel({ ...aMiParcours, coutEnginsXof: 1_400_000 }) - prevu).toBe(400_000)
   })
 })

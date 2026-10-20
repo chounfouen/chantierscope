@@ -14,8 +14,9 @@ import { sql } from 'drizzle-orm'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 import type { db as instanceDb } from '@/db/index'
 import type { TacheSuivie } from '@/db/compute/tableau'
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import type { LiaisonReseau, Reseau } from '@/db/compute/types'
-import type { TypeLiaison } from '@/db/schema'
+import type { CalendrierTache, TypeLiaison } from '@/db/schema'
 
 type Db = ReturnType<typeof instanceDb>
 
@@ -28,7 +29,9 @@ export type TachePlanning = {
   feuille: boolean
   dateDebutPrevue: string
   dateFinPrevue: string
+  /** En jours calendaires, ou en jours ouvres selon `calendrier`. */
   dureePrevueJ: number
+  calendrier: CalendrierTache
   debutImpose: string | null
   dateDebutReelle: string | null
   dateFinReelle: string | null
@@ -94,7 +97,7 @@ export async function chargerPlanning(db: Db, projetId: string): Promise<Plannin
       select t.id, t.lot_id as "lotId", t.parent_id as "parentId", t.code_wbs as "codeWbs", t.nom,
              (t.parent_id is not null) as feuille,
              t.date_debut_prevue as "dateDebutPrevue", t.date_fin_prevue as "dateFinPrevue",
-             t.duree_prevue_j as "dureePrevueJ", t.debut_impose as "debutImpose",
+             t.duree_prevue_j as "dureePrevueJ", t.calendrier, t.debut_impose as "debutImpose",
              t.date_debut_reelle as "dateDebutReelle", t.date_fin_reelle as "dateFinReelle",
              t.avancement_pct::float8 as avancement,
              t.poids_budgetaire_xof::float8 as "budgetXof",
@@ -137,7 +140,10 @@ export function jourDuPlanning(origine: string, date: string): number {
   return differenceInCalendarDays(parseISO(date), parseISO(origine))
 }
 
-/** Reseau de calcul du planning : taches feuilles, durees, contraintes, liaisons. */
+/**
+ * Reseau de calcul du planning : taches feuilles, durees, contraintes,
+ * liaisons, et le calendrier de travail des taches en jours ouvres.
+ */
 export function reseauDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaisons'>): Reseau {
   const origine = p.projet.dateOrdreService
   return {
@@ -146,6 +152,7 @@ export function reseauDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaiso
       .map((t) => ({
         id: t.id,
         duree: t.dureePrevueJ,
+        ...(t.calendrier === 'OUVRE' ? { ouvre: true } : {}),
         ...(t.debutImpose !== null ? { debutImpose: jourDuPlanning(origine, t.debutImpose) } : {}),
       })),
     liaisons: p.liaisons.map((l) => ({
@@ -154,6 +161,7 @@ export function reseauDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaiso
       type: l.type,
       decalage: l.decalageJ,
     })),
+    calendrier: calendrierDepuis(origine),
   }
 }
 
@@ -195,7 +203,7 @@ export async function referenceActive(db: Db, projetId: string): Promise<InfoRef
     versions: number
   }>(sql`
     select rp.numero, rp.motif, rp.gele_le as "geleLe",
-           (select max(rt.date_debut + rt.duree_j - 1) from reference_tache rt
+           (select max(rt.date_fin) from reference_tache rt
              where rt.reference_id = rp.id)::text as fin,
            (select count(*)::int from reference_planning x
              where x.projet_id = rp.projet_id) as versions
@@ -231,6 +239,7 @@ export function suiviDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaison
         nom: t.nom,
         debut: jourDuPlanning(origine, t.dateDebutPrevue),
         duree: t.dureePrevueJ,
+        ouvre: t.calendrier === 'OUVRE',
         debutImpose: jour(t.debutImpose),
         debutReel: jour(t.dateDebutReelle),
         finReelle: jour(t.dateFinReelle),

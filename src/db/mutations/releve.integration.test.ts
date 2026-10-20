@@ -94,6 +94,7 @@ function saisie(modifs: Partial<ReleveSaisi> = {}): ReleveSaisi {
     observations: 'Coulage poteaux niveau 2',
     coulages: [],
     livraisons: [],
+    engins: [],
     alea: null,
     ...modifs,
   }
@@ -179,6 +180,7 @@ describe('enregistrement d un releve', () => {
       bonLivraison: 'BL-4471',
       affaissementMm: 120,
       eprouvettes: 3,
+      ferraillageReceptionne: true,
     }
     const livraison = {
       designation: 'Acier HA 12',
@@ -218,6 +220,33 @@ describe('enregistrement d un releve', () => {
     expect(Number(apres.coulages[0]?.v)).toBe(12.5)
     expect(apres.livraisons).toHaveLength(0)
     r = { ...r, coulages: [coulage] }
+  })
+
+  it('consigne les heures d engin, et refuse un engin etranger au projet', async () => {
+    const [pelle] = await client<{ id: string }[]>`
+      select id from ressource where projet_id = ${projetId}::uuid and nom like 'Pelle%'`
+    const [grue] = await client<{ id: string }[]>`
+      select id from ressource where projet_id = ${projetId}::uuid and dans_frais_chantier`
+    await enregistrerReleve(
+      db,
+      projetId,
+      { ...r, engins: [{ ressourceId: pelle?.id as string, heures: 7.5 }] },
+      chefId,
+    )
+    const [lu] = await client<{ h: string }[]>`
+      select heures::text as h from releve_engin where releve_journalier_id = ${r.id}::uuid`
+    expect(Number(lu?.h)).toBe(7.5)
+    // La grue est dans les frais de chantier : ses heures ne se relevent pas.
+    await attendreRefus(
+      enregistrerReleve(
+        db,
+        projetId,
+        { ...r, engins: [{ ressourceId: grue?.id as string, heures: 8 }] },
+        chefId,
+      ),
+      'INCOHERENT',
+    )
+    await enregistrerReleve(db, projetId, { ...r, engins: [] }, chefId)
   })
 
   it('la soumission fait passer le releve au statut soumis', async () => {

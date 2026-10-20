@@ -9,7 +9,12 @@
  *   ressources statiques  cache d'abord : leur nom contient une empreinte,
  *                         une version donnee ne change jamais ;
  *   pages                 reseau d'abord, cache en secours : une page a jour
- *                         quand c'est possible, la derniere vue sinon ;
+ *                         quand c'est possible, la derniere vue sinon. Sur
+ *                         un reseau qui ne repond pas, la version en cache
+ *                         est servie au bout de trois secondes, et la
+ *                         reponse du reseau, si elle arrive, la remplace
+ *                         pour la visite suivante ;
+ *   manifeste et icones   cache d'abord, comme les ressources statiques ;
  *   API, actions, RSC     jamais mis en cache.
  *
  * Les pages en cache portent les donnees du compte connecte. Elles sont
@@ -20,7 +25,9 @@
  * simple, sans import.
  */
 
-const VERSION = 'v1'
+const VERSION = 'v2'
+/** Delai au-dela duquel une page deja vue est servie depuis le cache. */
+const PATIENCE_MS = 3000
 const STATIQUE = `chantierscope-statique-${VERSION}`
 const PAGES = `chantierscope-pages-${VERSION}`
 const SECOURS = '/hors-ligne'
@@ -62,7 +69,11 @@ self.addEventListener('fetch', (evenement) => {
   }
   if (url.pathname.startsWith('/api/')) return
 
-  if (url.pathname.startsWith('/_next/static/')) {
+  if (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icones/') ||
+    url.pathname === '/manifest.webmanifest'
+  ) {
     evenement.respondWith(cacheDabord(requete))
     return
   }
@@ -89,19 +100,31 @@ async function cacheDabord(requete) {
 }
 
 async function reseauDabord(requete) {
-  try {
-    const reponse = await fetch(requete)
+  const cache = await caches.open(PAGES)
+  const cle = cleDePage(requete.url)
+
+  const reseau = fetch(requete).then((reponse) => {
     // Une redirection mene en general a la connexion : on ne la retient pas
     // comme version de la page demandee.
-    if (reponse.ok && !reponse.redirected) {
-      const cache = await caches.open(PAGES)
-      cache.put(cleDePage(requete.url), reponse.clone())
-    }
+    if (reponse.ok && !reponse.redirected) cache.put(cle, reponse.clone())
     return reponse
+  })
+
+  const enCache = await cache.match(cle)
+  if (enCache) {
+    // Course entre le reseau et la patience : un reseau de chantier qui
+    // repond au bout de vingt secondes ne doit pas bloquer la saisie.
+    const delai = new Promise((resoudre) => setTimeout(() => resoudre(null), PATIENCE_MS))
+    const premier = await Promise.race([reseau.catch(() => null), delai])
+    if (premier) return premier
+    reseau.catch(() => {})
+    return enCache
+  }
+
+  try {
+    return await reseau
   } catch {
-    const cache = await caches.open(PAGES)
     return (
-      (await cache.match(cleDePage(requete.url))) ||
       (await cache.match(SECOURS)) ||
       new Response('Hors ligne', { status: 503, headers: { 'Content-Type': 'text/plain' } })
     )

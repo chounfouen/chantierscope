@@ -409,7 +409,14 @@ export function FormulaireReleve({
             <EtapeMeteo etat={etat} erreurs={erreurs} meteo={meteo} modifier={modifier} />
           )}
 
-          {etape === 'moyens' && <EtapeMoyens etat={etat} erreurs={erreurs} modifier={modifier} />}
+          {etape === 'moyens' && (
+            <EtapeMoyens
+              etat={etat}
+              erreurs={erreurs}
+              modifier={modifier}
+              engins={referentiel.engins}
+            />
+          )}
 
           {etape === 'quantites' && (
             <EtapeQuantites
@@ -722,12 +729,17 @@ function EtapeMoyens({
   etat,
   erreurs,
   modifier,
+  engins,
 }: {
   etat: EtatFormulaire
   erreurs: Record<string, string>
   modifier: Modifier
+  engins: ReferentielSaisie['engins']
 }) {
   const proposees = heuresProposees(etat.effectifOuvriers)
+  const saisis = Object.entries(etat.engins ?? {})
+    .filter(([, h]) => h.trim() !== '')
+    .map(([id]) => id)
   return (
     <>
       <Bascule
@@ -790,6 +802,34 @@ function EtapeMoyens({
         >
           Journée normale : {proposees} h
         </Button>
+      )}
+
+      {etat.journeeTravaillee && engins.length > 0 && (
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-bold">Engins et matériel</legend>
+          <p className="text-muted-foreground text-xs">
+            Heures de fonctionnement de la journée, toutes unités confondues. Laisser vide un engin
+            resté à l’arrêt.
+          </p>
+          {erreurs['engins'] && (
+            <p role="alert" className="text-destructive text-sm">
+              {erreurs['engins']}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {engins.map((e) => (
+              <ChampNombre
+                key={e.id}
+                libelle={e.capacite > 1 ? `${e.nom} (${e.capacite})` : e.nom}
+                unite="h"
+                valeur={etat.engins?.[e.id] ?? ''}
+                surChangement={(v) => modifier('engins', { ...(etat.engins ?? {}), [e.id]: v })}
+                // L'erreur vise le rang de l'engin parmi ceux qui sont saisis.
+                erreur={erreurs[`engins.${saisis.indexOf(e.id)}.heures`]}
+              />
+            ))}
+          </div>
+        </fieldset>
       )}
     </>
   )

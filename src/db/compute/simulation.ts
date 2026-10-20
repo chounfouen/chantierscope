@@ -11,6 +11,7 @@
  * planning de reference.
  */
 
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import { calculerReseau } from '@/db/compute/cpm'
 import { penaliteXof } from '@/db/compute/evm'
 import type { Reseau, ResultatReseau, TacheReseau } from '@/db/compute/types'
@@ -47,6 +48,12 @@ export type ContexteSimulation = {
   tauxPenaliteJournaliere: number
   /** Plafond du cumul des penalites, en fraction du marche. Absent : aucun. */
   plafondPenalite?: number
+  /**
+   * Origine du reseau. Le contexte traverse la frontiere vers le navigateur,
+   * ou une fonction ne passe pas : le calendrier de travail des taches en
+   * jours ouvres s'y reconstruit depuis cette date.
+   */
+  origine?: string
 }
 
 /* -------------------------------------------------------------------------- */
@@ -97,7 +104,11 @@ export function simuler(
   contexte: ContexteSimulation,
   perturbations: readonly Perturbation[],
 ): ResultatSimulation {
-  const reference = calculerReseau(contexte.reseau)
+  const reseau: Reseau =
+    contexte.reseau.calendrier === undefined && contexte.origine !== undefined
+      ? { ...contexte.reseau, calendrier: calendrierDepuis(contexte.origine) }
+      : contexte.reseau
+  const reference = calculerReseau(reseau)
 
   for (const p of perturbations) {
     if (!reference.dates.has(p.tache)) {
@@ -105,7 +116,7 @@ export function simuler(
     }
   }
 
-  const reseauSimule = appliquer(contexte.reseau, reference, perturbations)
+  const reseauSimule = appliquer(reseau, reference, perturbations)
   const simule = calculerReseau(reseauSimule)
 
   /* --- Duree et penalite ------------------------------------------------- */
@@ -224,5 +235,6 @@ function appliquer(
     return debutImpose === undefined ? { ...t, duree } : { ...t, duree, debutImpose }
   })
 
-  return { taches, liaisons: reseau.liaisons }
+  // Le reste du reseau, calendrier et butoir compris, est conserve.
+  return { ...reseau, taches }
 }

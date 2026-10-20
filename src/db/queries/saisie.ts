@@ -43,10 +43,14 @@ export type TacheSaisie = {
   lignes: LigneSaisie[]
 }
 
+export type EnginSaisie = { id: string; nom: string; capacite: number }
+
 export type ReferentielSaisie = {
   projet: { id: string; code: string; nom: string; dateOrdreService: string }
   lots: { id: string; code: string; nom: string; rangCouleur: number }[]
   taches: TacheSaisie[]
+  /** Engins et materiel dont les heures se relevent : hors frais de chantier. */
+  engins: EnginSaisie[]
 }
 
 /**
@@ -60,7 +64,7 @@ export async function chargerReferentielSaisie(
   projetId: string,
   exclureReleveId: string | null = null,
 ): Promise<ReferentielSaisie> {
-  const [projets, lots, taches, lignes] = await Promise.all([
+  const [projets, lots, taches, lignes, engins] = await Promise.all([
     db.execute<ReferentielSaisie['projet']>(sql`
       select id, code, nom, date_ordre_service as "dateOrdreService"
         from projet where id = ${projetId}::uuid`),
@@ -94,6 +98,11 @@ export async function chargerReferentielSaisie(
         ) c on c.ligne = q.id
        where l.projet_id = ${projetId}::uuid
        order by t.code_wbs, q.designation`),
+    db.execute<EnginSaisie>(sql`
+      select id, nom, coalesce(capacite, 1)::float8 as capacite from ressource
+       where projet_id = ${projetId}::uuid and type in ('ENGIN', 'MATERIEL')
+         and not dans_frais_chantier
+       order by type, nom`),
   ])
 
   const projet = projets[0]
@@ -112,6 +121,7 @@ export async function chargerReferentielSaisie(
     taches: taches
       .map((t) => ({ ...t, lignes: parTache.get(t.id) ?? [] }))
       .filter((t) => t.lignes.length > 0),
+    engins: [...engins],
   }
 }
 
@@ -207,6 +217,8 @@ export type ReleveAValider = {
   aAlea: boolean
   /** Livraisons acceptees sous reserve : a lire avant de valider. */
   reserves: number
+  /** Coulages sans reception du ferraillage : point d'arret franchi. */
+  pointsArret: number
   auteur: string | null
   version: string
 }
@@ -230,6 +242,9 @@ export async function relevesAValider(db: Db, projetId: string): Promise<ReleveA
            exists (select 1 from alea a where a.releve_journalier_id = r.id) as "aAlea",
            (select count(*)::int from releve_livraison v
              where v.releve_journalier_id = r.id and not v.conforme) as reserves,
+           (select count(*)::int from releve_coulage c
+             where c.releve_journalier_id = r.id
+               and c.ferraillage_receptionne is false) as "pointsArret",
            u.nom as auteur, r.modifie_le::text as version
       from releve_journalier r
       join lot l on l.id = r.lot_id
@@ -289,6 +304,7 @@ export type DetailReleve = {
   remplace: { id: string; date: string } | null
   quantites: QuantiteDetail[]
   coulages: CoulageSaisi[]
+  engins: { ressourceId: string; nom: string; heures: number }[]
   livraisons: (Omit<LivraisonSaisie, 'unite'> & { unite: Unite })[]
   photos: { id: string; chemin: string; cheminVignette: string; legende: string | null }[]
   alea: {
@@ -301,20 +317,28 @@ export type DetailReleve = {
 }
 
 export async function chargerReleve(db: Db, releveId: string): Promise<DetailReleve | null> {
-  const [entetes, quantites, aleas, remplace, photos, coulages, livraisons] = await Promise.all([
-    db.execute<
-      Omit<
-        DetailReleve,
-        'lot' | 'quantites' | 'coulages' | 'livraisons' | 'alea' | 'remplace' | 'remplacePar'
-      > & {
-        lotId: string
-        lotCode: string
-        lotNom: string
-        rangCouleur: number
-        remplaceParId: string | null
-        remplaceParDate: string | null
-      }
-    >(sql`
+  const [entetes, quantites, aleas, remplace, photos, coulages, livraisons, engins] =
+    await Promise.all([
+      db.execute<
+        Omit<
+          DetailReleve,
+          | 'lot'
+          | 'quantites'
+          | 'coulages'
+          | 'livraisons'
+          | 'engins'
+          | 'alea'
+          | 'remplace'
+          | 'remplacePar'
+        > & {
+          lotId: string
+          lotCode: string
+          lotNom: string
+          rangCouleur: number
+          remplaceParId: string | null
+          remplaceParDate: string | null
+        }
+      >(sql`
       select r.id, r.projet_id as "projetId", r.date, r.statut::text as statut,
              r.lot_id as "lotId", l.code as "lotCode", l.nom as "lotNom",
              l.rang_couleur as "rangCouleur",
@@ -336,7 +360,7 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
         left join utilisateur v on v.id = r.valide_par_id
         left join releve_journalier n on n.id = r.remplace_par
        where r.id = ${releveId}::uuid`),
-    db.execute<QuantiteDetail>(sql`
+      db.execute<QuantiteDetail>(sql`
       select q.ligne_quantitatif_id as "ligneId", t.code_wbs as "codeWbs", t.nom as tache,
              lq.designation, lq.unite, q.quantite_realisee::float8 as quantite,
              lq.quantite_prevue::float8 as "quantitePrevue", q.commentaire
@@ -345,24 +369,29 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
         join tache t on t.id = lq.tache_id
        where q.releve_journalier_id = ${releveId}::uuid
        order by t.code_wbs, lq.designation`),
-    db.execute<NonNullable<DetailReleve['alea']>>(sql`
+      db.execute<NonNullable<DetailReleve['alea']>>(sql`
       select type::text as type, gravite, description,
              impact_delai_j as "impactDelaiJ", impact_cout_xof::float8 as "impactCoutXof"
         from alea where releve_journalier_id = ${releveId}::uuid`),
-    db.execute<{ id: string; date: string }>(sql`
+      db.execute<{ id: string; date: string }>(sql`
       select id, date from releve_journalier where remplace_par = ${releveId}::uuid`),
-    db.execute<DetailReleve['photos'][number]>(sql`
+      db.execute<DetailReleve['photos'][number]>(sql`
       select id, chemin, chemin_vignette as "cheminVignette", legende
         from photo where releve_journalier_id = ${releveId}::uuid order by prise_le`),
-    db.execute<DetailReleve['coulages'][number]>(sql`
+      db.execute<DetailReleve['coulages'][number]>(sql`
       select ouvrage, classe_beton as "classeBeton", volume_m3::float8 as "volumeM3",
-             bon_livraison as "bonLivraison", affaissement_mm as "affaissementMm", eprouvettes
+             bon_livraison as "bonLivraison", affaissement_mm as "affaissementMm", eprouvettes,
+             ferraillage_receptionne as "ferraillageReceptionne"
         from releve_coulage where releve_journalier_id = ${releveId}::uuid order by rang`),
-    db.execute<DetailReleve['livraisons'][number]>(sql`
+      db.execute<DetailReleve['livraisons'][number]>(sql`
       select designation, fournisseur, quantite::float8 as quantite, unite::text as unite,
              bon_livraison as "bonLivraison", conforme, reserve
         from releve_livraison where releve_journalier_id = ${releveId}::uuid order by rang`),
-  ])
+      db.execute<DetailReleve['engins'][number]>(sql`
+      select e.ressource_id as "ressourceId", r.nom, e.heures::float8 as heures
+        from releve_engin e join ressource r on r.id = e.ressource_id
+       where e.releve_journalier_id = ${releveId}::uuid order by r.nom`),
+    ])
 
   const e = entetes[0]
   if (!e) return null
@@ -379,6 +408,7 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
     quantites: [...quantites],
     coulages: [...coulages],
     livraisons: [...livraisons],
+    engins: [...engins],
     photos: [...photos],
     alea: aleas[0] ?? null,
   }
@@ -407,6 +437,7 @@ export function versSaisie(d: DetailReleve): Omit<ReleveSaisi, 'id' | 'soumettre
     observations: d.observations,
     coulages: d.coulages,
     livraisons: d.livraisons,
+    engins: d.engins.map(({ ressourceId, heures }) => ({ ressourceId, heures })),
     alea: d.alea,
   }
 }

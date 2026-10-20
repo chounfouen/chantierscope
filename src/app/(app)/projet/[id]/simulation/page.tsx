@@ -44,8 +44,12 @@ export default async function PageSimulation({
     planning.arrets,
   )
 
+  // Le calendrier, une fonction, ne passe pas au composant client : il s'y
+  // reconstruit depuis l'origine.
+  const { calendrier: _calendrier, ...reseauSerialisable } = reseau
   const contexte: ContexteSimulation = {
-    reseau,
+    reseau: reseauSerialisable,
+    origine: planning.projet.dateOrdreService,
     jalons: planning.jalons
       .filter((j) => j.tacheDeclenchanteId !== null)
       .map((j) => ({

@@ -46,6 +46,12 @@ export const PEUT_SAISIR: readonly Role[] = ['CHEF_CHANTIER', 'CONDUCTEUR', 'ADM
 export const PEUT_VALIDER: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
 export const PEUT_PLANIFIER: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
 export const PEUT_OUVRIR_NON_CONFORMITE: readonly Role[] = ['MOE', 'CONDUCTEUR', 'ADMIN']
+/** La cause et l'action corrective sont l'affaire de l'entreprise. */
+export const PEUT_TRAITER_NON_CONFORMITE: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
+/** La levee revient a qui controle : le maitre d'oeuvre. */
+export const PEUT_LEVER_NON_CONFORMITE: readonly Role[] = ['MOE', 'ADMIN']
+/** Les resultats du laboratoire sont reportes par l'equipe de chantier. */
+export const PEUT_SAISIR_ESSAIS: readonly Role[] = ['CHEF_CHANTIER', 'CONDUCTEUR', 'ADMIN']
 export const PEUT_ADMINISTRER: readonly Role[] = ['ADMIN']
 /**
  * Reconnaitre une journee d'intemperie se fait contradictoirement : par le
@@ -54,6 +60,30 @@ export const PEUT_ADMINISTRER: readonly Role[] = ['ADMIN']
 export const PEUT_STATUER_INTEMPERIE: readonly Role[] = ['MOE', 'CONDUCTEUR', 'ADMIN']
 /** Avenants et ordres de service : actes du marche, saisis par le conducteur. */
 export const PEUT_GERER_CONTRAT: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
+/**
+ * L'agrement d'un sous-traitant est un acte du maitre d'ouvrage : c'est lui
+ * qui accepte l'entreprise et ses conditions de paiement. Le titulaire le
+ * demande, par son conducteur de travaux.
+ */
+export const PEUT_DEMANDER_AGREMENT: readonly Role[] = PEUT_GERER_CONTRAT
+export const PEUT_AGREER: readonly Role[] = ['MOA', 'ADMIN']
+/**
+ * Reserves : emises par le maitre d'oeuvre et le maitre d'ouvrage aux
+ * operations prealables a la reception, consignees aussi par le conducteur ;
+ * levees par le maitre d'oeuvre, qui verifie. La reception est prononcee
+ * par le maitre d'ouvrage.
+ */
+export const PEUT_CONSTATER_RESERVE: readonly Role[] = ['MOE', 'MOA', 'CONDUCTEUR', 'ADMIN']
+export const PEUT_LEVER_RESERVE: readonly Role[] = ['MOE', 'ADMIN']
+export const PEUT_PRONONCER_RECEPTION: readonly Role[] = ['MOA', 'ADMIN']
+/**
+ * La situation est presentee par l'entreprise ; le maitre d'oeuvre la
+ * verifie et l'accepte, ce qui en fait un decompte qui fonde le paiement.
+ */
+export const PEUT_PRESENTER_DECOMPTE: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
+export const PEUT_ACCEPTER_DECOMPTE: readonly Role[] = ['MOE', 'ADMIN']
+/** Le registre de securite se tient sur le terrain, comme le journal. */
+export const PEUT_CONSIGNER_SECURITE: readonly Role[] = PEUT_SAISIR
 
 /**
  * Roles autorises a voir les donnees internes de l'entreprise : couts,

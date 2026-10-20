@@ -108,7 +108,7 @@ export function ValidationGroupee({
                 {r.auteur ? ` · ${r.auteur}` : ''}
               </span>
             </span>
-            {(r.depassements > 0 || r.aAlea || r.reserves > 0) && (
+            {(r.depassements > 0 || r.aAlea || r.reserves > 0 || r.pointsArret > 0) && (
               <span className="[&>svg]:text-etat-retard flex shrink-0 items-center gap-1 text-xs font-bold">
                 <Icone.alerte className="size-3.5" aria-hidden />
                 {[
@@ -116,6 +116,7 @@ export function ValidationGroupee({
                     `${r.depassements} dépassement${r.depassements > 1 ? 's' : ''}`,
                   r.aAlea && 'Aléa',
                   r.reserves > 0 && `${r.reserves} réserve${r.reserves > 1 ? 's' : ''}`,
+                  r.pointsArret > 0 && 'Ferraillage non réceptionné',
                 ]
                   .filter(Boolean)
                   .join(' · ')}

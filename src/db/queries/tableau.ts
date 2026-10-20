@@ -48,7 +48,13 @@ export type DonneesTableau = {
    * `refDebut` et `refDuree` : dates de la reference active, sur lesquelles se
    * prolonge la courbe planifiee. Les dates courantes servent a la projection.
    */
-  taches: (TacheSuivie & { lotId: string; budget: number; refDebut: number; refDuree: number })[]
+  taches: (TacheSuivie & {
+    lotId: string
+    budget: number
+    refDebut: number
+    refDuree: number
+    refOuvre: boolean
+  })[]
   liaisons: LiaisonReseau[]
   jalons: JalonSuivi[]
   aleas: AleaSuivi[]
@@ -108,6 +114,8 @@ export async function chargerTableau(
         budget: number
         refDebut: string | null
         refDuree: number | null
+        ouvre: boolean
+        refOuvre: boolean | null
       }>(sql`
         select t.id, t.lot_id as "lotId", t.code_wbs as "codeWbs", t.nom,
                t.date_debut_prevue as debut, t.duree_prevue_j as duree,
@@ -115,7 +123,8 @@ export async function chargerTableau(
                t.date_debut_reelle as "debutReel", t.date_fin_reelle as "finReelle",
                t.avancement_pct::float8 as avancement, t.critique,
                t.poids_budgetaire_xof::float8 as budget,
-               rt.date_debut as "refDebut", rt.duree_j as "refDuree"
+               rt.date_debut as "refDebut", rt.duree_j as "refDuree",
+               t.calendrier = 'OUVRE' as ouvre, rt.calendrier = 'OUVRE' as "refOuvre"
           from tache t join lot l on l.id = t.lot_id
           left join reference_planning rp on rp.projet_id = l.projet_id and rp.active
           left join reference_tache rt on rt.reference_id = rp.id and rt.tache_id = t.id
@@ -187,6 +196,7 @@ export async function chargerTableau(
     nom: t.nom,
     debut: jourDepuis(origine, t.debut),
     duree: t.duree,
+    ouvre: t.ouvre,
     debutImpose: jour(t.debutImpose),
     debutReel: jour(t.debutReel),
     finReelle: jour(t.finReelle),
@@ -195,6 +205,7 @@ export async function chargerTableau(
     budget: t.budget,
     refDebut: t.refDebut === null ? jourDepuis(origine, t.debut) : jourDepuis(origine, t.refDebut),
     refDuree: t.refDuree ?? t.duree,
+    refOuvre: t.refOuvre ?? t.ouvre,
   }))
   const bacXof = tachesSuivies.reduce((s, t) => s + t.budget, 0)
 
@@ -224,5 +235,10 @@ export async function chargerTableau(
 
 /** Taches budgetees, pour prolonger la courbe planifiee au-dela du jour. */
 export function tachesBudgetees(d: DonneesTableau): TacheBudgetee[] {
-  return d.taches.map((t) => ({ debut: t.refDebut, duree: t.refDuree, budget: t.budget }))
+  return d.taches.map((t) => ({
+    debut: t.refDebut,
+    duree: t.refDuree,
+    budget: t.budget,
+    ouvre: t.refOuvre,
+  }))
 }

@@ -422,11 +422,19 @@ function regrouperIntemperies(
   })
 }
 
-const NON_CONFORMITES = [
+/**
+ * Non-conformites du jeu de demonstration. Chacune donne un alea, qui porte
+ * le cout de la reprise, et une fiche, qui porte le constat, la cause et
+ * l'action : voir le peuplement.
+ */
+export const NON_CONFORMITES = [
   {
     jour: 51,
     lot: '03',
     gravite: 3,
+    titre: 'Enrobage insuffisant des semelles de l’axe C',
+    cause: 'Cales d’enrobage oubliées sur trois cages d’armatures préfabriquées au sol.',
+    action: 'Ragréage au mortier de réparation, contrôle des cales avant chaque coulage.',
     description:
       'Enrobage insuffisant des aciers sur trois semelles isolées de l’axe C. Reprise par ' +
       'ragréage et contrôle contradictoire demandé par le bureau de contrôle.',
@@ -437,6 +445,10 @@ const NON_CONFORMITES = [
     jour: 92,
     lot: '04',
     gravite: 2,
+    titre: 'Défaut de planéité du plancher haut du RDC',
+    cause: 'Règle vibrante mal guidée, absence de piges de niveau en partie centrale.',
+    action:
+      'Rattrapage à la chape ; piges posées tous les trois mètres sur les planchers suivants.',
     description:
       'Défaut de planéité du plancher haut du rez-de-chaussée, écart de 18 mm sur une règle de ' +
       'deux mètres. Rattrapage prévu à la chape.',
@@ -447,9 +459,14 @@ const NON_CONFORMITES = [
     jour: 134,
     lot: '04',
     gravite: 3,
+    titre: 'Résistance à 28 jours insuffisante, voiles du R+1',
+    cause:
+      'Ajout d’eau sur le chantier pour faciliter la mise en place, constaté au bon de livraison.',
+    action: 'Carottage et essai sur carottes ; interdiction de tout ajout d’eau hors centrale.',
     description:
-      'Résistance à 28 jours insuffisante sur le prélèvement du voile V12 du R+1, 24,3 MPa pour ' +
-      '25 MPa requis. Carottage et essai complémentaire demandés.',
+      'Résistance à 28 jours insuffisante sur le prélèvement des voiles du R+1 : 24,3 MPa en ' +
+      'moyenne pour un béton C30/37, sous le seuil individuel de 26 MPa (fck − 4) de la NF EN 206. ' +
+      'Carottage et essai complémentaire demandés.',
     cout: 3_800_000,
     resolu: 159,
   },
@@ -457,6 +474,9 @@ const NON_CONFORMITES = [
     jour: 177,
     lot: '02',
     gravite: 2,
+    titre: 'Pente insuffisante du réseau d’eaux usées R4-R5',
+    cause: 'Fond de fouille non recalé au laser après une journée de pluie.',
+    action: 'Dépose et repose du tronçon au laser, contrôle à la caméra avant remblai.',
     description:
       'Pente insuffisante sur trente mètres du réseau d’eaux usées entre les regards R4 et R5. ' +
       'Repose du tronçon exigé.',
@@ -467,6 +487,9 @@ const NON_CONFORMITES = [
     jour: 197,
     lot: '04',
     gravite: 2,
+    titre: 'Fissuration de retrait de l’acrotère est',
+    cause: null as string | null,
+    action: null as string | null,
     description:
       'Fissuration de retrait sur l’acrotère de la façade est. Traitement par pontage et ' +
       'reprise d’étanchéité à prévoir.',

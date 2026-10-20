@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { partRemboursee, situations, type Arrete } from '@/db/compute/situation'
+import {
+  coefficientRevision,
+  coefficientsDuMois,
+  partRemboursee,
+  situations,
+  type Arrete,
+} from '@/db/compute/situation'
 
 const CLAUSES = {
   retenueGarantieTaux: 0.05,
@@ -85,5 +91,101 @@ describe('situations mensuelles', () => {
       { ...arrete('2027-05', 950_000_000), date: '2027-05-07' },
     ])
     expect(s[1]?.aPayerXof).toBe(-20_000_000)
+  })
+
+  it('restitue la retenue au terme de la garantie de parfait achevement', () => {
+    const s = situations(CLAUSES, [
+      // Delai tenu : aucune penalite ne vient brouiller la restitution.
+      { ...arrete('2027-03', 1_000_000_000), finContractuelle: '2027-04-17' },
+      {
+        ...arrete('2028-04', 1_000_000_000),
+        date: '2027-04-17',
+        finContractuelle: '2027-04-17',
+        retenueRestituee: true,
+      },
+    ])
+    expect(s[0]?.retenueGarantieXof).toBe(50_000_000)
+    expect(s[1]?.retenueGarantieXof).toBe(0)
+    expect(s[1]?.aPayerXof).toBe(50_000_000)
+  })
+})
+
+describe('revision des prix', () => {
+  it('Cn = a + (1 - a) In / I0, arrondi au millieme superieur', () => {
+    expect(coefficientRevision(0.15, 103.2, 100)).toBe(1.028)
+    expect(coefficientRevision(0.15, 100, 100)).toBe(1)
+    // 0,15 + 0,85 x 1,0201 = 1,017085 : millieme superieur, 1,018.
+    expect(coefficientRevision(0.15, 102.01, 100)).toBe(1.018)
+  })
+
+  it('remplace un index non publie par le dernier connu, et le signale', () => {
+    const c = coefficientsDuMois({
+      mois: ['2026-03', '2026-04', '2026-05'],
+      partieFixe: 0.15,
+      moisZero: '2026-01',
+      indices: new Map([
+        ['2026-01', 100],
+        ['2026-03', 102],
+        ['2026-04', 104],
+      ]),
+    })
+    expect(c.get('2026-04')).toEqual({ coefficient: 1.034, provisoire: false })
+    expect(c.get('2026-05')).toEqual({ coefficient: 1.034, provisoire: true })
+  })
+
+  it('a prix fermes, sans mois zero, le coefficient vaut un', () => {
+    const c = coefficientsDuMois({
+      mois: ['2026-03'],
+      partieFixe: 0.15,
+      moisZero: null,
+      indices: new Map(),
+    })
+    expect(c.get('2026-03')?.coefficient).toBe(1)
+  })
+
+  it('revise les travaux de chaque mois, et la retenue porte aussi sur la revision', () => {
+    const s = situations(CLAUSES, [
+      { ...arrete('2026-03', 100_000_000), coefficientRevision: 1.02 },
+      { ...arrete('2026-04', 300_000_000), coefficientRevision: 1.05 },
+    ])
+    expect(s[0]?.revisionXof).toBe(2_000_000)
+    expect(s[1]?.revisionXof).toBe(2_000_000 + 10_000_000)
+    expect(s[1]?.retenueGarantieXof).toBe(Math.round(0.05 * 312_000_000))
+  })
+})
+
+describe('decomptes figes', () => {
+  it('un decompte accepte ne bouge plus, et le mois suivant regularise l ecart', () => {
+    const arretes = [arrete('2026-03', 100_000_000), arrete('2026-04', 250_000_000)]
+    const libre = situations(CLAUSES, arretes)
+    // Le journal de mars a ete rectifie depuis : 100 M devenus 90 M.
+    const corrige = [arrete('2026-03', 90_000_000), arrete('2026-04', 250_000_000)]
+    const fige = libre[0] as NonNullable<(typeof libre)[number]>
+    const s = situations(
+      CLAUSES,
+      corrige,
+      new Map([
+        [
+          '2026-03',
+          {
+            statut: 'ACCEPTEE' as const,
+            travauxXof: fige.travauxXof,
+            revisionXof: fige.revisionXof,
+            retenueGarantieXof: fige.retenueGarantieXof,
+            remboursementAvanceXof: fige.remboursementAvanceXof,
+            penalitesXof: fige.penalitesXof,
+            netCumuleXof: fige.netCumuleXof,
+            aPayerXof: fige.aPayerXof,
+          },
+        ],
+      ]),
+    )
+    expect(s[0]?.statut).toBe('ACCEPTEE')
+    expect(s[0]?.travauxXof).toBe(100_000_000)
+    expect(s[1]?.statut).toBe('PROJETEE')
+    // Le paiement d'avril part du net accepte en mars.
+    expect(s[1]?.aPayerXof).toBe((s[1]?.netCumuleXof ?? 0) - fige.netCumuleXof)
+    const total = s.reduce((t, x) => t + x.aPayerXof, 0)
+    expect(total).toBe(s[1]?.netCumuleXof)
   })
 })

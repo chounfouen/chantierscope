@@ -129,6 +129,30 @@ export function EtapeJournal({
                       erreur={e('eprouvettes')}
                     />
                   </div>
+                  <Champ
+                    libelle="Ferraillage avant coulage"
+                    aide="Point d’arrêt : réception par le bureau de contrôle ou le maître d’œuvre."
+                    erreur={e('ferraillageReceptionne')}
+                  >
+                    {(a) => (
+                      <select
+                        {...a}
+                        value={c.ferraillage ?? 'NON_ARME'}
+                        onChange={(ev) =>
+                          changerCoulage(
+                            i,
+                            'ferraillage',
+                            ev.target.value as NonNullable<EtatCoulage['ferraillage']>,
+                          )
+                        }
+                        className={CLASSE_CHAMP}
+                      >
+                        <option value="RECEPTIONNE">Réceptionné</option>
+                        <option value="NON_RECEPTIONNE">Non réceptionné</option>
+                        <option value="NON_ARME">Béton non armé</option>
+                      </select>
+                    )}
+                  </Champ>
                   <Champ libelle="Bon de livraison de la centrale" erreur={e('bonLivraison')}>
                     {(a) => (
                       <input

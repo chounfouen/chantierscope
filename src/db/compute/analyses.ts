@@ -6,6 +6,7 @@
  * tous les indicateurs.
  */
 
+import type { CalendrierTravail } from '@/db/compute/ouvre'
 import { avancementPrevu } from '@/db/compute/avancement'
 import type { Nature, Unite } from '@/db/schema'
 
@@ -38,6 +39,8 @@ export type TacheAnalyse = {
   nature: Nature
   debut: number
   duree: number
+  /** Duree en jours ouvres. */
+  ouvre?: boolean
 }
 
 export type EquipeAnalyse = { tacheId: string; ouvriers: number; debut: number; fin: number }
@@ -142,6 +145,7 @@ export function consommations(
   taches: readonly TacheAnalyse[],
   quantites: readonly QuantiteAnalyse[],
   jourAnalyse: number,
+  cal?: CalendrierTravail,
 ): ConsommationMateriau[] {
   const tache = new Map(taches.map((t) => [t.id, t]))
   return (Object.keys(MATERIAUX) as FamilleMateriau[]).map((famille) => {
@@ -159,7 +163,7 @@ export function consommations(
       cumul += q
       const prevu = retenues.reduce((s, l) => {
         const t = tache.get(l.tacheId)
-        return s + (t ? avancementPrevu(t, jour) * l.quantitePrevue : 0)
+        return s + (t ? avancementPrevu(t, jour, cal) * l.quantitePrevue : 0)
       }, 0)
       return { jour, prevu: prevu * facteur, realise: cumul * facteur }
     })

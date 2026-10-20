@@ -69,8 +69,15 @@ type RoleAccueil = 'CHEF_CHANTIER' | 'CONDUCTEUR' | 'MOE' | 'MOA' | 'ADMIN'
  * autres roles arrivent sur le tableau de bord, ou les releves a valider
  * figurent parmi les alertes.
  */
-export function pageAccueil(role: RoleAccueil, projetId: string): string {
+export function pageAccueil(
+  role: RoleAccueil,
+  projetId: string,
+  /** Ecran demande par un raccourci de l'application installee. */
+  ecran?: string,
+): string {
   const base = `/projet/${projetId}`
+  const saisit = role === 'CHEF_CHANTIER' || role === 'CONDUCTEUR' || role === 'ADMIN'
+  if (ecran === 'saisie' && saisit) return `${base}/releve/nouveau`
   return role === 'CHEF_CHANTIER' ? `${base}/releve/nouveau` : base
 }
 

@@ -335,6 +335,8 @@ export async function enregistrerReleve(
           delete from releve_coulage where releve_journalier_id = ${saisie.id}::uuid`)
         await tx.execute(sql`
           delete from releve_livraison where releve_journalier_id = ${saisie.id}::uuid`)
+        await tx.execute(sql`
+          delete from releve_engin where releve_journalier_id = ${saisie.id}::uuid`)
       } else {
         statut = saisie.soumettre ? 'SOUMIS' : 'BROUILLON'
         await tx.execute(sql`
@@ -349,6 +351,7 @@ export async function enregistrerReleve(
 
       await ecrireQuantites(tx, saisie.id, saisie)
       await ecrireJournal(tx, saisie.id, saisie)
+      await ecrireEngins(tx, projetId, saisie.id, saisie)
       const aleaModifie = await ecrireAlea(tx, projetId, saisie.id, saisie, auteurId)
       if (aleaModifie) await recompute(tx as unknown as Db, projetId)
 
@@ -444,6 +447,7 @@ export async function rectifierReleve(
          where id = ${saisie.id}::uuid`)
       await ecrireQuantites(tx, saisie.id, saisie)
       await ecrireJournal(tx, saisie.id, saisie)
+      await ecrireEngins(tx, projetId, saisie.id, saisie)
 
       await tx.execute(sql`
         update releve_journalier
@@ -512,6 +516,33 @@ async function ecrireQuantites(tx: Transaction, releveId: string, s: ReleveSaisi
     values ${valeurs}`)
 }
 
+/**
+ * Heures d'engin de la journee. Seules les ressources du projet, hors frais
+ * de chantier, se relevent : une autre serait comptee a tort, ou deux fois.
+ */
+async function ecrireEngins(
+  tx: Transaction,
+  projetId: string,
+  releveId: string,
+  s: ReleveSaisi,
+): Promise<void> {
+  if (s.engins.length === 0) return
+  const valeurs = sql.join(
+    s.engins.map((e) => sql`(${e.ressourceId}::uuid, ${e.heures}::numeric)`),
+    sql`, `,
+  )
+  const lignes = await tx.execute(sql`
+    insert into releve_engin (releve_journalier_id, ressource_id, heures)
+    select ${releveId}::uuid, v.id, v.heures
+      from (values ${valeurs}) v(id, heures)
+      join ressource r on r.id = v.id
+     where r.projet_id = ${projetId}::uuid and not r.dans_frais_chantier
+    returning ressource_id`)
+  if (lignes.length !== s.engins.length) {
+    throw new RefusMetier('INCOHERENT', 'Un engin saisi n’appartient pas à ce projet.')
+  }
+}
+
 /** Coulages et livraisons de la journee, dans l'ordre de saisie. */
 async function ecrireJournal(tx: Transaction, releveId: string, s: ReleveSaisi): Promise<void> {
   if (s.coulages.length > 0) {
@@ -519,13 +550,15 @@ async function ecrireJournal(tx: Transaction, releveId: string, s: ReleveSaisi):
       s.coulages.map(
         (c, rang) =>
           sql`(${releveId}::uuid, ${rang}, ${c.ouvrage}, ${c.classeBeton}, ${c.volumeM3}::numeric,
-               ${vide(c.bonLivraison)}, ${c.affaissementMm}, ${c.eprouvettes})`,
+               ${vide(c.bonLivraison)}, ${c.affaissementMm}, ${c.eprouvettes},
+               ${c.ferraillageReceptionne})`,
       ),
       sql`, `,
     )
     await tx.execute(sql`
       insert into releve_coulage (releve_journalier_id, rang, ouvrage, classe_beton, volume_m3,
-                                  bon_livraison, affaissement_mm, eprouvettes)
+                                  bon_livraison, affaissement_mm, eprouvettes,
+                                  ferraillage_receptionne)
       values ${valeurs}`)
   }
   if (s.livraisons.length > 0) {

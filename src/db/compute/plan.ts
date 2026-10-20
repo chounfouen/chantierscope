@@ -11,6 +11,7 @@
  * toujours accompagne de son libelle et de l'avancement chiffre.
  */
 
+import type { CalendrierTravail } from '@/db/compute/ouvre'
 import { avancementPrevu, avancementTache } from '@/db/compute/avancement'
 import type { LigneAvancement } from '@/db/compute/types'
 import type { MethodeAvancement } from '@/db/schema'
@@ -26,6 +27,8 @@ export type TachePlan = {
   methode: MethodeAvancement
   debut: number
   duree: number
+  /** Duree en jours ouvres, sur le calendrier passe a `rejouerZones`. */
+  ouvre?: boolean
   critique: boolean
   lignes: (LigneAvancement & { id: string })[]
 }
@@ -69,6 +72,7 @@ export function rejouerZones(
   taches: readonly TachePlan[],
   quantites: readonly QuantitePlan[],
   jours: readonly number[],
+  cal?: CalendrierTravail,
 ): Map<string, EtatZone>[] {
   const tache = new Map(taches.map((t) => [t.id, t]))
   const ligne = new Map<string, LigneAvancement>()
@@ -107,8 +111,8 @@ export function rejouerZones(
       for (const id of z.tacheIds) {
         const t = copies.get(id)
         if (!t || !tache.has(id)) continue
-        const a = avancementTache(t, jour)
-        const p = avancementPrevu(t, jour)
+        const a = avancementTache(t, jour, cal)
+        const p = avancementPrevu(t, jour, cal)
         budget += a.budget
         acquis += a.avancement * a.budget
         prevu += p * a.budget

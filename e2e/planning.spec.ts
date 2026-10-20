@@ -127,7 +127,7 @@ test('le conducteur modifie une duree, le planning se recale, puis revient', asy
 
   const tache = page.getByRole('complementary', { name: 'Tâche sélectionnée' })
   await page.getByRole('button', { name: 'Béton de propreté', exact: true }).click()
-  const duree = tache.getByLabel('Durée (jours)')
+  const duree = tache.getByLabel('Durée (jours calendaires)')
   const initiale = await duree.inputValue()
   await duree.fill(String(Number(initiale) + 4))
   await tache.getByRole('button', { name: 'Recaler le planning' }).click()

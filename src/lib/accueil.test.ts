@@ -62,3 +62,11 @@ describe('accueil selon le role', () => {
     expect(raccourcisMobiles('MOA', 'p').some((r) => r.href.endsWith('/releve'))).toBe(false)
   })
 })
+
+describe('raccourci de l application installee', () => {
+  it('ouvre la saisie pour qui peut saisir, le tableau de bord sinon', () => {
+    expect(pageAccueil('CONDUCTEUR', 'p', 'saisie')).toBe('/projet/p/releve/nouveau')
+    expect(pageAccueil('MOA', 'p', 'saisie')).toBe('/projet/p')
+    expect(pageAccueil('CONDUCTEUR', 'p')).toBe('/projet/p')
+  })
+})

@@ -170,8 +170,12 @@ Index sur (`projet_id`, `lot_id`, `date`).
   pas de subdivision en usage, la contrainte est donc naturelle.
 - Les quantites sont en `numeric(14,3)`, precision au litre pour le beton et
   au kilogramme pour l'acier.
-- Toutes les dates de planning sont en jours calendaires ; le calendrier
-  ouvrable est une table de configuration separee.
+- Les durees de planning sont en jours calendaires par defaut. Une tache peut
+  etre comptee en jours ouvres (`tache.calendrier = 'OUVRE'`) : le calcul de
+  reseau l'etale alors sur le calendrier ivoirien, dimanches et feries sautes,
+  et sa valeur planifiee ne monte pas les jours chomes. Les decalages de
+  liaison, les delais technologiques (sechage, cure) et le delai contractuel
+  restent en jours calendaires.
 
 ---
 
@@ -550,10 +554,10 @@ date du dernier releve valide.
 | Avancement reel | 43,6 % |
 | Valeur planifiee | 557 272 121 FCFA |
 | Valeur acquise | 504 483 806 FCFA |
-| Cout reel reconstitue | 484 223 673 FCFA |
+| Cout reel reconstitue | 481 218 198 FCFA |
 | Coefficient de debourse | 0,859 |
 | SPI | 0,905 |
-| CPI | 0,895 |
+| CPI | 0,900 |
 | Retard constate | 13,7 jours, par lecture horizontale de la courbe en S |
 | Fin projetee | 2 mai 2027, planning recale a la date d'etat |
 | Delai contractuel en vigueur | 416 jours, fin le 21 avril 2027 : 4 jours d'intemperies reconnues au-dela des 6 previsibles du CCAP |

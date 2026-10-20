@@ -74,7 +74,31 @@ export const PROJET = {
   avanceDemarrageTaux: 0.15,
   avanceRemboursementDebut: 0.65,
   avanceRemboursementFin: 0.8,
+  /**
+   * Prix revisables : etablis en janvier 2026, revises par l'index general
+   * tous corps d'etat, partie fixe de 15 %. L'index est une serie de
+   * demonstration, pas une publication officielle.
+   */
+  moisZeroRevision: '2026-01-01',
+  revisionPartieFixe: 0.15,
+  indiceRevisionNom: 'index général tous corps d’état (série de démonstration)',
 } as const
+
+/**
+ * Serie de l'index de revision, base 100 en janvier 2026. La hausse de juin
+ * suit celle du ciment ; l'index de septembre n'est pas encore publie a la
+ * date d'analyse.
+ */
+export const INDICES_REVISION: readonly [string, number][] = [
+  ['2026-01-01', 100.0],
+  ['2026-02-01', 100.4],
+  ['2026-03-01', 100.9],
+  ['2026-04-01', 101.2],
+  ['2026-05-01', 101.6],
+  ['2026-06-01', 103.1],
+  ['2026-07-01', 103.4],
+  ['2026-08-01', 103.6],
+]
 
 /* -------------------------------------------------------------------------- */
 /* Lots                                                                       */
@@ -1548,13 +1572,26 @@ export const JALONS = [
 /* Ressources                                                                 */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Ressources du projet. Le cout unitaire d'un engin est celui d'une unite
+ * pour une journee : deux camions affectes une journee coutent deux fois le
+ * cout unitaire. La capacite d'un engin est le nombre d'unites disponibles.
+ */
 export const RESSOURCES = [
   { type: 'EQUIPE', nom: 'Équipe terrassement', capacite: 8, cout: 145_000, unite: 'JOUR' },
   { type: 'EQUIPE', nom: 'Équipe coffrage', capacite: 12, cout: 230_000, unite: 'JOUR' },
   { type: 'EQUIPE', nom: 'Équipe ferraillage', capacite: 8, cout: 168_000, unite: 'JOUR' },
   { type: 'EQUIPE', nom: 'Équipe maçonnerie', capacite: 10, cout: 175_000, unite: 'JOUR' },
   { type: 'EQUIPE', nom: 'Équipe finitions', capacite: 14, cout: 210_000, unite: 'JOUR' },
-  { type: 'ENGIN', nom: 'Grue à tour 40 mètres', capacite: 1, cout: 385_000, unite: 'JOUR' },
+  // Louee au mois, a demeure : comptee dans les frais de chantier journaliers.
+  {
+    type: 'ENGIN',
+    nom: 'Grue à tour 40 mètres',
+    capacite: 1,
+    cout: 385_000,
+    unite: 'JOUR',
+    fraisChantier: true,
+  },
   { type: 'ENGIN', nom: 'Pelle hydraulique 20 tonnes', capacite: 1, cout: 265_000, unite: 'JOUR' },
   { type: 'ENGIN', nom: 'Camion benne 18 tonnes', capacite: 3, cout: 118_000, unite: 'JOUR' },
   {

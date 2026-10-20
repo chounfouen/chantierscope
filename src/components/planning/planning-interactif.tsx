@@ -71,7 +71,7 @@ export function PlanningInteractif({
       <aside aria-label="Tâche sélectionnée" className="surface p-5 text-sm">
         {element ? (
           <Panneau
-            key={element.id}
+            key={`${element.id}:${element.duree}:${element.ouvre}:${element.debut}`}
             projetId={projetId}
             donnees={donnees}
             id={element.id}
@@ -117,7 +117,8 @@ function Panneau({
   const parId = new Map(donnees.elements.map((e) => [e.id, e]))
   const e = parId.get(id)
   const debutIso = e ? dateDuJour(donnees.origine, e.debut).toISOString().slice(0, 10) : ''
-  const [duree, setDuree] = useState(e ? String(e.fin - e.debut + 1) : '')
+  const [duree, setDuree] = useState(e ? String(e.duree) : '')
+  const [ouvre, setOuvre] = useState(e?.ouvre ?? false)
   const [debut, setDebut] = useState(debutIso)
   const [nouvelle, setNouvelle] = useState<{
     autre: string
@@ -195,6 +196,10 @@ function Panneau({
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <dt className="text-muted-foreground">Durée</dt>
+        <dd>
+          {e.duree} {e.ouvre ? 'jours ouvrés' : 'jours calendaires'}
+        </dd>
         <dt className="text-muted-foreground">Au plus tôt</dt>
         <dd>
           {e.debutTot && e.finTot ? `${dateCourte(e.debutTot)} → ${dateCourte(e.finTot)}` : '—'}
@@ -227,8 +232,15 @@ function Panneau({
           onSubmit={(ev) => {
             ev.preventDefault()
             const dureeJ = Number(duree)
-            const modifs: { dureeJ?: number; debutImpose?: string } = {}
-            if (dureeJ !== e.fin - e.debut + 1) modifs.dureeJ = dureeJ
+            const modifs: {
+              dureeJ?: number
+              debutImpose?: string
+              calendrier?: 'CALENDAIRE' | 'OUVRE'
+            } = {}
+            // Calendrier change sans nouvelle duree : le serveur convertit la
+            // duree sur les dates prevues, la barre garde son etendue.
+            if (dureeJ !== e.duree) modifs.dureeJ = dureeJ
+            if (ouvre !== e.ouvre) modifs.calendrier = ouvre ? 'OUVRE' : 'CALENDAIRE'
             if (debut !== debutIso) modifs.debutImpose = debut
             if (Object.keys(modifs).length === 0) return
             executer(() => modifierTacheAction({ projetId, tacheId: id, ...modifs }))
@@ -237,7 +249,9 @@ function Panneau({
           <p className="text-sm font-bold">Modifier la tâche</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="grid gap-1.5 text-xs">
-              <span className="libelle-champ">Durée (jours)</span>
+              <span className="libelle-champ">
+                Durée ({ouvre ? 'jours ouvrés' : 'jours calendaires'})
+              </span>
               <input
                 type="number"
                 min={1}
@@ -258,6 +272,17 @@ function Panneau({
               />
             </label>
           </div>
+          <label className="grid gap-1.5 text-xs">
+            <span className="libelle-champ">Compter la durée en</span>
+            <select
+              value={ouvre ? 'OUVRE' : 'CALENDAIRE'}
+              onChange={(ev) => setOuvre(ev.target.value === 'OUVRE')}
+              className={CHAMP}
+            >
+              <option value="CALENDAIRE">jours calendaires (séchage, cure, délai)</option>
+              <option value="OUVRE">jours ouvrés (hors dimanches et fériés)</option>
+            </select>
+          </label>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={enCours}>
               Recaler le planning

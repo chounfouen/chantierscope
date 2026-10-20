@@ -7,6 +7,7 @@ import '@fontsource-variable/jetbrains-mono'
 import { FournisseurTheme } from '@/components/fournisseur-theme'
 import { Toaster } from '@/components/ui/sonner'
 import { SCRIPT_THEME } from '@/lib/theme'
+import { TEINTES_SYSTEME } from '@/lib/viz'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
   },
   description:
     "Suivi de l'évolution d'un chantier de génie civil : avancement physique, planning et valeur acquise.",
+  applicationName: 'ChantierScope',
+  appleWebApp: { capable: true, title: 'ChantierScope', statusBarStyle: 'default' },
+  icons: { apple: '/icones/apple-touch-icon.png' },
 }
 
 export const viewport: Viewport = {
@@ -23,6 +27,11 @@ export const viewport: Viewport = {
   // plein soleil. Le zoom ne doit jamais etre bride.
   width: 'device-width',
   initialScale: 1,
+  // Barre d'etat du telephone aux couleurs de l'application installee.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: TEINTES_SYSTEME.fondClair },
+    { media: '(prefers-color-scheme: dark)', color: TEINTES_SYSTEME.fondSombre },
+  ],
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

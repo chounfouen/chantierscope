@@ -320,6 +320,19 @@ export type EntreeCoutReel = {
   journeesEncadrement: number
   /** Valeur acquise a la date d'analyse, base du debourse materiaux. */
   valeurAcquiseXof: number
+  /**
+   * Quantites realisees au-dela du prevu, au prix du marche. La valeur
+   * acquise est plafonnee ligne par ligne ; la matiere consommee ne l'est
+   * pas : dix pour cent de beton en trop se paient a la centrale. Facultatif.
+   */
+  depassementsXof?: number
+  /** Heures d'engin relevees, valorisees au cout de chaque ressource. Facultatif. */
+  coutEnginsXof?: number
+  /**
+   * Part materiaux propre au lot, engins prevus deduits : voir
+   * `partMateriauxHorsEngins`. Par defaut, la part commune.
+   */
+  partMateriaux?: number
   /** Jours calendaires ecoules depuis l'ordre de service. */
   joursEcoules: number
   /** Cumul des impacts de cout des aleas survenus. */
@@ -338,8 +351,38 @@ export function coutReel(e: EntreeCoutReel): number {
   return Math.round(
     e.heuresOuvrier * COUT.tauxHoraireOuvrier +
       e.journeesEncadrement * COUT.coutJourEncadrement +
-      e.valeurAcquiseXof * COUT.partMateriaux +
+      (e.valeurAcquiseXof + (e.depassementsXof ?? 0)) * (e.partMateriaux ?? COUT.partMateriaux) +
       e.joursEcoules * COUT.fraisChantierJour +
+      (e.coutEnginsXof ?? 0) +
       e.coutAleasXof,
   )
+}
+
+/**
+ * Part materiaux d'un lot, une fois deduits les engins prevus.
+ *
+ * La part materiaux du prix couvre tout le debourse hors main d'oeuvre, les
+ * engins compris : le budget n'a pas a les compter une seconde fois. Mais
+ * des que les heures d'engin sont relevees, la part qui leur revient doit
+ * sortir du forfait materiaux, sans quoi le cout reel les compterait deux
+ * fois. Si les engins travaillent au rythme prevu, le cout reel ne change
+ * pas ; s'ils travaillent plus longtemps, l'ecart apparait, et lui seul.
+ */
+export function partMateriauxHorsEngins(venteXof: number, enginsPrevusXof: number): number {
+  if (venteXof <= 0) return COUT.partMateriaux
+  return Math.max(0, COUT.partMateriaux - enginsPrevusXof / venteXof)
+}
+
+/**
+ * Cout d'une ressource pour un nombre d'heures : au taux horaire, ou au
+ * prorata d'une journee de travail pour une ressource louee a la journee.
+ */
+export function coutRessource(
+  heures: number,
+  coutUnitaireXof: number,
+  unite: 'JOUR' | 'HEURE' | 'UNITE',
+): number {
+  if (unite === 'HEURE') return heures * coutUnitaireXof
+  if (unite === 'JOUR') return (heures / COUT.heuresParJour) * coutUnitaireXof
+  return 0
 }

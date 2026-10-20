@@ -63,3 +63,16 @@ test('le rapport hebdomadaire se telecharge en PDF', async ({ page }) => {
   expect(r.headers()['content-type']).toBe('application/pdf')
   expect((await r.body()).subarray(0, 5).toString()).toBe('%PDF-')
 })
+
+test('l application est installable : manifeste, icones et service worker', async ({ page }) => {
+  const r = await page.request.get('/manifest.webmanifest')
+  expect(r.ok()).toBe(true)
+  const manifeste = (await r.json()) as { name: string; display: string; icons: { src: string }[] }
+  expect(manifeste.name).toBe('ChantierScope')
+  expect(manifeste.display).toBe('standalone')
+  for (const icone of manifeste.icons) {
+    expect((await page.request.get(icone.src)).headers()['content-type']).toBe('image/png')
+  }
+  await connecter(page, 'chef')
+  await expect(page.locator('link[rel="manifest"]')).toHaveCount(1)
+})

@@ -6,7 +6,8 @@ import { db } from '@/db/index'
 import { chargerPlanning } from '@/db/queries/planning'
 import { chargerSituations } from '@/db/queries/situation'
 import { aujourdhui, dateCourte, fcfa, fcfaNu, moisLong, pourcent } from '@/lib/format'
-import { exigerPage } from '@/lib/garde'
+import { DecisionDecompte, PresenterDecompte } from '@/components/situations/actions-decompte'
+import { exigerPage, habilite, PEUT_ACCEPTER_DECOMPTE, PEUT_PRESENTER_DECOMPTE } from '@/lib/garde'
 
 export const metadata: Metadata = { title: 'Situations de travaux' }
 
@@ -20,13 +21,16 @@ export const metadata: Metadata = { title: 'Situations de travaux' }
  */
 export default async function Situations({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  await exigerPage(id)
+  const utilisateur = await exigerPage(id)
+  const presente = habilite(utilisateur.role, PEUT_PRESENTER_DECOMPTE)
+  const accepte = habilite(utilisateur.role, PEUT_ACCEPTER_DECOMPTE)
   const base = db()
   const [decompte, planning] = await Promise.all([
     chargerSituations(base, id, aujourdhui()),
     chargerPlanning(base, id),
   ])
-  const { clauses, situations } = decompte
+  const { clauses, situations, revision } = decompte
+  const revisable = revision.moisZero !== null
   const projet = planning.projet
   const derniere = situations.at(-1)
   const totalPaye = situations.reduce((t, s) => t + s.aPayerXof, 0)
@@ -44,12 +48,21 @@ export default async function Situations({ params }: { params: Promise<{ id: str
       `de ${pourcent(clauses.remboursementDebut, 0)} à ${pourcent(clauses.remboursementFin, 0)} d’exécution`,
     ],
     [
+      'Révision des prix',
+      revisable
+        ? `Cn = ${nombreFr(revision.partieFixe)} + ${nombreFr(1 - revision.partieFixe)} × In / I0, mois zéro ${moisLong(revision.moisZero as string)}${revision.indiceNom ? `, ${revision.indiceNom}` : ''}`
+        : 'Prix fermes, non révisables',
+    ],
+    [
       'Pénalités de retard',
       `${pourcent(clauses.tauxPenaliteJournaliere, 2)} du marché par jour, au-delà du délai en vigueur`,
     ],
   ]
 
   /** Une deduction s'affiche en negatif ; zero reste zero, sans signe. */
+  function nombreFr(x: number) {
+    return x.toLocaleString('fr-FR', { maximumFractionDigits: 3 })
+  }
   const deduit = (x: number) => (x === 0 ? '0' : fcfaNu(-x))
   const cellule = 'chiffres-alignes px-2.5 py-2 text-right whitespace-nowrap'
   // Les en-tetes passent a la ligne : le tableau tient sur un ecran de bureau.
@@ -148,10 +161,15 @@ export default async function Situations({ params }: { params: Promise<{ id: str
                     </th>
                     <th scope="col" className={entete}>
                       Travaux cumulés
+                      <span className="text-muted-foreground block text-xs font-medium">
+                        exécution
+                      </span>
                     </th>
-                    <th scope="col" className={entete}>
-                      Exécution
-                    </th>
+                    {revisable && (
+                      <th scope="col" className={entete}>
+                        Révision des prix
+                      </th>
+                    )}
                     <th scope="col" className={entete}>
                       Retenue de garantie
                     </th>
@@ -175,14 +193,41 @@ export default async function Situations({ params }: { params: Promise<{ id: str
                       <td className="px-2.5 py-2 font-bold">{s.numero}</td>
                       <td className="px-2.5 py-2 whitespace-nowrap">
                         {moisLong(s.mois)}
-                        {s.provisoire && (
-                          <span className="text-muted-foreground block text-xs">
-                            au {dateCourte(s.date)}, provisoire
+                        <span className="text-muted-foreground block text-xs">
+                          {s.statut === 'ACCEPTEE'
+                            ? 'décompte accepté'
+                            : s.statut === 'PRESENTEE'
+                              ? 'présentée, à accepter'
+                              : s.provisoire
+                                ? `au ${dateCourte(s.date)}, provisoire`
+                                : 'à présenter'}
+                        </span>
+                        {s.statut === 'PRESENTEE' && accepte && (
+                          <span className="mt-1 block">
+                            <DecisionDecompte projetId={id} mois={s.mois} />
+                          </span>
+                        )}
+                        {decompte.moisPresentable === s.mois && presente && (
+                          <span className="mt-1 block">
+                            <PresenterDecompte projetId={id} mois={s.mois} />
                           </span>
                         )}
                       </td>
-                      <td className={cellule}>{fcfaNu(s.travauxXof)}</td>
-                      <td className={cellule}>{pourcent(s.execution)}</td>
+                      <td className={cellule}>
+                        {fcfaNu(s.travauxXof)}
+                        <span className="text-muted-foreground block text-xs">
+                          {pourcent(s.execution)}
+                        </span>
+                      </td>
+                      {revisable && (
+                        <td className={cellule}>
+                          {fcfaNu(s.revisionXof)}
+                          <span className="text-muted-foreground block text-xs">
+                            Cn {nombreFr(s.coefficientRevision)}
+                            {s.indiceProvisoire && ', index provisoire'}
+                          </span>
+                        </td>
+                      )}
                       <td className={cellule}>{deduit(s.retenueGarantieXof)}</td>
                       <td className={cellule}>{deduit(s.remboursementAvanceXof)}</td>
                       <td className={cellule}>
@@ -200,7 +245,11 @@ export default async function Situations({ params }: { params: Promise<{ id: str
                 </tbody>
                 <tfoot>
                   <tr className="border-border border-t-2">
-                    <th scope="row" colSpan={8} className="px-2.5 py-2 text-right font-extrabold">
+                    <th
+                      scope="row"
+                      colSpan={revisable ? 8 : 7}
+                      className="px-2.5 py-2 text-right font-extrabold"
+                    >
                       Total appelé
                     </th>
                     <td className={`${cellule} font-extrabold`}>{fcfaNu(totalPaye)}</td>
@@ -216,7 +265,9 @@ export default async function Situations({ params }: { params: Promise<{ id: str
         Les travaux sont valorisés par la méthode d’avancement de chaque tâche, au prix du marché :
         c’est la base de discussion de la situation, pas l’attachement contradictoire qui fonde le
         décompte signé. La retenue de garantie se libère à la réception, ou contre une caution.
-        Aucune pénalité n’est retenue avant l’échéance du délai en vigueur.
+        Aucune pénalité n’est retenue avant l’échéance du délai en vigueur. Une situation présentée
+        fige ses montants ; acceptée par le maître d’œuvre, elle devient un décompte définitif, et
+        tout écart ultérieur du journal se régularise au décompte suivant.
       </p>
     </div>
   )

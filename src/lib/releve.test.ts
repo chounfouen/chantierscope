@@ -36,6 +36,7 @@ function releve(modifs: Partial<TypeReleve> = {}): TypeReleve {
     observations: null,
     coulages: [],
     livraisons: [],
+    engins: [],
     alea: null,
     ...modifs,
   }
@@ -337,6 +338,7 @@ describe('journal de la journee', () => {
     bonLivraison: null,
     affaissementMm: null,
     eprouvettes: 3,
+    ferraillageReceptionne: null,
   }
   const livraison = {
     designation: 'Ciment CEM II 42,5',

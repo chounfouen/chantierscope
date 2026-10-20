@@ -72,9 +72,17 @@ export async function chargerAnalyses(
         join tache t on t.id = q.tache_id join lot l on l.id = t.lot_id
        where l.projet_id = ${projetId}
        order by t.code_wbs, q.designation, q.id`),
-    db.execute<{ id: string; lotId: string; nature: Nature; debut: string; duree: number }>(sql`
+    db.execute<{
+      id: string
+      lotId: string
+      nature: Nature
+      debut: string
+      duree: number
+      ouvre: boolean
+    }>(sql`
       select t.id, t.lot_id as "lotId", t.nature,
-             t.date_debut_prevue as debut, t.duree_prevue_j as duree
+             t.date_debut_prevue as debut, t.duree_prevue_j as duree,
+             t.calendrier = 'OUVRE' as ouvre
         from tache t join lot l on l.id = t.lot_id
        where l.projet_id = ${projetId} and t.parent_id is not null
        order by t.code_wbs`),
@@ -115,6 +123,7 @@ export async function chargerAnalyses(
       nature: t.nature,
       debut: jour(t.debut),
       duree: t.duree,
+      ouvre: t.ouvre,
     })),
     equipes: equipes.map((e) => ({
       tacheId: e.tacheId,

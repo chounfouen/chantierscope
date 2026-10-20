@@ -17,7 +17,7 @@ import {
   modifierTachePlanning,
   supprimerLiaison,
 } from '@/db/mutations/planning'
-import { typeLiaison } from '@/db/schema'
+import { calendrierTache, typeLiaison } from '@/db/schema'
 import { exiger, NonAuthentifie, NonAutorise, PEUT_PLANIFIER } from '@/lib/garde'
 import { DateSimple } from '@/lib/releve'
 
@@ -43,6 +43,7 @@ const Modification = z.object({
   tacheId: z.uuid(),
   dureeJ: z.number().int().min(1).max(2000).optional(),
   debutImpose: DateSimple.nullable().optional(),
+  calendrier: z.enum(calendrierTache.enumValues).optional(),
 })
 
 export async function modifierTacheAction(brut: unknown): Promise<ResultatPlanning> {
@@ -57,6 +58,7 @@ export async function modifierTacheAction(brut: unknown): Promise<ResultatPlanni
       {
         ...(m.data.dureeJ !== undefined ? { dureeJ: m.data.dureeJ } : {}),
         ...(m.data.debutImpose !== undefined ? { debutImpose: m.data.debutImpose } : {}),
+        ...(m.data.calendrier !== undefined ? { calendrier: m.data.calendrier } : {}),
       },
       u.id,
     )

@@ -21,6 +21,8 @@ export type EtatCoulage = {
   bonLivraison: string
   affaissementMm: string
   eprouvettes: string
+  /** Facultatif : un brouillon anterieur au point d'arret ne le porte pas. */
+  ferraillage?: 'RECEPTIONNE' | 'NON_RECEPTIONNE' | 'NON_ARME'
 }
 
 export type EtatLivraison = {
@@ -40,6 +42,7 @@ export const COULAGE_VIDE: EtatCoulage = {
   bonLivraison: '',
   affaissementMm: '',
   eprouvettes: '0',
+  ferraillage: 'RECEPTIONNE',
 }
 
 export const LIVRAISON_VIDE: EtatLivraison = {
@@ -68,6 +71,8 @@ export type EtatFormulaire = {
   effectifOuvriers: string
   effectifEncadrement: string
   heuresTravaillees: string
+  /** Heures par ressource ; facultatif pour les brouillons anterieurs. */
+  engins?: Record<string, string>
 
   /** Par identifiant de ligne du quantitatif. */
   quantites: Record<string, EtatQuantite>
@@ -112,6 +117,7 @@ export function etatVierge(id: string, date: string, lotId: string): EtatFormula
     effectifOuvriers: '',
     effectifEncadrement: '',
     heuresTravaillees: '',
+    engins: {},
     quantites: {},
     observations: '',
     coulages: [],
@@ -141,6 +147,7 @@ export function etatDepuisReleve(
     effectifOuvriers: enTexte(r.effectifOuvriers),
     effectifEncadrement: enTexte(r.effectifEncadrement),
     heuresTravaillees: enTexte(r.heuresTravaillees),
+    engins: Object.fromEntries(r.engins.map((e) => [e.ressourceId, enTexte(e.heures)])),
     quantites: Object.fromEntries(
       r.quantites.map((q) => [
         q.ligneId,
@@ -155,6 +162,12 @@ export function etatDepuisReleve(
       bonLivraison: c.bonLivraison ?? '',
       affaissementMm: c.affaissementMm === null ? '' : String(c.affaissementMm),
       eprouvettes: String(c.eprouvettes),
+      ferraillage:
+        c.ferraillageReceptionne === null
+          ? ('NON_ARME' as const)
+          : c.ferraillageReceptionne
+            ? ('RECEPTIONNE' as const)
+            : ('NON_RECEPTIONNE' as const),
     })),
     livraisons: r.livraisons.map((l) => ({
       designation: l.designation,
@@ -232,6 +245,11 @@ export function versReleve(e: EtatFormulaire, soumettre: boolean): unknown {
     effectifOuvriers: nombreOuZero(e.effectifOuvriers),
     effectifEncadrement: nombreOuZero(e.effectifEncadrement),
     heuresTravaillees: nombreOuZero(e.heuresTravaillees),
+    engins: e.journeeTravaillee
+      ? Object.entries(e.engins ?? {})
+          .filter(([, h]) => h.trim() !== '')
+          .map(([ressourceId, h]) => ({ ressourceId, heures: nombre(h) }))
+      : [],
     quantites: e.journeeTravaillee ? quantites : [],
     observations: e.observations.trim() === '' ? null : e.observations.trim(),
     coulages: e.journeeTravaillee
@@ -242,6 +260,14 @@ export function versReleve(e: EtatFormulaire, soumettre: boolean): unknown {
           bonLivraison: texteOuNul(c.bonLivraison),
           affaissementMm: nombre(c.affaissementMm),
           eprouvettes: nombreOuZero(c.eprouvettes),
+          ferraillageReceptionne:
+            c.ferraillage === 'NON_ARME'
+              ? null
+              : c.ferraillage === 'NON_RECEPTIONNE'
+                ? false
+                : c.ferraillage === 'RECEPTIONNE'
+                  ? true
+                  : null,
         }))
       : [],
     livraisons: (e.livraisons ?? []).map((l) => ({

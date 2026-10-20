@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import { TitrePage } from '@/components/coquille/titre-page'
 import type { ReactNode } from 'react'
 import { FilAriane } from '@/components/coquille/fil-ariane'
@@ -90,7 +91,13 @@ export default async function Analyses({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const materiaux = consommations(donnees.lignes, donnees.taches, donnees.quantites, jourAnalyse)
+  const materiaux = consommations(
+    donnees.lignes,
+    donnees.taches,
+    donnees.quantites,
+    jourAnalyse,
+    calendrierDepuis(origine),
+  )
   const aleas = repartitionAleas(donnees.aleas, jourAnalyse)
   const perdus = joursPerdusCumules(donnees.aleas, jourAnalyse)
   const arrets = arretsParCause(donnees.releves, jourAnalyse)

@@ -136,6 +136,41 @@ export const typeOrdreService = pgEnum('type_ordre_service', [
   'AUTRE',
 ])
 
+/** Agrement d'un sous-traitant par le maitre d'ouvrage. */
+export const statutAgrement = pgEnum('statut_agrement', ['DEMANDE', 'AGREE', 'REFUSE'])
+
+/**
+ * Evenements du registre de securite. Seul l'accident avec arret entre dans
+ * le taux de frequence ; ses jours d'arret entrent dans le taux de gravite.
+ */
+export const typeEvenementSecurite = pgEnum('type_evenement_securite', [
+  'ACCIDENT_AVEC_ARRET',
+  'ACCIDENT_SANS_ARRET',
+  'PRESQU_ACCIDENT',
+  'SITUATION_DANGEREUSE',
+  'CAUSERIE',
+  'VISITE',
+])
+
+/** Cycle d'une fiche de non-conformite : constat, traitement, levee. */
+export const statutNonConformite = pgEnum('statut_non_conformite', ['OUVERTE', 'TRAITEE', 'LEVEE'])
+
+/**
+ * Moment ou une reserve est emise : aux operations prealables a la
+ * reception, a la reception elle-meme, ou pendant l'annee de garantie de
+ * parfait achevement qui la suit.
+ */
+export const phaseReserve = pgEnum('phase_reserve', ['OPR', 'RECEPTION', 'PARFAIT_ACHEVEMENT'])
+
+/** Un decompte est presente par l'entreprise, puis accepte par le maitre d'oeuvre. */
+export const statutDecompte = pgEnum('statut_decompte', ['PRESENTEE', 'ACCEPTEE'])
+
+/**
+ * Calendrier d'une tache : sa duree compte des jours calendaires, ou les
+ * seuls jours ouvres, dimanches et feries sautes par le calcul de reseau.
+ */
+export const calendrierTache = pgEnum('calendrier_tache', ['CALENDAIRE', 'OUVRE'])
+
 export const typeRessource = pgEnum('type_ressource', ['EQUIPE', 'ENGIN', 'MATERIEL', 'MATERIAU'])
 
 export const uniteCout = pgEnum('unite_cout', ['JOUR', 'HEURE', 'UNITE'])
@@ -270,6 +305,20 @@ export const projet = pgTable(
      */
     intemperiesPrevisiblesJ: integer().notNull().default(0),
     /**
+     * Revision des prix. Nul, le marche est a prix fermes. Sinon, mois
+     * d'etablissement des prix (premier jour du mois) : l'index de ce mois
+     * est I0 dans la formule Cn = a + (1 - a) x In / I0.
+     */
+    moisZeroRevision: date(),
+    revisionPartieFixe: numeric({ precision: 5, scale: 4, mode: 'number' }).notNull().default(0.15),
+    /** Nom de l'index de reference, tel que le CCAP le designe. */
+    indiceRevisionNom: text(),
+    /**
+     * Date d'effet de la reception, prononcee par le maitre d'ouvrage. Elle
+     * ouvre l'annee de garantie de parfait achevement. Nulle avant.
+     */
+    dateReception: date(),
+    /**
      * Clauses financieres du CCAP, qui fondent les situations mensuelles.
      * La retenue de garantie est une fraction des travaux executes, rendue a
      * la reception ; l'avance de demarrage une fraction du montant initial,
@@ -360,7 +409,9 @@ export const tache = pgTable(
 
     dateDebutPrevue: date().notNull(),
     dateFinPrevue: date().notNull(),
+    /** En jours calendaires, ou en jours ouvres selon `calendrier`. */
     dureePrevueJ: integer().notNull(),
+    calendrier: calendrierTache().notNull().default('CALENDAIRE'),
     dateDebutReelle: date(),
     dateFinReelle: date(),
     /**
@@ -589,6 +640,12 @@ export const releveCoulage = pgTable(
     /** Affaissement au cone d'Abrams, en millimetres (NF EN 12350-2). */
     affaissementMm: smallint(),
     eprouvettes: smallint().notNull().default(0),
+    /**
+     * Point d'arret du plan d'assurance qualite : le ferraillage a-t-il ete
+     * receptionne (bureau de controle, maitre d'oeuvre) avant le coulage ?
+     * Nul pour un beton non arme, ou le point d'arret est sans objet.
+     */
+    ferraillageReceptionne: boolean(),
   },
   (t) => [
     index('releve_coulage_releve_idx').on(t.releveJournalierId),
@@ -598,6 +655,59 @@ export const releveCoulage = pgTable(
       sql`${t.affaissementMm} is null or ${t.affaissementMm} between 0 and 300`,
     ),
     check('releve_coulage_eprouvettes', sql`${t.eprouvettes} between 0 and 60`),
+  ],
+).enableRLS()
+
+/**
+ * Heures d'engin et de materiel de la journee, par ressource. Valorisees au
+ * cout unitaire de la ressource, elles entrent dans le cout reel du lot :
+ * un terrassement qui traine coute des journees de pelle et de camions.
+ */
+export const releveEngin = pgTable(
+  'releve_engin',
+  {
+    releveJournalierId: uuid()
+      .notNull()
+      .references(() => releveJournalier.id, { onDelete: 'cascade' }),
+    ressourceId: uuid()
+      .notNull()
+      .references(() => ressource.id, { onDelete: 'restrict' }),
+    /** Heures de fonctionnement cumulees des unites de la ressource. */
+    heures: numeric({ precision: 6, scale: 2, mode: 'number' }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.releveJournalierId, t.ressourceId] }),
+    index('releve_engin_ressource_idx').on(t.ressourceId),
+    check('releve_engin_heures', sql`${t.heures} > 0 and ${t.heures} <= 2400`),
+  ],
+).enableRLS()
+
+/**
+ * Registre des essais de compression du beton : une ligne par eprouvette
+ * ecrasee. Les essais se font apres le coulage, donc apres la validation du
+ * releve : ils ne sont pas geles avec lui.
+ */
+export const essaiBeton = pgTable(
+  'essai_beton',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    coulageId: uuid()
+      .notNull()
+      .references(() => releveCoulage.id, { onDelete: 'cascade' }),
+    /** Prelevement auquel appartient l'eprouvette, numerote dans le coulage. */
+    prelevement: smallint().notNull().default(1),
+    /** Age du beton a l'ecrasement, en jours : 7 et 28 le plus souvent. */
+    ageJ: smallint().notNull(),
+    dateEcrasement: date().notNull(),
+    resistanceMpa: numeric({ precision: 5, scale: 1, mode: 'number' }).notNull(),
+    laboratoire: text(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    index('essai_beton_coulage_idx').on(t.coulageId),
+    check('essai_beton_age', sql`${t.ageJ} between 1 and 365`),
+    check('essai_beton_resistance', sql`${t.resistanceMpa} > 0 and ${t.resistanceMpa} < 200`),
+    check('essai_beton_prelevement', sql`${t.prelevement} between 1 and 60`),
   ],
 ).enableRLS()
 
@@ -721,8 +831,17 @@ export const elementMaquette = pgTable(
     classe: text().notNull(),
     nom: text(),
     etage: text(),
+    /** Volume de l'element, en m3 : quantites IFC, ou geometrie a defaut. */
+    volumeM3: numeric('volume_m3', { precision: 12, scale: 3, mode: 'number' }),
+    sourceQuantite: text(),
   },
-  (t) => [primaryKey({ columns: [t.maquetteId, t.globalId] })],
+  (t) => [
+    primaryKey({ columns: [t.maquetteId, t.globalId] }),
+    check(
+      'element_maquette_source_quantite',
+      sql`${t.sourceQuantite} is null or ${t.sourceQuantite} in ('QTO', 'GEOMETRIE')`,
+    ),
+  ],
 ).enableRLS()
 
 /**
@@ -816,11 +935,16 @@ export const referenceTache = pgTable(
       .notNull()
       .references(() => tache.id, { onDelete: 'cascade' }),
     dateDebut: date().notNull(),
+    /** Fin figee : en jours ouvres, elle ne se deduit pas du debut et de la duree. */
+    dateFin: date().notNull(),
+    /** Duree dans l'unite de `calendrier`, comme celle de la tache. */
     dureeJ: integer().notNull(),
+    calendrier: calendrierTache().notNull().default('CALENDAIRE'),
   },
   (t) => [
     primaryKey({ columns: [t.referenceId, t.tacheId] }),
     check('reference_tache_duree_positive', sql`${t.dureeJ} > 0`),
+    check('reference_tache_dates_ordonnees', sql`${t.dateFin} >= ${t.dateDebut}`),
   ],
 ).enableRLS()
 
@@ -1009,6 +1133,231 @@ export const ordreService = pgTable(
 ).enableRLS()
 
 /**
+ * Fiches de non-conformite : constat, cause, action corrective, levee.
+ *
+ * Le conducteur de travaux ou le maitre d'oeuvre ouvre la fiche ; le
+ * conducteur la traite en nommant la cause et l'action ; le maitre d'oeuvre
+ * la leve apres verification. L'alea associe, s'il y en a un, porte le cout
+ * et le delai de la reprise.
+ */
+export const nonConformite = pgTable(
+  'non_conformite',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    dateConstat: date().notNull(),
+    lotId: uuid().references(() => lot.id, { onDelete: 'set null' }),
+    coulageId: uuid().references(() => releveCoulage.id, { onDelete: 'set null' }),
+    aleaId: uuid().references(() => alea.id, { onDelete: 'set null' }),
+    titre: text().notNull(),
+    constat: text().notNull(),
+    gravite: smallint().notNull().default(2),
+    cause: text(),
+    action: text(),
+    statut: statutNonConformite().notNull().default('OUVERTE'),
+    traiteeLe: date(),
+    leveeLe: date(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    leveeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    unique('non_conformite_numero_unique').on(t.projetId, t.numero),
+    check('non_conformite_gravite', sql`${t.gravite} between 1 and 4`),
+    check(
+      'non_conformite_traitement',
+      sql`${t.statut} = 'OUVERTE' or (${t.cause} is not null and ${t.action} is not null and ${t.traiteeLe} is not null)`,
+    ),
+    check('non_conformite_levee', sql`(${t.statut} = 'LEVEE') = (${t.leveeLe} is not null)`),
+    check(
+      'non_conformite_chronologie',
+      sql`(${t.traiteeLe} is null or ${t.traiteeLe} >= ${t.dateConstat}) and (${t.leveeLe} is null or ${t.leveeLe} >= ${t.traiteeLe})`,
+    ),
+  ],
+).enableRLS()
+
+/**
+ * Serie mensuelle de l'index de revision du marche. Le mois est le premier
+ * jour du mois de l'index.
+ */
+export const indiceRevision = pgTable(
+  'indice_revision',
+  {
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    mois: date().notNull(),
+    valeur: numeric({ precision: 10, scale: 2, mode: 'number' }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projetId, t.mois] }),
+    check('indice_revision_premier_du_mois', sql`extract(day from ${t.mois}) = 1`),
+    check('indice_revision_positif', sql`${t.valeur} > 0`),
+  ],
+).enableRLS()
+
+/**
+ * Decomptes : situations mensuelles presentees, puis acceptees. Leurs
+ * montants sont figes a la presentation, car ils fondent un paiement ; le
+ * mois suivant part de ces montants, et regularise tout ecart.
+ */
+export const decompte = pgTable(
+  'decompte',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    /** Premier jour du mois de la situation. */
+    mois: date().notNull(),
+    dateArrete: date().notNull(),
+    travauxXof: bigint({ mode: 'number' }).notNull(),
+    revisionXof: bigint({ mode: 'number' }).notNull().default(0),
+    retenueGarantieXof: bigint({ mode: 'number' }).notNull(),
+    remboursementAvanceXof: bigint({ mode: 'number' }).notNull(),
+    penalitesXof: bigint({ mode: 'number' }).notNull(),
+    netCumuleXof: bigint({ mode: 'number' }).notNull(),
+    aPayerXof: bigint({ mode: 'number' }).notNull(),
+    statut: statutDecompte().notNull().default('PRESENTEE'),
+    presenteLe: date().notNull(),
+    presenteParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    accepteLe: date(),
+    accepteParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    unique('decompte_mois_unique').on(t.projetId, t.mois),
+    unique('decompte_numero_unique').on(t.projetId, t.numero),
+    check('decompte_acceptation', sql`(${t.statut} = 'ACCEPTEE') = (${t.accepteLe} is not null)`),
+  ],
+).enableRLS()
+
+/**
+ * Reserves : defauts constates aux operations prealables a la reception, a
+ * la reception, ou pendant la garantie de parfait achevement. Localisees par
+ * zone du plan, imputees a un lot, donc a l'entreprise qui l'execute.
+ */
+export const reserve = pgTable(
+  'reserve',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    phase: phaseReserve().notNull(),
+    zoneId: uuid().references(() => zone.id, { onDelete: 'set null' }),
+    lotId: uuid().references(() => lot.id, { onDelete: 'set null' }),
+    description: text().notNull(),
+    constateeLe: date().notNull(),
+    /** Date a laquelle l'entreprise doit l'avoir levee. */
+    echeance: date(),
+    leveeLe: date(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    leveeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    unique('reserve_numero_unique').on(t.projetId, t.numero),
+    index('reserve_zone_idx').on(t.zoneId),
+    check(
+      'reserve_levee_apres_constat',
+      sql`${t.leveeLe} is null or ${t.leveeLe} >= ${t.constateeLe}`,
+    ),
+    check(
+      'reserve_echeance_apres_constat',
+      sql`${t.echeance} is null or ${t.echeance} >= ${t.constateeLe}`,
+    ),
+  ],
+).enableRLS()
+
+/**
+ * Sous-traitants de l'entreprise titulaire. Un sous-traitant execute des
+ * lots entiers : ses effectifs et son avancement se lisent sur les releves
+ * et les instantanes de ces lots. Il n'intervient qu'une fois agree par le
+ * maitre d'ouvrage, qui accepte aussi ses conditions de paiement.
+ */
+export const sousTraitant = pgTable(
+  'sous_traitant',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    raisonSociale: text().notNull(),
+    specialite: text().notNull(),
+    /** Montant hors taxes du contrat de sous-traitance. */
+    montantXof: bigint({ mode: 'number' }).notNull(),
+    /** Paiement direct par le maitre d'ouvrage, une fois agree. */
+    paiementDirect: boolean().notNull().default(true),
+    statut: statutAgrement().notNull().default('DEMANDE'),
+    demandeLe: date().notNull(),
+    statueLe: date(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    unique('sous_traitant_unique').on(t.projetId, t.raisonSociale),
+    check('sous_traitant_montant_positif', sql`${t.montantXof} > 0`),
+    check('sous_traitant_decision_datee', sql`(${t.statut} = 'DEMANDE') = (${t.statueLe} is null)`),
+  ],
+).enableRLS()
+
+/** Lots executes par un sous-traitant. Un lot n'a qu'un sous-traitant. */
+export const sousTraitantLot = pgTable(
+  'sous_traitant_lot',
+  {
+    sousTraitantId: uuid()
+      .notNull()
+      .references(() => sousTraitant.id, { onDelete: 'cascade' }),
+    lotId: uuid()
+      .notNull()
+      .references(() => lot.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sousTraitantId, t.lotId] }),
+    unique('sous_traitant_lot_unique').on(t.lotId),
+  ],
+).enableRLS()
+
+/**
+ * Registre de securite du chantier : accidents, presqu'accidents, situations
+ * dangereuses, causeries et visites du coordonnateur. Les taux de frequence
+ * et de gravite s'en deduisent avec les heures des releves valides.
+ */
+export const evenementSecurite = pgTable(
+  'evenement_securite',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    date: date().notNull(),
+    type: typeEvenementSecurite().notNull(),
+    lotId: uuid().references(() => lot.id, { onDelete: 'set null' }),
+    sousTraitantId: uuid().references(() => sousTraitant.id, { onDelete: 'set null' }),
+    description: text().notNull(),
+    /** Jours d'arret de travail, pour un accident avec arret. */
+    joursArret: integer().notNull().default(0),
+    /** Personnes presentes, pour une causerie. */
+    participants: integer(),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('evenement_securite_date_idx').on(t.projetId, t.date),
+    check(
+      'evenement_securite_arret_coherent',
+      sql`(${t.type} = 'ACCIDENT_AVEC_ARRET') = (${t.joursArret} > 0)`,
+    ),
+    check(
+      'evenement_securite_participants',
+      sql`${t.participants} is null or ${t.participants} > 0`,
+    ),
+  ],
+).enableRLS()
+
+/**
  * Scenario de simulation enregistre, pour etre presente en reunion de
  * chantier. Seules les hypotheses sont conservees : le resultat est un
  * calcul a la volee, refait a chaque affichage sur le planning du moment,
@@ -1046,6 +1395,12 @@ export const ressource = pgTable(
     capacite: numeric({ precision: 10, scale: 2, mode: 'number' }),
     coutUnitaireXof: bigint({ mode: 'number' }).notNull().default(0),
     uniteCout: uniteCout().notNull().default('JOUR'),
+    /**
+     * Vrai pour un engin a demeure dont la location est deja comptee dans
+     * les frais de chantier journaliers, comme la grue a tour : ses heures ne
+     * s'ajoutent pas au cout reel, sans quoi il serait compte deux fois.
+     */
+    dansFraisChantier: boolean().notNull().default(false),
   },
   (t) => [
     unique('ressource_unique').on(t.projetId, t.nom),
@@ -1211,3 +1566,8 @@ export type TypeAlea = (typeof typeAlea.enumValues)[number]
 export type StatutAlea = (typeof statutAlea.enumValues)[number]
 export type DecisionIntemperie = (typeof decisionIntemperie.enumValues)[number]
 export type TypeOrdreService = (typeof typeOrdreService.enumValues)[number]
+export type PhaseReserve = (typeof phaseReserve.enumValues)[number]
+export type StatutNonConformite = (typeof statutNonConformite.enumValues)[number]
+export type CalendrierTache = (typeof calendrierTache.enumValues)[number]
+export type StatutAgrement = (typeof statutAgrement.enumValues)[number]
+export type TypeEvenementSecurite = (typeof typeEvenementSecurite.enumValues)[number]

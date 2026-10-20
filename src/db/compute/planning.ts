@@ -85,7 +85,7 @@ export function verifierLiaison(reseau: Reseau, candidate: LiaisonReseau): Verdi
     return { admise: false, motif: 'doublon', taches: [candidate.amont, candidate.aval] }
   }
   try {
-    calculerReseau({ taches: reseau.taches, liaisons: [...reseau.liaisons, candidate] })
+    calculerReseau({ ...reseau, liaisons: [...reseau.liaisons, candidate] })
   } catch (e) {
     if (e instanceof ErreurCycle) return { admise: false, motif: 'boucle', taches: e.taches }
     throw e
@@ -100,7 +100,7 @@ export function verifierLiaison(reseau: Reseau, candidate: LiaisonReseau): Verdi
 export function modifierTache(
   reseau: Reseau,
   id: string,
-  modification: { duree?: number; debutImpose?: number | null },
+  modification: { duree?: number; debutImpose?: number | null; ouvre?: boolean },
 ): Reseau {
   if (
     modification.duree !== undefined &&
@@ -114,10 +114,12 @@ export function modifierTache(
     trouvee = true
     const suivante: TacheReseau = { ...t }
     if (modification.duree !== undefined) suivante.duree = modification.duree
+    if (modification.ouvre === true) suivante.ouvre = true
+    else if (modification.ouvre === false) delete suivante.ouvre
     if (modification.debutImpose === null) delete suivante.debutImpose
     else if (modification.debutImpose !== undefined) suivante.debutImpose = modification.debutImpose
     return suivante
   })
   if (!trouvee) throw new Error(`Tache inconnue : ${id}.`)
-  return { taches, liaisons: reseau.liaisons }
+  return { ...reseau, taches }
 }

@@ -13,6 +13,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { COUT } from '@/db/compute/evm'
 import type { db as instanceDb } from '@/db/index'
 import type { MethodeAvancement, Nature, TypeLiaison } from '@/db/schema'
 
@@ -55,6 +56,8 @@ export type TacheContexte = {
   dateDebutPrevue: string
   dateFinPrevue: string
   dureePrevueJ: number
+  /** Vrai pour une tache comptee en jours ouvres. */
+  ouvre: boolean
   /** Contrainte « pas avant » posee a la main, nulle sinon. */
   debutImpose: string | null
   /** Dates reelles, quand elles sont connues. */
@@ -92,7 +95,12 @@ export type MoyensJournaliers = {
   heuresOuvrier: number
   encadrement: number
   journeeTravaillee: boolean
+  /** Heures d'engin du releve, valorisees, hors frais de chantier. */
+  coutEnginsXof: number
 }
+
+/** Engin ou materiel affecte a une tache, hors frais de chantier : son cout prevu. */
+export type EnginPrevu = { lotId: string; coutXof: number }
 
 export type AleaContexte = {
   lotId: string | null
@@ -133,12 +141,13 @@ export type Contexte = {
   aleas: AleaContexte[]
   jalons: JalonContexte[]
   equipes: EquipePrevue[]
+  enginsPrevus: EnginPrevu[]
   /**
    * Dates figees de la reference active, par tache feuille. La valeur
    * planifiee se calcule sur elles. Une tache absente de la reference, creee
    * apres le gel, est planifiee a ses dates courantes.
    */
-  reference: Map<string, { debut: string; duree: number }>
+  reference: Map<string, { debut: string; duree: number; ouvre: boolean }>
 }
 
 /* -------------------------------------------------------------------------- */
@@ -165,6 +174,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
     jalons,
     equipes,
     reference,
+    enginsPrevus,
   ] = await Promise.all([
     db.execute<ProjetContexte>(sql`
         select id, code, nom,
@@ -189,6 +199,7 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
                t.date_debut_prevue  as "dateDebutPrevue",
                t.date_fin_prevue    as "dateFinPrevue",
                t.duree_prevue_j     as "dureePrevueJ",
+               t.calendrier = 'OUVRE' as ouvre,
                t.debut_impose       as "debutImpose",
                t.date_debut_reelle  as "dateDebutReelle",
                t.date_fin_reelle    as "dateFinReelle",
@@ -226,13 +237,22 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
          order by 2, 1`),
 
     db.execute<MoyensJournaliers>(sql`
-        select lot_id as "lotId", date,
-               heures_travaillees::float8 as "heuresOuvrier",
-               effectif_encadrement       as encadrement,
-               journee_travaillee         as "journeeTravaillee"
-          from releve_journalier
-         where projet_id = ${projetId} and statut = 'VALIDE'
-         order by date, lot_id`),
+        select rj.lot_id as "lotId", rj.date,
+               rj.heures_travaillees::float8 as "heuresOuvrier",
+               rj.effectif_encadrement       as encadrement,
+               rj.journee_travaillee         as "journeeTravaillee",
+               coalesce((
+                 select sum(case r.unite_cout
+                              when 'HEURE' then e.heures * r.cout_unitaire_xof
+                              when 'JOUR' then e.heures / ${COUT.heuresParJour}
+                                               * r.cout_unitaire_xof
+                              else 0 end)
+                   from releve_engin e join ressource r on r.id = e.ressource_id
+                  where e.releve_journalier_id = rj.id and not r.dans_frais_chantier
+               ), 0)::float8 as "coutEnginsXof"
+          from releve_journalier rj
+         where rj.projet_id = ${projetId} and rj.statut = 'VALIDE'
+         order by rj.date, rj.lot_id`),
 
     db.execute<AleaContexte>(sql`
         select lot_id as "lotId", date, impact_cout_xof::float8 as "coutXof"
@@ -257,12 +277,31 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
          where l.projet_id = ${projetId} and r.type = 'EQUIPE'
          order by a.id`),
 
-    db.execute<{ tacheId: string; debut: string; duree: number }>(sql`
-        select rt.tache_id as "tacheId", rt.date_debut as debut, rt.duree_j as duree
+    db.execute<{ tacheId: string; debut: string; duree: number; ouvre: boolean }>(sql`
+        select rt.tache_id as "tacheId", rt.date_debut as debut, rt.duree_j as duree,
+               rt.calendrier = 'OUVRE' as ouvre
           from reference_tache rt
           join reference_planning rp on rp.id = rt.reference_id
          where rp.projet_id = ${projetId} and rp.active
          order by rt.tache_id`),
+
+    // Une ressource louee a la journee coute sa journee pleine par unite
+    // affectee ; une ressource a l'heure, une journee de travail.
+    db.execute<EnginPrevu>(sql`
+        select t.lot_id as "lotId",
+               sum(a.quantite * (a.date_fin - a.date_debut + 1)
+                   * case r.unite_cout
+                       when 'JOUR' then r.cout_unitaire_xof
+                       when 'HEURE' then ${COUT.heuresParJour} * r.cout_unitaire_xof
+                       else 0 end)::float8 as "coutXof"
+          from affectation a
+          join ressource r on r.id = a.ressource_id
+          join tache t on t.id = a.tache_id
+          join lot l on l.id = t.lot_id
+         where l.projet_id = ${projetId} and r.type in ('ENGIN', 'MATERIEL')
+           and not r.dans_frais_chantier
+         group by t.lot_id
+         order by t.lot_id`),
   ])
 
   const projet = projets[0]
@@ -279,7 +318,10 @@ export async function chargerContexte(db: Db, projetId: string): Promise<Context
     aleas: [...aleas],
     jalons: [...jalons],
     equipes: [...equipes],
-    reference: new Map(reference.map((r) => [r.tacheId, { debut: r.debut, duree: r.duree }])),
+    enginsPrevus: [...enginsPrevus],
+    reference: new Map(
+      reference.map((r) => [r.tacheId, { debut: r.debut, duree: r.duree, ouvre: r.ouvre }]),
+    ),
   }
 }
 

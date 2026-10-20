@@ -82,6 +82,14 @@ export default async function CoquilleApplication({
       ],
     },
     {
+      titre: 'Qualité et sécurité',
+      entrees: [
+        { libelle: 'Qualité', href: `${base}/qualite`, icone: 'valide' },
+        { libelle: 'Sécurité', href: `${base}/securite`, icone: 'securite' },
+        { libelle: 'Réserves', href: `${base}/reserves`, icone: 'reserve' },
+      ],
+    },
+    {
       titre: 'Décision',
       entrees: [
         ...(interne
@@ -94,6 +102,7 @@ export default async function CoquilleApplication({
             ]
           : []),
         { libelle: 'Contrat', href: `${base}/contrat`, icone: 'jalon' },
+        { libelle: 'Sous-traitants', href: `${base}/sous-traitants`, icone: 'equipe' },
         { libelle: 'Situations', href: `${base}/situations`, icone: 'cout' },
         {
           libelle: 'Rapports',

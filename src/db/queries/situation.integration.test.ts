@@ -42,7 +42,8 @@ describe('situations du jeu de demonstration', () => {
     const d = await chargerSituations(db, await premierProjetId(db), '2026-10-20')
     expect(d.avanceXof).toBe(Math.round(0.15 * d.clauses.montantInitialXof))
     for (const s of d.situations) {
-      expect(s.retenueGarantieXof).toBe(Math.round(0.05 * s.travauxXof))
+      // La retenue porte sur les travaux revises.
+      expect(s.retenueGarantieXof).toBe(Math.round(0.05 * (s.travauxXof + s.revisionXof)))
       // Le chantier n'a pas atteint 65 % d'execution, ni son delai.
       expect(s.remboursementAvanceXof).toBe(0)
       expect(s.penalitesXof).toBe(0)
@@ -50,4 +51,20 @@ describe('situations du jeu de demonstration', () => {
     // Seul le dernier mois, arrete avant sa fin, est provisoire.
     expect(d.situations.filter((s) => s.provisoire).length).toBeLessThanOrEqual(1)
   })
+
+  it('les decomptes acceptes sont figes, aout attend la decision du maitre d oeuvre', async () => {
+    const d = await chargerSituations(db, await premierProjetId(db), '2026-10-20')
+    const statuts = Object.fromEntries(d.situations.map((s) => [s.mois, s.statut]))
+    expect(statuts['2026-03']).toBe('ACCEPTEE')
+    expect(statuts['2026-07']).toBe('ACCEPTEE')
+    expect(statuts['2026-08']).toBe('PRESENTEE')
+    expect(statuts['2026-09']).toBe('PROJETEE')
+    // Seul un mois acheve se presente : septembre, une fois son journal clos.
+    const derniere = d.situations.at(-1)
+    expect(d.moisPresentable === null || d.moisPresentable === '2026-09').toBe(true)
+    if (derniere?.provisoire) expect(d.moisPresentable).not.toBe(derniere.mois)
+    // Septembre n'a pas encore son index : revision provisoire.
+    expect(d.situations.at(-1)?.indiceProvisoire).toBe(true)
+  })
 })
+

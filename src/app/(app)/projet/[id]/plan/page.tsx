@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
+import { calendrierDepuis } from '@/db/compute/ouvre'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { PlanInteractif, type Releve3 } from '@/components/plan/plan-interactif'
 import { joursEchantillonnes, rejouerZones } from '@/db/compute/plan'
 import { dateApres, jourDepuis } from '@/db/compute/tableau'
 import { db } from '@/db/index'
 import { chargerPlan, tachesRattachables } from '@/db/queries/plan'
+import { reservesOuvertesParZone } from '@/db/queries/reception'
 import { enCacheProjet } from '@/lib/cache'
 import { dateLongue } from '@/lib/format'
 import { exigerPage, habilite, PEUT_PLANIFIER } from '@/lib/garde'
@@ -18,9 +20,10 @@ export default async function Plan({ params }: { params: Promise<{ id: string }>
   const utilisateur = await exigerPage(id)
   const editable = habilite(utilisateur.role, PEUT_PLANIFIER)
   // Le plan ne porte aucune donnee interne : une seule entree pour tous.
-  const [d, rattachables] = await Promise.all([
+  const [d, rattachables, reserves] = await Promise.all([
     enCacheProjet('plan', id, false, () => chargerPlan(db(), id)),
     editable ? tachesRattachables(db(), id) : Promise.resolve([]),
+    reservesOuvertesParZone(db(), id),
   ])
   // Les URL de lecture sont signees pour une heure : jamais mises en cache.
   const plans = await Promise.all(
@@ -38,6 +41,7 @@ export default async function Plan({ params }: { params: Promise<{ id: string }>
     d.taches,
     d.quantites,
     jours,
+    calendrierDepuis(d.origine),
   )
   const serie = (cle: string): Releve3[] =>
     etats.map((m) => {
@@ -77,6 +81,7 @@ export default async function Plan({ params }: { params: Promise<{ id: string }>
           projetId={id}
           dates={jours.map((j) => dateApres(d.origine, j))}
           zones={d.zones.map((z) => ({ ...z, serie: serie(z.id) }))}
+          reserves={reserves}
           plans={plans.map((p) => ({
             niveau: p.niveau,
             url: p.url,

@@ -7,6 +7,7 @@
  * reutilisable pour une simulation qui n'ecrit rien.
  */
 
+import type { CalendrierTravail } from '@/db/compute/ouvre'
 import type { MethodeAvancement, TypeLiaison } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
@@ -15,8 +16,13 @@ import type { MethodeAvancement, TypeLiaison } from '@/db/schema'
 
 export type TacheReseau = {
   id: string
-  /** Duree en jours calendaires, strictement positive. */
+  /**
+   * Duree strictement positive : en jours calendaires, ou en jours ouvres si
+   * `ouvre` est vrai.
+   */
   duree: number
+  /** Vrai pour une tache comptee en jours ouvres, sur le calendrier du reseau. */
+  ouvre?: boolean
   /**
    * Contrainte de debut au plus tot, en jours depuis l'origine du reseau.
    * Sert aux taches qui ne peuvent pas demarrer avant une date donnee, et a
@@ -44,6 +50,11 @@ export type Reseau = {
    * arriere part de la fin du reseau, et les marges sont positives ou nulles.
    */
   finButoir?: number
+  /**
+   * Calendrier de travail, pour les taches en jours ouvres. Absent, toutes
+   * les durees sont lues en jours calendaires.
+   */
+  calendrier?: CalendrierTravail
 }
 
 /* -------------------------------------------------------------------------- */
@@ -121,6 +132,8 @@ export type TacheAvancement = {
   /** Necessaire a la methode PROPORTION_DUREE. En jours depuis l'origine. */
   debut: number
   duree: number
+  /** Duree en jours ouvres : voir `avancementPrevu`. */
+  ouvre?: boolean
 }
 
 export type ResultatAvancement = {

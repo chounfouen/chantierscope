@@ -160,7 +160,10 @@ async function main(): Promise<void> {
 
     const dureesIncoherentes = await client<{ code: string }[]>`
       select code_wbs as code from tache
-      where date_fin_prevue - date_debut_prevue + 1 <> duree_prevue_j`
+      -- En jours ouvres, la duree ne compte pas les jours chomes : elle ne
+      -- peut que tenir dans l'intervalle de ses dates.
+      where (calendrier = 'CALENDAIRE' and date_fin_prevue - date_debut_prevue + 1 <> duree_prevue_j)
+         or (calendrier = 'OUVRE' and date_fin_prevue - date_debut_prevue + 1 < duree_prevue_j)`
     verifier(
       'Duree de chaque tache coherente avec ses dates',
       dureesIncoherentes.length === 0,
@@ -310,6 +313,12 @@ async function main(): Promise<void> {
       'alea',
       'avenant',
       'ordre_service',
+      'sous_traitant',
+      'evenement_securite',
+      'essai_beton',
+      'non_conformite',
+      'reserve',
+      'decompte',
       'releve_journalier',
       'releve_quantite',
       'ligne_quantitatif',
@@ -338,8 +347,8 @@ async function main(): Promise<void> {
                           'geler_journal_releve_valide')`
     verifier(
       'Le gel des releves valides est en place et actif',
-      // Le releve, ses quantites, ses coulages et ses livraisons.
-      Number(gel[0]?.n) === 4,
+      // Le releve, ses quantites, ses coulages, ses livraisons et ses engins.
+      Number(gel[0]?.n) === 5,
       `${gel[0]?.n} declencheurs de gel`,
     )
 

@@ -18,6 +18,7 @@
  * module.
  */
 
+import { etaler, etalerAvant, type CalendrierTravail } from '@/db/compute/ouvre'
 import {
   ErreurCycle,
   ErreurTacheInconnue,
@@ -37,7 +38,8 @@ export function calculerReseau(reseau: Reseau): ResultatReseau {
 
   const debutTot = new Map<string, number>()
   const finTot = new Map<string, number>()
-  passeAvant(ordre, taches, predecesseurs, debutTot, finTot)
+  const cal = reseau.calendrier
+  passeAvant(ordre, taches, predecesseurs, debutTot, finTot, cal)
 
   const dureeTotale = Math.max(...finTot.values()) + 1
   const butoir = reseau.finButoir
@@ -49,11 +51,12 @@ export function calculerReseau(reseau: Reseau): ResultatReseau {
     ordre,
     taches,
     successeurs,
-    debutTot,
+    finTot,
     debutTard,
     finTard,
     finProjet,
     butoir !== undefined,
+    cal,
   )
 
   const dates = assembler(
@@ -179,54 +182,88 @@ function isolerCircuit(bloquees: Set<string>, liaisons: readonly LiaisonReseau[]
 /* -------------------------------------------------------------------------- */
 
 /**
- * Contrainte imposee a la date de debut de l'aval par une liaison.
+ * Placement d'une tache sur le calendrier.
+ *
+ * En jours calendaires, une tache commencant au jour d finit au jour
+ * d + duree - 1. En jours ouvres, son debut est porte au premier jour
+ * ouvrable et sa fin au dernier de ses `duree` jours ouvrables : elle
+ * s'allonge des dimanches et feries qu'elle traverse.
+ */
+function ouvree(t: TacheReseau, cal: CalendrierTravail | undefined): CalendrierTravail | null {
+  return t.ouvre && cal ? cal : null
+}
+
+/** Debut et fin d'une tache placee au plus tot a partir du jour `debut`. */
+function placer(t: TacheReseau, debut: number, cal?: CalendrierTravail) {
+  const c = ouvree(t, cal)
+  return c ? etaler(c, debut, t.duree) : { debut, fin: debut + t.duree - 1 }
+}
+
+/** Debut et fin d'une tache placee au plus tard pour finir le jour `fin`. */
+function placerAvant(t: TacheReseau, fin: number, cal?: CalendrierTravail) {
+  const c = ouvree(t, cal)
+  return c ? etalerAvant(c, fin, t.duree) : { debut: fin - t.duree + 1, fin }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Passe avant                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Contraintes imposees a l'aval par ses liaisons. Deux types bornent son
+ * debut, deux sa fin :
  *
  *   FD  debut aval >= fin amont + 1 + decalage
  *   DD  debut aval >= debut amont + decalage
- *   FF  fin aval   >= fin amont + decalage     donc debut >= ... - duree + 1
- *   DF  fin aval   >= debut amont + decalage   donc debut >= ... - duree + 1
+ *   FF  fin aval   >= fin amont + decalage
+ *   DF  fin aval   >= debut amont + decalage
+ *
+ * Une borne de fin se ramene a une borne de debut par le placement au plus
+ * tard de la tache : en jours calendaires, debut >= fin - duree + 1.
  */
-function contrainteDebut(
-  l: LiaisonReseau,
-  debutAmont: number,
-  finAmont: number,
-  dureeAval: number,
-): number {
-  switch (l.type) {
-    case 'FD':
-      return finAmont + 1 + l.decalage
-    case 'DD':
-      return debutAmont + l.decalage
-    case 'FF':
-      return finAmont + l.decalage - dureeAval + 1
-    case 'DF':
-      return debutAmont + l.decalage - dureeAval + 1
-  }
-}
-
 function passeAvant(
   ordre: readonly string[],
   taches: Map<string, TacheReseau>,
   predecesseurs: Map<string, LiaisonReseau[]>,
   debutTot: Map<string, number>,
   finTot: Map<string, number>,
+  cal?: CalendrierTravail,
 ): void {
   for (const id of ordre) {
     const t = taches.get(id) as TacheReseau
     let debut = t.debutImpose ?? 0
+    let finMin = Number.NEGATIVE_INFINITY
 
     for (const l of predecesseurs.get(id) ?? []) {
       const dAmont = debutTot.get(l.amont) as number
       const fAmont = finTot.get(l.amont) as number
-      debut = Math.max(debut, contrainteDebut(l, dAmont, fAmont, t.duree))
+      switch (l.type) {
+        case 'FD':
+          debut = Math.max(debut, fAmont + 1 + l.decalage)
+          break
+        case 'DD':
+          debut = Math.max(debut, dAmont + l.decalage)
+          break
+        case 'FF':
+          finMin = Math.max(finMin, fAmont + l.decalage)
+          break
+        case 'DF':
+          finMin = Math.max(finMin, dAmont + l.decalage)
+          break
+      }
+    }
+    if (finMin > Number.NEGATIVE_INFINITY) {
+      // Finir au plus tot le jour finMin : en jours ouvres, le premier jour
+      // ouvrable qui le suit.
+      const c = ouvree(t, cal)
+      debut = Math.max(debut, placerAvant(t, c ? c.suivant(finMin) : finMin, cal).debut)
     }
 
     // Une contrainte de recouvrement ne peut pas repousser une tache avant
     // l'origine du reseau.
-    debut = Math.max(0, debut)
-
-    debutTot.set(id, debut)
-    finTot.set(id, debut + t.duree - 1)
+    const place = placer(t, Math.max(0, debut), cal)
+    debutTot.set(id, place.debut)
+    finTot.set(id, place.fin)
   }
 }
 
@@ -235,37 +272,20 @@ function passeAvant(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Contrainte imposee a la date de fin de l'amont par une liaison, symetrique
- * de `contrainteDebut`.
+ * Symetrique de la passe avant : deux types de liaison bornent la fin de
+ * l'amont, deux son debut, ramene a une fin par le placement au plus tot.
  */
-function contrainteFin(
-  l: LiaisonReseau,
-  debutTardAval: number,
-  finTardAval: number,
-  dureeAmont: number,
-): number {
-  switch (l.type) {
-    case 'FD':
-      return debutTardAval - 1 - l.decalage
-    case 'DD':
-      return debutTardAval - l.decalage + dureeAmont - 1
-    case 'FF':
-      return finTardAval - l.decalage
-    case 'DF':
-      return finTardAval - l.decalage + dureeAmont - 1
-  }
-}
-
 function passeArriere(
   ordre: readonly string[],
   taches: Map<string, TacheReseau>,
   successeurs: Map<string, LiaisonReseau[]>,
-  debutTot: Map<string, number>,
+  finTot: Map<string, number>,
   debutTard: Map<string, number>,
   finTard: Map<string, number>,
   finProjet: number,
   /** Vrai si la fin vient d'une date butoir : les marges negatives sont admises. */
   butoir: boolean,
+  cal?: CalendrierTravail,
 ): void {
   for (let i = ordre.length - 1; i >= 0; i--) {
     const id = ordre[i] as string
@@ -273,21 +293,42 @@ function passeArriere(
     const aval = successeurs.get(id) ?? []
 
     let fin = finProjet
+    let debutMax = Number.POSITIVE_INFINITY
     for (const l of aval) {
       const dTardAval = debutTard.get(l.aval) as number
       const fTardAval = finTard.get(l.aval) as number
-      fin = Math.min(fin, contrainteFin(l, dTardAval, fTardAval, t.duree))
+      switch (l.type) {
+        case 'FD':
+          fin = Math.min(fin, dTardAval - 1 - l.decalage)
+          break
+        case 'DD':
+          debutMax = Math.min(debutMax, dTardAval - l.decalage)
+          break
+        case 'FF':
+          fin = Math.min(fin, fTardAval - l.decalage)
+          break
+        case 'DF':
+          debutMax = Math.min(debutMax, fTardAval - l.decalage)
+          break
+      }
+    }
+    if (debutMax < Number.POSITIVE_INFINITY) {
+      // Commencer au plus tard le jour debutMax : en jours ouvres, le dernier
+      // jour ouvrable qui le precede.
+      const c = ouvree(t, cal)
+      fin = Math.min(fin, placer(t, c ? c.precedent(debutMax) : debutMax, cal).fin)
     }
 
     // Sans butoir, une contrainte de debut impose plaque la tache : elle ne
     // peut pas remonter plus tot, donc sa date au plus tard ne descend pas
     // sous sa date au plus tot. Avec un butoir, ce plancher effacerait
     // justement l'information cherchee : de combien le reseau deborde.
-    const finMinimale = (debutTot.get(id) as number) + t.duree - 1
+    const finMinimale = finTot.get(id) as number
     if (!butoir && fin < finMinimale) fin = finMinimale
 
-    finTard.set(id, fin)
-    debutTard.set(id, fin - t.duree + 1)
+    const place = placerAvant(t, fin, cal)
+    finTard.set(id, place.fin)
+    debutTard.set(id, place.debut)
   }
 }
 

@@ -26,6 +26,12 @@ export type ElementGantt = {
   rangCouleur: number
   debut: number
   fin: number
+  /**
+   * Duree planifiee : en jours calendaires, ou en jours ouvres si `ouvre`
+   * est vrai. Elle ne se lit alors pas sur l'etendue de la barre.
+   */
+  duree: number
+  ouvre: boolean
   avancement: number
   budgetXof: number
   valeurAcquiseXof: number
@@ -97,6 +103,8 @@ export function construireGantt(
       rangCouleur: rangParLot.get(t.lotId) ?? 0,
       debut: jour(t.dateDebutPrevue),
       fin: jour(t.dateFinPrevue),
+      duree: t.dureePrevueJ,
+      ouvre: t.calendrier === 'OUVRE',
       avancement: t.avancement,
       budgetXof: t.budgetXof,
       valeurAcquiseXof: Math.round(t.avancement * t.budgetXof),
@@ -128,6 +136,10 @@ export function construireGantt(
       rangCouleur: l.rangCouleur,
       debut: enfants.length ? Math.min(...enfants.map((e) => e.debut)) : 0,
       fin: enfants.length ? Math.max(...enfants.map((e) => e.fin)) : 0,
+      duree: enfants.length
+        ? Math.max(...enfants.map((e) => e.fin)) - Math.min(...enfants.map((e) => e.debut)) + 1
+        : 0,
+      ouvre: false,
       avancement: budget > 0 ? acquis / budget : 0,
       budgetXof: budget,
       valeurAcquiseXof: acquis,

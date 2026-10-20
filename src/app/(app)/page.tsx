@@ -11,13 +11,22 @@ import { pageAccueil } from '@/lib/accueil'
  * element, sur l'ecran qui sert le role : la saisie pour le chef de chantier,
  * le tableau de bord pour les autres.
  */
-export default async function Accueil() {
+export default async function Accueil({
+  searchParams,
+}: {
+  searchParams: Promise<{ ecran?: string | string[] }>
+}) {
   const utilisateur = await utilisateurCourant()
+  const { ecran } = await searchParams
 
   const projets = await projetsAccessibles(db(), utilisateur.id)
 
   const premier = projets[0]
-  if (premier) redirect(pageAccueil(utilisateur.role, premier.id))
+  if (premier) {
+    redirect(
+      pageAccueil(utilisateur.role, premier.id, typeof ecran === 'string' ? ecran : undefined),
+    )
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">

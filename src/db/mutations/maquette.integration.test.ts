@@ -115,7 +115,7 @@ describe('maquette', () => {
     const d = await chargerMaquette(db, projetId)
     expect(d.maquette).toMatchObject({ nomFichier: 'residence.ifc', schemaIfc: 'IFC4' })
     expect(d.maquette?.etages.map((e) => e.niveau)).toEqual([-1, 0, 1, 2, 3, 4])
-    expect(d.elements).toHaveLength(289)
+    expect(d.elements).toHaveLength(404)
     const [n] = await client<{ n: number }[]>`select count(*)::int as n from maquette`
     expect(n?.n).toBe(1)
   })

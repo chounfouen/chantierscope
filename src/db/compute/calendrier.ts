@@ -1,8 +1,10 @@
 /**
  * Calendrier ouvrable ivoirien.
  *
- * Toutes les durees du planning sont exprimees en jours CALENDAIRES : c'est la
- * convention du contrat et celle du calcul de penalite. Ce module sert a
+ * Les durees du planning sont par defaut en jours CALENDAIRES : c'est la
+ * convention du contrat et celle du calcul de penalite, et celle des delais
+ * technologiques. Une tache peut etre comptee en jours ouvres : le calcul de
+ * reseau l'etale alors sur ce calendrier (`ouvre.ts`). Ce module sert aussi a
  * l'affichage, au grisage des journees non ouvrables dans le diagramme de
  * Gantt, et a la conversion vers des jours ouvrables quand un rendement doit
  * etre rapporte a du temps de travail effectif.

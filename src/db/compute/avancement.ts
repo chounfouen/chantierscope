@@ -16,6 +16,7 @@
  * « contre-exemple ».
  */
 
+import type { CalendrierTravail } from '@/db/compute/ouvre'
 import type { LigneAvancement, ResultatAvancement, TacheAvancement } from '@/db/compute/types'
 
 /** Tolerance d'egalite sur les quantites, au millieme d'unite. */
@@ -39,14 +40,18 @@ const VIDE: ResultatAvancement = {
  * methodes lisent uniquement les quantites cumulees, qui portent deja
  * l'information de date.
  */
-export function avancementTache(t: TacheAvancement, jourAnalyse: number): ResultatAvancement {
+export function avancementTache(
+  t: TacheAvancement,
+  jourAnalyse: number,
+  cal?: CalendrierTravail,
+): ResultatAvancement {
   const budget = t.lignes.reduce((total, l) => total + montant(l), 0)
   const depassementXof = t.lignes.reduce(
     (total, l) => total + Math.max(0, l.quantiteRealisee - l.quantitePrevue) * l.prixUnitaireXof,
     0,
   )
 
-  const avancement = fraction(t, jourAnalyse, budget)
+  const avancement = fraction(t, jourAnalyse, budget, cal)
   const borne = Math.min(1, Math.max(0, avancement))
 
   return {
@@ -57,7 +62,12 @@ export function avancementTache(t: TacheAvancement, jourAnalyse: number): Result
   }
 }
 
-function fraction(t: TacheAvancement, jourAnalyse: number, budget: number): number {
+function fraction(
+  t: TacheAvancement,
+  jourAnalyse: number,
+  budget: number,
+  cal?: CalendrierTravail,
+): number {
   switch (t.methode) {
     /**
      * Methode des unites physiques. La reference.
@@ -99,7 +109,7 @@ function fraction(t: TacheAvancement, jourAnalyse: number, budget: number): numb
      * avancement que rien ne constate sur le terrain.
      */
     case 'PROPORTION_DUREE':
-      return avancementPrevu({ debut: t.debut, duree: t.duree }, jourAnalyse)
+      return avancementPrevu({ debut: t.debut, duree: t.duree, ouvre: t.ouvre }, jourAnalyse, cal)
 
     /**
      * Tout ou rien. Pour les taches courtes dont un avancement partiel
@@ -182,9 +192,17 @@ export function ponderationParDuree(
  * Bornes incluses : une tache de duree 1 demarrant au jour 4 est achevee le
  * jour 4.
  */
-export function avancementPrevu(t: { debut: number; duree: number }, jourAnalyse: number): number {
+export function avancementPrevu(
+  t: { debut: number; duree: number; ouvre?: boolean | undefined },
+  jourAnalyse: number,
+  /**
+   * Calendrier de travail : une tache en jours ouvres n'avance que les jours
+   * ouvrables, la valeur planifiee ne monte pas le dimanche.
+   */
+  cal?: CalendrierTravail,
+): number {
   if (jourAnalyse < t.debut) return 0
   if (t.duree <= 0) return 1
-  const ecoules = jourAnalyse - t.debut + 1
+  const ecoules = t.ouvre && cal ? cal.compter(t.debut, jourAnalyse) : jourAnalyse - t.debut + 1
   return Math.min(1, ecoules / t.duree)
 }

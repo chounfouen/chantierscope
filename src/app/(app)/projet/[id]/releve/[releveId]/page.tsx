@@ -155,6 +155,13 @@ export default async function FicheReleve({
               <p>
                 {r.effectifOuvriers} ouvriers, {r.effectifEncadrement} encadrants,{' '}
                 {r.heuresTravaillees.toLocaleString('fr-FR')} heures
+                {r.engins.length > 0 && (
+                  <span className="text-muted-foreground block">
+                    {r.engins
+                      .map((e) => `${e.nom} ${e.heures.toLocaleString('fr-FR')} h`)
+                      .join(', ')}
+                  </span>
+                )}
               </p>
             ) : (
               <p className="flex items-center gap-1.5">
@@ -276,7 +283,13 @@ export default async function FicheReleve({
                           {c.affaissementMm !== null && `, affaissement ${c.affaissementMm} mm`}
                           {`, ${c.eprouvettes} éprouvette${c.eprouvettes > 1 ? 's' : ''}`}
                           {c.bonLivraison && `, bon ${c.bonLivraison}`}
+                          {c.ferraillageReceptionne === true && ', ferraillage réceptionné'}
                         </span>
+                        {c.ferraillageReceptionne === false && (
+                          <span className="text-etat-retard block text-xs font-bold">
+                            Ferraillage non réceptionné avant coulage
+                          </span>
+                        )}
                       </span>
                       <span className="chiffres-alignes font-medium">
                         {quantite(c.volumeM3, 'M3')}

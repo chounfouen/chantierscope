@@ -28,9 +28,13 @@ import {
   PROJET,
   RESSOURCES,
   EQUIPE_PAR_NATURE,
+  INDICES_REVISION,
   ZONES,
 } from '@/db/seed/catalogue'
-import { simulerExecution } from '@/db/seed/execution'
+import { COUT } from '@/db/compute/evm'
+import { NON_CONFORMITES, simulerExecution } from '@/db/seed/execution'
+import { presenterDecompte, statuerDecompte } from '@/db/mutations/decompte'
+import { recompute } from '@/db/recompute'
 import { fabriquerPlanches } from '@/db/seed/photos'
 import { montantLigne } from '@/db/seed/planning'
 import { extraireMaquette, glbMaquette } from '@/lib/maquette/ifc'
@@ -50,6 +54,14 @@ const MOT_DE_PASSE_DEMO = 'chantier2026'
 const TABLES_A_VIDER = [
   'journal_audit',
   'tentative_connexion',
+  'evenement_securite',
+  'decompte',
+  'indice_revision',
+  'reserve',
+  'non_conformite',
+  'essai_beton',
+  'sous_traitant_lot',
+  'sous_traitant',
   'snapshot_avancement',
   'ordre_service',
   'avenant',
@@ -70,6 +82,7 @@ const TABLES_A_VIDER = [
   'releve_quantite',
   'releve_coulage',
   'releve_livraison',
+  'releve_engin',
   'releve_journalier',
   'ligne_quantitatif',
   'liaison',
@@ -82,12 +95,19 @@ const TABLES_A_VIDER = [
 
 const TABLES_AUDITEES = [
   'alea',
+  'essai_beton',
+  'non_conformite',
+  'reserve',
+  'decompte',
+  'sous_traitant',
+  'evenement_securite',
   'avenant',
   'ordre_service',
   'releve_journalier',
   'releve_quantite',
   'releve_coulage',
   'releve_livraison',
+  'releve_engin',
   'ligne_quantitatif',
   'tache',
   'liaison',
@@ -100,6 +120,8 @@ const TABLES_AUDITEES = [
 /** Maquette de demonstration : source IFC, et GLB produit dans le dossier public. */
 const IFC_DEMO = 'src/db/seed/residence-palmiers.ifc'
 const CHEMIN_GLB_DEMO = '/uploads/demo/residence-palmiers.glb'
+
+const COUT_HEURES_JOUR = COUT.heuresParJour
 
 const jourDepuisOs = (n: number): string =>
   formatISO(addDays(parseISO(DATE_ORDRE_SERVICE), n), { representation: 'date' })
@@ -285,6 +307,7 @@ async function peupler(): Promise<void> {
         referenceId: (reference as { id: string }).id,
         tacheId: idTache.get(x.code) as string,
         dateDebut: jourDepuisOs(x.debut),
+        dateFin: jourDepuisOs(x.debut + x.duree - 1),
         dureeJ: x.duree,
       })),
     )
@@ -321,6 +344,7 @@ async function peupler(): Promise<void> {
           capacite: r.capacite,
           coutUnitaireXof: r.cout,
           uniteCout: r.unite,
+          dansFraisChantier: 'fraisChantier' in r && r.fraisChantier,
         })),
       )
       .returning({ id: t.ressource.id, nom: t.ressource.nom })
@@ -328,7 +352,8 @@ async function peupler(): Promise<void> {
 
     // Chaque tache mobilise l'equipe type de sa nature, dimensionnee a son
     // effectif : la quantite affectee est l'effectif rapporte a la capacite
-    // de l'equipe. Le levage mobilise en plus la grue.
+    // de l'equipe. Le levage mobilise en plus la grue ; les terrassements, une
+    // pelle et deux camions ; les VRD, la pelle.
     const capacite = new Map<string, number>(RESSOURCES.map((r) => [r.nom, r.capacite as number]))
     await db.insert(t.affectation).values(
       planning.taches.flatMap((x) => {
@@ -351,6 +376,20 @@ async function peupler(): Promise<void> {
             ...commun,
             ressourceId: idRessource.get('Grue à tour 40 mètres') as string,
             quantite: 1,
+          })
+        }
+        if (x.nature === 'TERRASSEMENT' || x.nature === 'VRD') {
+          affectations.push({
+            ...commun,
+            ressourceId: idRessource.get('Pelle hydraulique 20 tonnes') as string,
+            quantite: 1,
+          })
+        }
+        if (x.nature === 'TERRASSEMENT') {
+          affectations.push({
+            ...commun,
+            ressourceId: idRessource.get('Camion benne 18 tonnes') as string,
+            quantite: 2,
           })
         }
         return affectations
@@ -485,15 +524,40 @@ async function peupler(): Promise<void> {
       await db.insert(t.releveQuantite).values(paquet)
     }
 
+    /* --- Heures d'engin ----------------------------------------------------------- */
+
+    // Un engin affecte a une tache travaille les jours ou la tache avance :
+    // huit heures par unite affectee, a quelques pour cent pres selon la
+    // journee. Un terrassement qui traine coute donc des journees de pelle.
+    const engins = await client`
+      insert into releve_engin (releve_journalier_id, ressource_id, heures)
+      select r.id, a.ressource_id,
+             max(round((${COUT_HEURES_JOUR} * a.quantite
+                        * (0.85 + (abs(hashtext(r.date::text || res.nom)) % 20)
+                                  / 100.0))::numeric, 1))
+        from releve_journalier r
+        join releve_quantite q on q.releve_journalier_id = r.id
+        join ligne_quantitatif lq on lq.id = q.ligne_quantitatif_id
+        join affectation a on a.tache_id = lq.tache_id
+        join ressource res on res.id = a.ressource_id
+       where r.projet_id = ${projetId}::uuid and r.journee_travaillee
+         and res.type in ('ENGIN', 'MATERIEL') and not res.dans_frais_chantier
+       group by r.id, a.ressource_id`
+    console.log(`  ${engins.count} relevés d’heures d’engin`)
+
     /* --- Journal : coulages et livraisons -------------------------------------- */
 
     // Chaque quantite de beton coule devient un coulage trace : classe selon
-    // l'ouvrage, bon de la centrale, affaissement au cone, et un jeu de trois
-    // eprouvettes par tranche de 50 m3 entamee. Les valeurs d'essai sont
-    // tirees de la date et du code de la tache : le jeu reste reproductible.
+    // l'ouvrage, bon de la centrale, affaissement au cone, et un prelevement
+    // de six eprouvettes (trois a 7 jours, trois a 28) par tranche de 50 m3
+    // entamee. Le ferraillage est receptionne avant coulage, sauf pour le
+    // beton de proprete, non arme, et pour deux coulages ou le point d'arret
+    // a ete franchi. Les valeurs sont tirees de la date et du code de la
+    // tache : le jeu reste reproductible.
     const coulages = await client`
       insert into releve_coulage (releve_journalier_id, rang, ouvrage, classe_beton, volume_m3,
-                                  bon_livraison, affaissement_mm, eprouvettes)
+                                  bon_livraison, affaissement_mm, eprouvettes,
+                                  ferraillage_receptionne)
       select q.releve_journalier_id,
              row_number() over (partition by q.releve_journalier_id order by t.code_wbs) - 1,
              t.nom,
@@ -503,7 +567,14 @@ async function peupler(): Promise<void> {
              round(q.quantite_realisee, 2),
              'BL-' || to_char(r.date, 'YYMMDD') || '-' || replace(t.code_wbs, '.', ''),
              80 + abs(hashtext(r.date::text || t.code_wbs)) % 70,
-             least(60, 3 * ceil(q.quantite_realisee / 50))::int
+             least(60, 6 * ceil(q.quantite_realisee / 50))::int,
+             case when lq.designation ilike '%propret%' then null
+                  when t.code_wbs in ('03.1.4', '04.3.1')
+                   and r.date = (select min(r2.date) from releve_quantite q2
+                                   join releve_journalier r2 on r2.id = q2.releve_journalier_id
+                                  where q2.ligne_quantitatif_id = q.ligne_quantitatif_id)
+                  then false
+                  else true end
         from releve_quantite q
         join releve_journalier r on r.id = q.releve_journalier_id
         join ligne_quantitatif lq on lq.id = q.ligne_quantitatif_id
@@ -536,6 +607,46 @@ async function peupler(): Promise<void> {
         from jours`
     console.log(`  ${coulages.count} coulages et ${livraisons.count} livraisons au journal`)
 
+    // Essais du laboratoire : trois eprouvettes a 7 jours, trois a 28 jours
+    // par prelevement. La resistance moyenne vise fck + 3 a fck + 9 MPa, le
+    // 7 jours en donne 68 %. Les resultats a 28 jours sont rendus trois jours
+    // apres l'echeance : les derniers coulages attendent encore les leurs.
+    const essais = await client`
+      insert into essai_beton (coulage_id, prelevement, age_j, date_ecrasement, resistance_mpa,
+                               laboratoire)
+      select c.id, p.k, a.age, r.date + a.age,
+             round(((split_part(substr(c.classe_beton, 2), '/', 1)::int
+                     + 3 + (abs(hashtext(r.date::text || c.ouvrage || c.rang || p.k)) % 60) / 10.0
+                     + ((abs(hashtext(r.date::text || c.ouvrage || c.rang || p.k || e.n)) % 30) - 15) / 10.0)
+                    * case a.age when 7 then 0.68 else 1 end)::numeric, 1),
+             'Laboratoire d’essais du chantier'
+        from releve_coulage c
+        join releve_journalier r on r.id = c.releve_journalier_id
+        cross join lateral generate_series(1, greatest(1, c.eprouvettes / 6)) p(k)
+        cross join (values (7), (28)) a(age)
+        cross join generate_series(1, 3) e(n)
+       where r.projet_id = ${projetId}::uuid and c.eprouvettes > 0
+         and r.date + a.age + 3 <= ${DATE_ANALYSE}::date`
+    // Le prelevement des voiles du R+1 coule mi-juin est non conforme : le
+    // 7 jours l'annoncait deja.
+    const [voile] = await client<{ id: string; date: string }[]>`
+      select c.id, r.date::text as date from releve_coulage c
+        join releve_journalier r on r.id = c.releve_journalier_id
+        join tache t on t.nom = c.ouvrage and t.code_wbs = '04.2.2'
+       where r.projet_id = ${projetId}::uuid
+       order by abs(r.date - '2026-06-16'::date), r.date limit 1`
+    if (voile) {
+      await client`delete from essai_beton where coulage_id = ${voile.id}::uuid and prelevement = 1`
+      await client`
+        insert into essai_beton (coulage_id, prelevement, age_j, date_ecrasement, resistance_mpa,
+                                 laboratoire)
+        select ${voile.id}::uuid, 1, v.age, ${voile.date}::date + v.age, v.mpa,
+               'Laboratoire d’essais du chantier'
+          from (values (7, 16.1), (7, 15.2), (7, 16.4), (28, 24.8), (28, 23.6), (28, 24.5))
+               v(age, mpa)`
+    }
+    console.log(`  ${essais.count} éprouvettes au registre des essais`)
+
     /* --- Aleas ---------------------------------------------------------------- */
 
     await db.insert(t.alea).values(
@@ -557,6 +668,38 @@ async function peupler(): Promise<void> {
       })),
     )
 
+    /* --- Fiches de non-conformite ------------------------------------------- */
+
+    // Une fiche par non-conformite, reliee a l'alea qui porte le cout de la
+    // reprise. Traitee sous une semaine ; levee a la resolution de l'alea.
+    const aleasNc = await client<{ id: string; date: string; resolu: string | null }[]>`
+      select id, date::text as date, resolu_le::text as resolu from alea
+       where projet_id = ${projetId}::uuid and type = 'NON_CONFORMITE' order by date`
+    let numeroNc = 0
+    for (const nc of NON_CONFORMITES) {
+      const date = jourDepuisOs(nc.jour)
+      const a = aleasNc.find((x) => x.date === date)
+      const traitee = nc.cause !== null && nc.action !== null
+      numeroNc += 1
+      await db.insert(t.nonConformite).values({
+        projetId,
+        numero: numeroNc,
+        dateConstat: date,
+        lotId: idLot.get(nc.lot) as string,
+        aleaId: a?.id ?? null,
+        coulageId: nc.jour === 134 ? (voile?.id ?? null) : null,
+        titre: nc.titre,
+        constat: nc.description,
+        gravite: nc.gravite,
+        cause: nc.cause,
+        action: nc.action,
+        statut: !traitee ? 'OUVERTE' : nc.resolu === null ? 'TRAITEE' : 'LEVEE',
+        traiteeLe: traitee ? jourDepuisOs(Math.min(nc.jour + 5, nc.resolu ?? nc.jour + 5)) : null,
+        leveeLe: traitee && nc.resolu !== null ? jourDepuisOs(nc.resolu) : null,
+        creeParId: idConducteur,
+      })
+    }
+
     /* --- Ordres de service -------------------------------------------------- */
 
     await db.insert(t.ordreService).values({
@@ -567,6 +710,176 @@ async function peupler(): Promise<void> {
       objet: 'Ordre de service de démarrage des travaux',
       creeParId: idConducteur,
     })
+
+    /* --- Sous-traitants -------------------------------------------------------- */
+
+    // Trois sous-traitants : deux agrees avant d'intervenir, un en attente
+    // d'agrement sur un lot qui n'a pas commence.
+    const SOUS_TRAITANTS = [
+      {
+        raisonSociale: 'Couvertures et Étanchéité de la Lagune',
+        specialite: 'Charpente, couverture et étanchéité',
+        montantXof: 58_000_000,
+        demandeLe: '2026-06-01',
+        statut: 'AGREE' as const,
+        statueLe: '2026-06-12',
+        lot: '05',
+      },
+      {
+        raisonSociale: 'Fluides Techniques d’Angré',
+        specialite: 'Plomberie, électricité, ventilation',
+        montantXof: 118_000_000,
+        demandeLe: '2026-07-15',
+        statut: 'AGREE' as const,
+        statueLe: '2026-07-28',
+        lot: '07',
+      },
+      {
+        raisonSociale: 'Aménagements du Littoral',
+        specialite: 'Revêtements, peinture et espaces extérieurs',
+        montantXof: 95_000_000,
+        demandeLe: '2026-09-20',
+        statut: 'DEMANDE' as const,
+        statueLe: null,
+        lot: '08',
+      },
+    ]
+    for (const st of SOUS_TRAITANTS) {
+      const [ins] = await db
+        .insert(t.sousTraitant)
+        .values({
+          projetId,
+          raisonSociale: st.raisonSociale,
+          specialite: st.specialite,
+          montantXof: st.montantXof,
+          demandeLe: st.demandeLe,
+          statut: st.statut,
+          statueLe: st.statueLe,
+          creeParId: idConducteur,
+        })
+        .returning({ id: t.sousTraitant.id })
+      await db
+        .insert(t.sousTraitantLot)
+        .values({ sousTraitantId: ins?.id as string, lotId: idLot.get(st.lot) as string })
+    }
+
+    /* --- Registre de securite ---------------------------------------------------- */
+
+    // Quart d'heure securite chaque lundi travaille, devant l'effectif du
+    // jour ; visite du coordonnateur toutes les quatre semaines.
+    await client`
+      insert into evenement_securite (projet_id, date, type, description, participants, cree_par_id)
+      select ${projetId}::uuid, j.date, 'CAUSERIE',
+             (array['Port des équipements de protection individuelle',
+                    'Travail en hauteur et garde-corps',
+                    'Élingage et charges suspendues sous la grue',
+                    'Circulation des engins et zones balisées',
+                    'Coffrage, décoffrage et étaiement',
+                    'Chaleur : hydratation et pauses à l’ombre',
+                    'Outils électroportatifs et rallonges',
+                    'Ordre et propreté du chantier'])[1 + (row_number() over (order by j.date))::int % 8],
+             j.presents, ${idChef}::uuid
+        from (select r.date, sum(r.effectif_ouvriers + r.effectif_encadrement)::int as presents
+                from releve_journalier r
+               where r.projet_id = ${projetId}::uuid and r.statut = 'VALIDE'
+                 and r.journee_travaillee and extract(isodow from r.date) = 1
+               group by r.date) j
+       where j.presents > 0`
+    await client`
+      insert into evenement_securite (projet_id, date, type, description, cree_par_id)
+      select ${projetId}::uuid, d::date, 'VISITE',
+             'Visite du coordonnateur sécurité : registre et plan particulier de sécurité tenus à jour.',
+             ${idConducteur}::uuid
+        from generate_series(${DATE_ORDRE_SERVICE}::date + 14, ${DATE_ANALYSE}::date, interval '28 days') d`
+    const EVENEMENTS = [
+      {
+        date: '2026-05-19',
+        type: 'ACCIDENT_AVEC_ARRET' as const,
+        lot: '03',
+        joursArret: 4,
+        description:
+          'Entorse de la cheville d’un ouvrier en descendant dans une fouille de semelle sans échelle. Échelles fixées à chaque fouille depuis.',
+      },
+      {
+        date: '2026-07-08',
+        type: 'ACCIDENT_SANS_ARRET' as const,
+        lot: '04',
+        joursArret: 0,
+        description:
+          'Coupure superficielle à la main lors du façonnage des aciers, gants non portés. Soins sur place.',
+      },
+      {
+        date: '2026-08-21',
+        type: 'PRESQU_ACCIDENT' as const,
+        lot: '04',
+        joursArret: 0,
+        description:
+          'Balancement d’une banche au levage par vent fort ; personne dans la zone balisée. Levages suspendus au-delà de 50 km/h.',
+      },
+      {
+        date: '2026-09-10',
+        type: 'SITUATION_DANGEREUSE' as const,
+        lot: '04',
+        joursArret: 0,
+        description: 'Garde-corps périphérique manquant sur deux travées du plancher haut R+2.',
+      },
+    ]
+    await db.insert(t.evenementSecurite).values(
+      EVENEMENTS.map((e) => ({
+        projetId,
+        date: e.date,
+        type: e.type,
+        lotId: idLot.get(e.lot) as string,
+        description: e.description,
+        joursArret: e.joursArret,
+        creeParId: idChef,
+      })),
+    )
+
+    /* --- Reserves ------------------------------------------------------------ */
+
+    // Visite de pre-reception des supports du rez-de-chaussee par le maitre
+    // d'oeuvre, avant le second oeuvre : six reserves sur le gros oeuvre,
+    // deux deja levees.
+    const zonesRdc = await client<{ id: string; nom: string }[]>`
+      select id, nom from zone where projet_id = ${projetId}::uuid and niveau = 0 order by nom`
+    const zoneRdc = (nom: string) => zonesRdc.find((z) => z.nom.endsWith(nom))?.id ?? null
+    const idMoe = parRole.get('MOE') as string
+    const RESERVES = [
+      [
+        'Hall et circulations',
+        'Balèvres de coffrage sur le voile de la cage d’escalier, à ragréer.',
+        '2026-09-29',
+      ],
+      [
+        'Hall et circulations',
+        'Trémie de gaine technique décalée de 6 cm par rapport au plan d’exécution.',
+        null,
+      ],
+      [
+        'Logements nord',
+        'Nid de cailloux en pied du poteau P4, à reprendre au mortier de réparation.',
+        '2026-09-26',
+      ],
+      ['Logements nord', 'Réservation de porte palière trop étroite de 4 cm.', null],
+      ['Logements sud', 'Arase d’allège non horizontale sur la baie B12, écart de 12 mm.', null],
+      ['Logements sud', 'Fer en attente non protégé en tête de poteau P9.', null],
+    ] as const
+    await db.insert(t.reserve).values(
+      RESERVES.map(([zone, description, levee], i) => ({
+        projetId,
+        numero: i + 1,
+        phase: 'OPR' as const,
+        zoneId: zoneRdc(zone),
+        lotId: idLot.get('04') as string,
+        description,
+        constateeLe: '2026-09-22',
+        echeance: '2026-10-06',
+        leveeLe: levee,
+        creeParId: idMoe,
+        leveeParId: levee === null ? null : idMoe,
+      })),
+    )
 
     /* --- Points de vue et planches photographiques ----------------------------- */
 
@@ -617,6 +930,34 @@ async function peupler(): Promise<void> {
       await client.unsafe(`alter table ${table} enable trigger user`)
     }
     await db.execute(sql`analyze`)
+
+    /* --- Decomptes ------------------------------------------------------------- */
+
+    // Les situations de mars a juillet ont ete presentees en debut de mois
+    // suivant et acceptees par le maitre d'oeuvre ; celle d'aout est
+    // presentee et attend sa decision. Elles se calculent sur le cache, d'ou
+    // un premier calcul ici, par les memes fonctions que l'application.
+    await db
+      .insert(t.indiceRevision)
+      .values(INDICES_REVISION.map(([mois, valeur]) => ({ projetId, mois, valeur })))
+    await recompute(db, projetId)
+    const idMoeDecompte = parRole.get('MOE') as string
+    for (const [mois, accepte] of [
+      ['2026-03', true],
+      ['2026-04', true],
+      ['2026-05', true],
+      ['2026-06', true],
+      ['2026-07', true],
+      ['2026-08', false],
+    ] as const) {
+      const [a, m] = mois.split('-').map(Number) as [number, number]
+      const presente = new Date(Date.UTC(a, m, 5)).toISOString().slice(0, 10)
+      const decide = new Date(Date.UTC(a, m, 15)).toISOString().slice(0, 10)
+      await presenterDecompte(db, projetId, mois, presente, idConducteur)
+      if (accepte) {
+        await statuerDecompte(db, projetId, mois, 'ACCEPTEE', decide, idMoeDecompte)
+      }
+    }
 
     /* --- Compte rendu ------------------------------------------------------------ */
 

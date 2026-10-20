@@ -52,11 +52,14 @@ export async function enregistrerMaquette(
     const id = maq?.id as string
     await tx.execute(sql`delete from element_maquette where maquette_id = ${id}::uuid`)
     for (let i = 0; i < m.elements.length; i += PAQUET) {
-      const lignes = m.elements
-        .slice(i, i + PAQUET)
-        .map((e) => sql`(${id}::uuid, ${e.globalId}, ${e.classe}, ${e.nom}, ${e.etage})`)
+      const lignes = m.elements.slice(i, i + PAQUET).map(
+        (e) =>
+          sql`(${id}::uuid, ${e.globalId}, ${e.classe}, ${e.nom}, ${e.etage},
+                 ${e.volumeM3 ?? null}::numeric, ${e.sourceQuantite ?? null})`,
+      )
       await tx.execute(sql`
-        insert into element_maquette (maquette_id, global_id, classe, nom, etage)
+        insert into element_maquette (maquette_id, global_id, classe, nom, etage, volume_m3,
+                                      source_quantite)
         values ${sql.join(lignes, sql`, `)}
         on conflict do nothing`)
     }

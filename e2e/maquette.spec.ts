@@ -39,7 +39,7 @@ test('un rattachement retire est repropose, puis rajoute', async ({ page, isMobi
   await page.getByRole('button', { name: 'Retirer le rattachement de 04.1.1' }).click()
   await expect(page.getByText('Rattachement retiré.')).toBeVisible()
   await expect(page.getByText('1 rattachement proposé')).toBeVisible()
-  await expect(page.getByText(/Poteaux, RDC : 15 éléments/)).toBeVisible()
+  await expect(page.getByText(/Poteaux, RDC : 36 éléments/)).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter 1 rattachement' }).click()
   await expect(page.getByText('1 rattachement ajouté.')).toBeVisible()
   await expect(page.getByText('25 rattachements')).toBeVisible()
@@ -64,19 +64,19 @@ test('une maquette IFC s importe, et un fichier Revit est refuse avec la marche 
   await expect(fenetre.getByRole('alert')).toContainText('Fichier, Exporter, IFC')
 
   await fichier.setInputFiles('src/db/seed/residence-palmiers.ifc')
-  await expect(fenetre.getByText('289 éléments sur 6 étages, schéma IFC4')).toBeVisible({
+  await expect(fenetre.getByText('404 éléments sur 6 étages, schéma IFC4')).toBeVisible({
     timeout: 30_000,
   })
   await expect(fenetre.getByText('Portes et fenêtres · 96')).toBeVisible()
   await fenetre.getByRole('button', { name: 'Importer cette maquette' }).click()
-  await expect(page.getByText('Maquette importée : 289 éléments sur 6 étages.')).toBeVisible()
+  await expect(page.getByText('Maquette importée : 404 éléments sur 6 étages.')).toBeVisible()
 
   const sql = base()
   const [m] = await sql<{ chemin: string; n: number; regles: number }[]>`
     select chemin, (select count(*)::int from element_maquette) as n,
            (select count(*)::int from regle_maquette) as regles from maquette`
   expect(m?.chemin).toMatch(/^projets\/.+\/maquettes\/.+\.glb$/)
-  expect(m?.n).toBe(289)
+  expect(m?.n).toBe(404)
   expect(m?.regles).toBe(25)
   await sql.end()
   // La nouvelle maquette s'affiche, avec les memes rattachements.

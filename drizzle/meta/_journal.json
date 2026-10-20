@@ -127,6 +127,55 @@
       "when": 1792484587714,
       "tag": "0017_journal_coulages_livraisons",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792487333845,
+      "tag": "0018_sous_traitants_securite",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792487913616,
+      "tag": "0019_qualite_essais_non_conformites",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792488476783,
+      "tag": "0020_reserves_reception",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792489037087,
+      "tag": "0021_decomptes_revision",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792489635973,
+      "tag": "0022_heures_engins",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792490540192,
+      "tag": "0023_metre_maquette",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792491371185,
+      "tag": "0024_calendrier_taches",
+      "breakpoints": true
     }
   ]
 }

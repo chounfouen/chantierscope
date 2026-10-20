@@ -7,11 +7,25 @@
  * du mois est la difference de deux cumuls nets successifs :
  *
  *   travaux executes cumules         A  (valeur acquise au prix du marche)
- *   retenue de garantie              R = taux de retenue x A
+ *   revision des prix cumulee        P = somme des travaux du mois x (Cn - 1)
+ *   retenue de garantie              R = taux de retenue x (A + P)
  *   remboursement de l'avance        V = avance x part remboursee(A / marche)
  *   penalites de retard              P (seulement une fois le delai echu)
- *   net cumule                       N = A - R - V - P
+ *   net cumule                       N = A + P - R - V - Pen
  *   a payer pour le mois             N(mois) - N(mois precedent)
+ *
+ * Revision des prix, quand le marche est a prix revisables : chaque mois de
+ * travaux est revise par le coefficient Cn = a + (1 - a) x In / I0, ou a
+ * est la partie fixe, In l'index du mois et I0 celui du mois zero, celui de
+ * l'etablissement des prix. Le coefficient est arrondi au millieme
+ * superieur. Un index pas encore publie est remplace par le dernier connu :
+ * la revision est alors provisoire, et se regularise au decompte suivant.
+ *
+ * Une situation presentee puis acceptee devient un decompte : ses montants
+ * sont figes, car ils fondent un paiement. Le mois suivant part de ces
+ * montants figes, si bien qu'une correction posterieure du journal
+ * (releve rectificatif) se regularise d'elle-meme au decompte suivant, au
+ * lieu de reecrire un paiement deja fait.
  *
  * L'avance de demarrage est versee a l'origine. Son remboursement est
  * lineaire entre deux seuils d'execution fixes au CCAP : rien en dessous du
@@ -54,6 +68,29 @@ export type Arrete = {
   finContractuelle: string
   /** Vrai pour le mois en cours, arrete a la date d'etat. */
   provisoire: boolean
+  /**
+   * Vrai une fois la garantie de parfait achevement echue sans reserve
+   * ouverte : la retenue est restituee, elle ne se deduit plus.
+   */
+  retenueRestituee?: boolean
+  /** Coefficient de revision du mois ; 1 a prix fermes. */
+  coefficientRevision?: number
+  /** Vrai si l'index du mois n'est pas publie et a ete remplace. */
+  indiceProvisoire?: boolean
+}
+
+export type StatutSituation = 'PROJETEE' | 'PRESENTEE' | 'ACCEPTEE'
+
+/** Montants figes d'un decompte presente ou accepte. */
+export type DecompteFige = {
+  statut: 'PRESENTEE' | 'ACCEPTEE'
+  travauxXof: number
+  revisionXof: number
+  retenueGarantieXof: number
+  remboursementAvanceXof: number
+  penalitesXof: number
+  netCumuleXof: number
+  aPayerXof: number
 }
 
 export type Situation = {
@@ -64,6 +101,10 @@ export type Situation = {
   travauxXof: number
   /** Part du marche executee, entre zero et un. */
   execution: number
+  /** Revision des prix cumulee depuis l'origine. */
+  revisionXof: number
+  coefficientRevision: number
+  indiceProvisoire: boolean
   retenueGarantieXof: number
   remboursementAvanceXof: number
   /** Jours de retard constates a la date de la situation, delai en vigueur echu. */
@@ -72,6 +113,22 @@ export type Situation = {
   netCumuleXof: number
   /** Ce que la situation du mois appelle en paiement. */
   aPayerXof: number
+  statut: StatutSituation
+}
+
+/**
+ * Coefficient de revision Cn = a + (1 - a) x In / I0, arrondi au millieme
+ * superieur.
+ */
+export function coefficientRevision(
+  partieFixe: number,
+  indice: number,
+  indiceZero: number,
+): number {
+  const brut = partieFixe + (1 - partieFixe) * (indice / indiceZero)
+  // Le millieme superieur, sans que l'erreur de representation d'un
+  // coefficient juste ne le pousse au millieme suivant.
+  return Math.ceil(Math.round(brut * 1e9) / 1e6) / 1e3
 }
 
 export function avanceXof(c: ClausesFinancieres): number {
@@ -89,13 +146,42 @@ function joursEntre(de: string, a: string): number {
   return Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / JOUR_MS)
 }
 
-export function situations(c: ClausesFinancieres, arretes: readonly Arrete[]): Situation[] {
+export function situations(
+  c: ClausesFinancieres,
+  arretes: readonly Arrete[],
+  figes: ReadonlyMap<string, DecompteFige> = new Map(),
+): Situation[] {
   const avance = avanceXof(c)
   let netPrecedent = 0
+  let travauxPrecedents = 0
+  let revisionPrecedente = 0
   return arretes.map((a, i) => {
     const execution = a.montantMarcheXof > 0 ? Math.min(1, a.travauxXof / a.montantMarcheXof) : 0
+    const coefficient = a.coefficientRevision ?? 1
+    const indiceProvisoire = a.indiceProvisoire ?? false
+    const fige = figes.get(a.mois)
+    if (fige) {
+      netPrecedent = fige.netCumuleXof
+      travauxPrecedents = fige.travauxXof
+      revisionPrecedente = fige.revisionXof
+      return {
+        numero: i + 1,
+        mois: a.mois,
+        date: a.date,
+        provisoire: false,
+        execution: a.montantMarcheXof > 0 ? Math.min(1, fige.travauxXof / a.montantMarcheXof) : 0,
+        coefficientRevision: coefficient,
+        indiceProvisoire,
+        retardConstateJ: Math.max(0, joursEntre(a.finContractuelle, a.date)),
+        ...fige,
+      }
+    }
     const travauxXof = Math.round(a.travauxXof)
-    const retenueGarantieXof = Math.round(c.retenueGarantieTaux * travauxXof)
+    const revisionXof =
+      revisionPrecedente + Math.round((travauxXof - travauxPrecedents) * (coefficient - 1))
+    const retenueGarantieXof = a.retenueRestituee
+      ? 0
+      : Math.round(c.retenueGarantieTaux * (travauxXof + revisionXof))
     const remboursementAvanceXof = Math.round(
       avance * partRemboursee(execution, c.remboursementDebut, c.remboursementFin),
     )
@@ -108,9 +194,12 @@ export function situations(c: ClausesFinancieres, arretes: readonly Arrete[]): S
       a.montantMarcheXof,
       c.plafondPenalite,
     )
-    const netCumuleXof = travauxXof - retenueGarantieXof - remboursementAvanceXof - penalitesXof
+    const netCumuleXof =
+      travauxXof + revisionXof - retenueGarantieXof - remboursementAvanceXof - penalitesXof
     const aPayerXof = netCumuleXof - netPrecedent
     netPrecedent = netCumuleXof
+    travauxPrecedents = travauxXof
+    revisionPrecedente = revisionXof
     return {
       numero: i + 1,
       mois: a.mois,
@@ -118,12 +207,45 @@ export function situations(c: ClausesFinancieres, arretes: readonly Arrete[]): S
       provisoire: a.provisoire,
       travauxXof,
       execution,
+      revisionXof,
+      coefficientRevision: coefficient,
+      indiceProvisoire,
       retenueGarantieXof,
       remboursementAvanceXof,
       retardConstateJ,
       penalitesXof,
       netCumuleXof,
       aPayerXof,
+      statut: 'PROJETEE' as const,
     }
   })
+}
+
+/**
+ * Coefficient de chaque mois a partir de la serie d'index. `mois` et les
+ * cles de `indices` sont au format AAAA-MM.
+ */
+export function coefficientsDuMois(p: {
+  mois: readonly string[]
+  partieFixe: number
+  moisZero: string | null
+  indices: ReadonlyMap<string, number>
+}): Map<string, { coefficient: number; provisoire: boolean }> {
+  const resultat = new Map<string, { coefficient: number; provisoire: boolean }>()
+  const i0 = p.moisZero === null ? undefined : p.indices.get(p.moisZero)
+  const connus = [...p.indices.keys()].sort()
+  for (const m of p.mois) {
+    if (i0 === undefined) {
+      resultat.set(m, { coefficient: 1, provisoire: false })
+      continue
+    }
+    const exact = p.indices.get(m)
+    const dernier = connus.filter((k) => k <= m).at(-1)
+    const indice = exact ?? (dernier === undefined ? i0 : (p.indices.get(dernier) as number))
+    resultat.set(m, {
+      coefficient: coefficientRevision(p.partieFixe, indice, i0),
+      provisoire: exact === undefined,
+    })
+  }
+  return resultat
 }

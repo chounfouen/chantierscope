@@ -39,6 +39,20 @@ const [e] = await client<{ empreinte: string }[]>`
     select 'A:' || date || type || gravite || impact_delai_j || impact_cout_xof from alea
     union all
     select 'J:' || nom || date_prevue || coalesce(date_reelle::text,'-') from jalon
+    union all
+    select 'E:' || r.date || res.nom || e.heures
+      from releve_engin e
+      join releve_journalier r on r.id = e.releve_journalier_id
+      join ressource res on res.id = e.ressource_id
+    union all
+    select 'C:' || r.date || c.ouvrage || c.classe_beton || c.volume_m3
+           || coalesce(eb.prelevement::text, '-') || coalesce(eb.age_j::text, '-')
+           || coalesce(eb.resistance_mpa::text, '-')
+      from releve_coulage c
+      join releve_journalier r on r.id = c.releve_journalier_id
+      left join essai_beton eb on eb.coulage_id = c.id
+    union all
+    select 'D:' || mois || statut || net_cumule_xof || a_payer_xof from decompte
   ) lignes`
 
 console.log(e?.empreinte ?? 'vide')

@@ -26,7 +26,8 @@ import {
 import { recompute, type Recalcul } from '@/db/recompute'
 import { verrouillerProjet } from '@/db/verrou'
 import { dateCourte } from '@/lib/format'
-import type { TypeLiaison } from '@/db/schema'
+import { calendrierDepuis } from '@/db/compute/ouvre'
+import type { CalendrierTache, TypeLiaison } from '@/db/schema'
 
 type Db = ReturnType<typeof instanceDb>
 type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -123,10 +124,32 @@ function tacheFeuille(planning: Planning, tacheId: string) {
 /* -------------------------------------------------------------------------- */
 
 export type ModificationTache = {
-  /** Nouvelle duree, en jours calendaires. */
+  /** Nouvelle duree, dans l'unite du calendrier de la tache, apres modification. */
   dureeJ?: number
   /** Nouvelle contrainte « pas avant » ; nul pour la retirer. */
   debutImpose?: string | null
+  /**
+   * Compter la tache en jours calendaires ou en jours ouvres. Sans nouvelle
+   * duree, la duree est convertie sur les dates prevues actuelles : la barre
+   * garde son etendue, seule son unite change.
+   */
+  calendrier?: CalendrierTache
+}
+
+/**
+ * Duree d'une tache convertie dans un autre calendrier, sur ses dates
+ * prevues : en jours ouvres, les journees ouvrables de l'intervalle ; en
+ * jours calendaires, son etendue.
+ */
+export function dureeConvertie(
+  origine: string,
+  t: { dateDebutPrevue: string; dateFinPrevue: string },
+  vers: CalendrierTache,
+): number {
+  const debut = jourDuPlanning(origine, t.dateDebutPrevue)
+  const fin = jourDuPlanning(origine, t.dateFinPrevue)
+  if (vers === 'CALENDAIRE') return fin - debut + 1
+  return Math.max(1, calendrierDepuis(origine).compter(debut, fin))
 }
 
 export async function modifierTachePlanning(
@@ -159,8 +182,14 @@ export async function modifierTachePlanning(
       )
     }
 
+    const calendrier = m.calendrier ?? t.calendrier
+    const duree =
+      m.dureeJ ??
+      (calendrier === t.calendrier ? t.dureePrevueJ : dureeConvertie(origine, t, calendrier))
+
     const reseau = modifierTache(reseauDuPlanning(planning), tacheId, {
-      ...(m.dureeJ !== undefined ? { duree: m.dureeJ } : {}),
+      duree,
+      ouvre: calendrier === 'OUVRE',
       ...(m.debutImpose !== undefined
         ? { debutImpose: m.debutImpose === null ? null : jourDuPlanning(origine, m.debutImpose) }
         : {}),
@@ -168,7 +197,8 @@ export async function modifierTachePlanning(
 
     await tx.execute(sql`
       update tache set
-        duree_prevue_j = ${m.dureeJ ?? t.dureePrevueJ},
+        duree_prevue_j = ${duree},
+        calendrier = ${calendrier},
         debut_impose = ${m.debutImpose === undefined ? t.debutImpose : m.debutImpose}::date
       where id = ${tacheId}::uuid`)
 
@@ -346,8 +376,10 @@ export async function figerReference(
     if (!nouvelle) throw new Error('Création de la référence impossible.')
 
     await tx.execute(sql`
-      insert into reference_tache (reference_id, tache_id, date_debut, duree_j)
-      select ${nouvelle.id}::uuid, t.id, t.date_debut_prevue, t.duree_prevue_j
+      insert into reference_tache (reference_id, tache_id, date_debut, date_fin, duree_j,
+                                   calendrier)
+      select ${nouvelle.id}::uuid, t.id, t.date_debut_prevue, t.date_fin_prevue,
+             t.duree_prevue_j, t.calendrier
         from tache t join lot l on l.id = t.lot_id
        where l.projet_id = ${projetId}::uuid and t.parent_id is not null`)
 

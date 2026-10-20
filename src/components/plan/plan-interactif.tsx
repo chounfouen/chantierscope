@@ -72,6 +72,7 @@ export function PlanInteractif({
   plans,
   editable,
   rattachables,
+  reserves = {},
 }: {
   projetId: string
   dates: string[]
@@ -80,6 +81,8 @@ export function PlanInteractif({
   plans: PlanAffiche[]
   editable: boolean
   rattachables: TacheRattachable[]
+  /** Reserves ouvertes par zone, signalees sur le plan. */
+  reserves?: Record<string, number>
 }) {
   const router = useRouter()
   const niveaux = useMemo(
@@ -430,7 +433,9 @@ export function PlanInteractif({
                   role="button"
                   tabIndex={0}
                   aria-pressed={actif}
-                  aria-label={`${z.nom} : ${ETAT[etat].libelle}, ${pourcent(reel, 0)} réalisés`}
+                  aria-label={`${z.nom} : ${ETAT[etat].libelle}, ${pourcent(reel, 0)} réalisés${
+                    (reserves[z.id] ?? 0) > 0 ? `, ${reserves[z.id]} réserves ouvertes` : ''
+                  }`}
                   onClick={agir}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -476,6 +481,28 @@ export function PlanInteractif({
                   >
                     {pourcent(reel, 0)}
                   </text>
+                  {(reserves[z.id] ?? 0) > 0 && (
+                    <g aria-hidden>
+                      <circle
+                        cx={cx + 30 * unite}
+                        cy={cy - 22 * unite}
+                        r={10 * unite}
+                        fill="var(--etat-critique)"
+                        stroke="var(--card)"
+                        strokeWidth={2 * unite}
+                      />
+                      <text
+                        x={cx + 30 * unite}
+                        y={cy - 18 * unite}
+                        textAnchor="middle"
+                        fontSize={11 * unite}
+                        fontWeight={800}
+                        fill="var(--card)"
+                      >
+                        {reserves[z.id]}
+                      </text>
+                    </g>
+                  )}
                 </g>
               )
             })}
@@ -646,6 +673,14 @@ export function PlanInteractif({
                 </span>{' '}
                 réalisés pour {pourcent(zone.serie[rang]?.[1] ?? 0)} prévus
               </p>
+              <Link
+                href={`/projet/${projetId}/reserves?zone=${zone.id}`}
+                className="mt-1.5 inline-block text-sm font-bold underline underline-offset-4"
+              >
+                {(reserves[zone.id] ?? 0) > 0
+                  ? `${reserves[zone.id]} réserve${(reserves[zone.id] ?? 0) > 1 ? 's' : ''} ouverte${(reserves[zone.id] ?? 0) > 1 ? 's' : ''}`
+                  : 'Réserves de la zone'}
+              </Link>
             </div>
             <ul className="divide-border/60 divide-y">
               {zone.tacheIds

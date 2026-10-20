@@ -34,14 +34,14 @@ describe('extraction d une maquette IFC', () => {
   })
 
   it('inventorie chaque element avec sa classe, son nom accentue et son etage', () => {
-    expect(m.elements).toHaveLength(289)
-    expect(m.maillages).toHaveLength(289)
+    expect(m.elements).toHaveLength(404)
+    expect(m.maillages).toHaveLength(404)
     const fenetres = m.elements.filter((e) => e.classe === 'IFCWINDOW')
     expect(fenetres).toHaveLength(64)
     expect(fenetres[0]?.nom).toMatch(/^Fenêtre aluminium/)
     expect(m.elements.find((e) => e.nom === 'Plancher haut du R+1')?.etage).toBe('R+2')
     expect(m.elements.every((e) => e.etage !== null)).toBe(true)
-    expect(new Set(m.elements.map((e) => e.globalId)).size).toBe(289)
+    expect(new Set(m.elements.map((e) => e.globalId)).size).toBe(404)
   })
 
   it('tourne la geometrie en axe Y vertical, en metres', () => {
@@ -53,8 +53,8 @@ describe('extraction d une maquette IFC', () => {
         max = Math.max(max, g.positions[i] as number)
       }
     }
-    // Des semelles a -1,20 m a la couverture du local technique, a 14,88 m.
-    expect(min).toBeCloseTo(-1.2, 3)
+    // Des semelles isolees a -1,95 m a la couverture du local technique, a 14,88 m.
+    expect(min).toBeCloseTo(-1.95, 3)
     expect(max).toBeCloseTo(14.88, 3)
   })
 
@@ -65,9 +65,10 @@ describe('extraction d une maquette IFC', () => {
 
   it('produit un GLB valide, un noeud par element', () => {
     const glb = glbMaquette(m)
-    expect(controlerGlb(glb)).toEqual({ noeuds: 289 })
-    // Pas plus de quelques centaines de kilo-octets pour ce batiment.
-    expect(glb.byteLength).toBeLessThan(500_000)
+    expect(controlerGlb(glb)).toEqual({ noeuds: 404 })
+    // Pas plus de quelques centaines de kilo-octets pour ce batiment de
+    // quatre cents elements.
+    expect(glb.byteLength).toBeLessThan(700_000)
   })
 })
 

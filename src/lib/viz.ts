@@ -93,3 +93,15 @@ export const FOND_DE_PLAN = {
   /** Epaisseur du trait, en pixels de l'image. */
   epaisseur: 1.6,
 } as const
+
+/**
+ * Teintes lues par le systeme et non par CSS : barre d'etat du telephone,
+ * ecran de lancement et icone de l'application installee. Ce sont
+ * `--background` (clair et sombre) et `--soleil` de globals.css, converties
+ * d'OKLCH en sRGB. A reconvertir si la palette change.
+ */
+export const TEINTES_SYSTEME = {
+  fondClair: '#f3f7fa',
+  fondSombre: '#090c11',
+  soleil: '#fdca3a',
+} as const

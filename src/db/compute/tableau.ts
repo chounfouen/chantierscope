@@ -14,6 +14,7 @@
 import { avancementPrevu } from '@/db/compute/avancement'
 import { calculerReseau } from '@/db/compute/cpm'
 import { ecartDelaiJours, indicateurs, penaliteXof, type IndicateursEvm } from '@/db/compute/evm'
+import { calendrierDepuis, etaler, type CalendrierTravail } from '@/db/compute/ouvre'
 import type { LiaisonReseau, ResultatReseau, TacheReseau } from '@/db/compute/types'
 
 /* -------------------------------------------------------------------------- */
@@ -178,7 +179,7 @@ export function tendances(courbe: readonly PointSynthese[], cadre: CadreProjet):
 /* Projection de la courbe en S                                               */
 /* -------------------------------------------------------------------------- */
 
-export type TacheBudgetee = { debut: number; duree: number; budget: number }
+export type TacheBudgetee = { debut: number; duree: number; budget: number; ouvre?: boolean }
 
 /**
  * Valeur planifiee cumulee, jour par jour, jusqu'a l'achevement du planning.
@@ -186,11 +187,18 @@ export type TacheBudgetee = { debut: number; duree: number; budget: number }
  * Les instantanes s'arretent a la date d'analyse ; au-dela, la courbe
  * planifiee se prolonge par le meme calcul, applique aux dates prevues.
  */
-export function courbePlanifiee(taches: readonly TacheBudgetee[]): number[] {
-  const finPlan = taches.reduce((m, t) => Math.max(m, t.debut + Math.max(t.duree, 1) - 1), -1)
+export function courbePlanifiee(
+  taches: readonly TacheBudgetee[],
+  cal?: CalendrierTravail,
+): number[] {
+  const fin = (t: TacheBudgetee) =>
+    t.ouvre && cal
+      ? etaler(cal, t.debut, Math.max(t.duree, 1)).fin
+      : t.debut + Math.max(t.duree, 1) - 1
+  const finPlan = taches.reduce((m, t) => Math.max(m, fin(t)), -1)
   const courbe: number[] = []
   for (let j = 0; j <= finPlan; j++) {
-    courbe.push(Math.round(taches.reduce((s, t) => s + avancementPrevu(t, j) * t.budget, 0)))
+    courbe.push(Math.round(taches.reduce((s, t) => s + avancementPrevu(t, j, cal) * t.budget, 0)))
   }
   return courbe
 }
@@ -289,6 +297,8 @@ export type TacheSuivie = {
   /** Dates prevues, en jours depuis l'ordre de service. */
   debut: number
   duree: number
+  /** Duree en jours ouvres, sur le calendrier passe au reseau. */
+  ouvre?: boolean
   /** Contrainte de debut au plus tot du planning, s'il y en a une. */
   debutImpose: number | null
   debutReel: number | null
@@ -317,9 +327,12 @@ export function projeterReseau(
   taches: readonly TacheSuivie[],
   liaisons: readonly LiaisonReseau[],
   jourAnalyse: number,
+  cal?: CalendrierTravail,
 ): Map<string, number> {
   const fins = new Map<string, number>()
-  for (const [id, d] of reseauRejoue(taches, liaisons, jourAnalyse).dates) fins.set(id, d.finTot)
+  for (const [id, d] of reseauRejoue(taches, liaisons, jourAnalyse, undefined, cal).dates) {
+    fins.set(id, d.finTot)
+  }
   return fins
 }
 
@@ -334,24 +347,38 @@ export function reseauRejoue(
   liaisons: readonly LiaisonReseau[],
   jourAnalyse: number,
   finButoir?: number,
+  /** Calendrier de travail, pour les taches en jours ouvres. */
+  cal?: CalendrierTravail,
 ): ResultatReseau {
   const fixes = new Set<string>()
   const reseau: TacheReseau[] = taches.map((t) => {
+    const ouvre = t.ouvre === true && cal !== undefined
     if (t.avancement >= 1 - EPSILON) {
       fixes.add(t.id)
       const debut = t.debutReel ?? t.debut
-      const fin = t.finReelle ?? debut + t.duree - 1
+      // Sans fin reelle, la fin prevue : en jours ouvres, etalee sur le calendrier.
+      const fin = t.finReelle ?? (ouvre ? etaler(cal, debut, t.duree).fin : debut + t.duree - 1)
       return { id: t.id, duree: Math.max(1, fin - debut + 1), debutImpose: debut }
     }
     if (t.avancement > EPSILON || (t.debutReel !== null && t.debutReel <= jourAnalyse)) {
       fixes.add(t.id)
       const debut = t.debutReel ?? Math.min(t.debut, jourAnalyse)
       const reste = Math.max(1, Math.ceil((1 - t.avancement) * t.duree - EPSILON))
-      return { id: t.id, duree: jourAnalyse - debut + 1 + reste, debutImpose: debut }
+      // En jours ouvres, le reste se compte en journees de travail apres la
+      // date d'etat ; le deja fait garde son etendue calendaire.
+      return ouvre
+        ? {
+            id: t.id,
+            duree: cal.compter(debut, jourAnalyse) + reste,
+            ouvre: true,
+            debutImpose: debut,
+          }
+        : { id: t.id, duree: jourAnalyse - debut + 1 + reste, debutImpose: debut }
     }
     return {
       id: t.id,
       duree: t.duree,
+      ...(ouvre ? { ouvre: true } : {}),
       debutImpose: Math.max(jourAnalyse + 1, t.debutImpose ?? 0),
     }
   })
@@ -360,6 +387,7 @@ export function reseauRejoue(
     taches: reseau,
     liaisons: liaisons.filter((l) => !fixes.has(l.aval)),
     ...(finButoir === undefined ? {} : { finButoir }),
+    ...(cal === undefined ? {} : { calendrier: cal }),
   })
 }
 
@@ -605,9 +633,12 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${Math.abs(n) > 1 ? 's' 
  */
 export function regleTachesCritiques(e: EntreeAlertes): Alerte[] {
   const jour = jourDepuis(e.origine, e.dateAnalyse)
+  const cal = calendrierDepuis(e.origine)
   return e.taches.flatMap((t): Alerte[] => {
     if (!t.critique || t.avancement >= 1 - EPSILON) return []
-    const retardJ = (avancementPrevu(t, jour) - t.avancement) * t.duree
+    const prevu = avancementPrevu(t, jour, cal)
+    // Un retard en part de duree : en jours ouvres pour une tache ouvree.
+    const retardJ = (prevu - t.avancement) * t.duree
     if (retardJ < SEUILS_ALERTE.retardTacheJ - EPSILON) return []
     const j = Math.round(retardJ)
     return [
@@ -618,7 +649,7 @@ export function regleTachesCritiques(e: EntreeAlertes): Alerte[] {
         titre: `${t.codeWbs} ${t.nom}`,
         detail: `${pluriel(j, 'jour')} de retard sur le chemin critique : ${Math.round(
           t.avancement * 100,
-        )} % réalisés pour ${Math.round(avancementPrevu(t, jour) * 100)} % prévus.`,
+        )} % réalisés pour ${Math.round(prevu * 100)} % prévus.`,
         ampleur: retardJ,
         cible: { type: 'tache', id: t.id, ...lot(e, t.id) },
       },

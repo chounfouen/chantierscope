@@ -26,8 +26,11 @@ SORTIE = sys.argv[1] if len(sys.argv) > 1 else "src/db/seed/residence-palmiers.i
 
 L, P = 36.0, 18.0  # emprise, en metres
 H = 3.0  # hauteur d'etage
-E_DALLE = 0.2
-E_VOILE = 0.2
+# Dimensions calees sur le quantitatif du marche, a quelques pour cent pres :
+# l'ecran de metre compare la maquette au DPGF, et les ecarts qu'il montre
+# doivent etre ceux d'un vrai projet, pas ceux d'une maquette schematique.
+E_DALLE = 0.17
+E_VOILE = 0.18
 
 f = ifcopenshell.api.project.create_file(version="IFC4")
 projet = ifcopenshell.api.root.create_entity(f, ifc_class="IfcProject", name="Résidence Les Palmiers")
@@ -73,22 +76,26 @@ def boite(classe, nom, etage, x, y, z, lx, ly, lz):
     return el
 
 
-POTEAUX_X = [0.0, 9.0, 18.0, 27.0, L]
-POTEAUX_Y = [0.0, 9.0, P]
+# Trame de poteaux : 4,50 m en long, 6 m en travers.
+POTEAUX_X = [4.5 * k for k in range(9)]
+POTEAUX_Y = [0.0, 6.0, 12.0, P]
+FILES = "ABCD"
 
 # Fondations : semelles isolees sous chaque poteau, semelles filantes en
-# peripherie, longrines entre files.
+# peripherie, longrines sur chaque file et chaque axe.
 for i, x in enumerate(POTEAUX_X):
     for j, y in enumerate(POTEAUX_Y):
-        boite("IfcFooting", f"Semelle isolée P{i + 1}{'ABC'[j]}", "Fondations",
-              x - 0.6, y - 0.6, -1.2, 1.2, 1.2, 0.5)
+        boite("IfcFooting", f"Semelle isolée P{i + 1}{FILES[j]}", "Fondations",
+              x - 1.1, y - 1.1, -1.95, 2.2, 2.2, 0.95)
 for nom, x, y, lx, ly in [
-    ("Semelle filante nord", 0, P - 0.3, L, 0.6), ("Semelle filante sud", 0, -0.3, L, 0.6),
-    ("Semelle filante est", L - 0.3, 0, 0.6, P), ("Semelle filante ouest", -0.3, 0, 0.6, P),
+    ("Semelle filante nord", 0, P - 0.8, L, 1.6), ("Semelle filante sud", 0, -0.8, L, 1.6),
+    ("Semelle filante est", L - 0.8, 0, 1.6, P), ("Semelle filante ouest", -0.8, 0, 1.6, P),
 ]:
-    boite("IfcFooting", nom, "Fondations", x, y, -1.2, lx, ly, 0.4)
+    boite("IfcFooting", nom, "Fondations", x, y, -1.2, lx, ly, 0.7)
 for j, y in enumerate(POTEAUX_Y):
-    boite("IfcBeam", f"Longrine file {'ABC'[j]}", "Fondations", 0, y - 0.15, -0.7, L, 0.3, 0.5)
+    boite("IfcBeam", f"Longrine file {FILES[j]}", "Fondations", 0, y - 0.25, -0.75, L, 0.5, 0.6)
+for i, x in enumerate(POTEAUX_X):
+    boite("IfcBeam", f"Longrine axe {i + 1}", "Fondations", x - 0.25, 0, -0.75, 0.5, P, 0.6)
 
 boite("IfcSlab", "Dallage sur terre-plein", "RDC", 0, 0, -0.15, L, P, 0.15)
 
@@ -98,14 +105,15 @@ for n, etage in enumerate(NOMS):
     libelle = "rez-de-chaussée" if n == 0 else etage
     for i, x in enumerate(POTEAUX_X):
         for j, y in enumerate(POTEAUX_Y):
-            boite("IfcColumn", f"Poteau P{i + 1}{'ABC'[j]} {etage}", etage,
-                  x - 0.15, y - 0.15, z, 0.3, 0.3, H - E_DALLE)
+            boite("IfcColumn", f"Poteau P{i + 1}{FILES[j]} {etage}", etage,
+                  x - 0.3, y - 0.35, z, 0.6, 0.7, H - E_DALLE)
     # Voiles de facade et de la cage d'escalier.
     hv = H - E_DALLE
     boite("IfcWall", f"Voile de façade nord {etage}", etage, 0, P - E_VOILE, z, L, E_VOILE, hv)
     boite("IfcWall", f"Voile de façade sud {etage}", etage, 0, 0, z, L, E_VOILE, hv)
-    boite("IfcWall", f"Voile pignon est {etage}", etage, L - E_VOILE, 0, z, E_VOILE, P, hv)
-    boite("IfcWall", f"Voile pignon ouest {etage}", etage, 0, 0, z, E_VOILE, P, hv)
+    # Les pignons s'arretent aux facades : un angle n'est compte qu'une fois.
+    boite("IfcWall", f"Voile pignon est {etage}", etage, L - E_VOILE, E_VOILE, z, E_VOILE, P - 2 * E_VOILE, hv)
+    boite("IfcWall", f"Voile pignon ouest {etage}", etage, 0, E_VOILE, z, E_VOILE, P - 2 * E_VOILE, hv)
     for nom, x, y, lx, ly in [
         ("nord", 16, 10.3, 4, E_VOILE), ("sud", 16, 7.5, 4, E_VOILE),
         ("est", 19.8, 7.5, E_VOILE, 3), ("ouest", 16, 7.5, E_VOILE, 3),
@@ -118,7 +126,9 @@ for n, etage in enumerate(NOMS):
     for x in (4.5, 13.5, 22.5, 31.5):
         for y0 in (0.2, 10.5):
             boite("IfcWall", f"Cloison de distribution x{x} {etage}", etage, x - 0.04, y0, z, 0.08, 4.0, hv)
-    boite("IfcStair", f"Escalier {etage}", etage, 16.2, 7.7, z, 3.6, 2.6, H)
+    # Paillasse et palier, ramenes a une dalle : le volume de beton d'un
+    # escalier, et non celui de la cage.
+    boite("IfcStair", f"Escalier {etage}", etage, 16.2, 7.7, z, 3.6, 2.6, 0.33)
     # Plancher haut de l'etage, porte par l'etage superieur.
     porteur = NOMS[n + 1] if n + 1 < len(NOMS) else "Toiture-terrasse"
     nom_plancher = (
