@@ -49,7 +49,10 @@ next-env.d.ts
 /test-results
 /playwright-report
 /scripts/bac
-/public/uploads
+# Fichiers deposes en local ; seule la demo, produite a l'identique par le
+# peuplement, est versionnee : en ligne, le site la sert telle quelle.
+/public/uploads/*
+!/public/uploads/demo/
 /.stockage
 
 # fichiers de travail jetables

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Image de démonstration : Façade nord depuis la voie d’accès, 2026-04-24">
+  <defs>
+    <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bcd7ee" />
+      <stop offset="1" stop-color="#e7eef4" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#ciel)" />
+  <rect x="0" y="640" width="1200" height="160" fill="#c9c2b2" />
+  <g></g>
+  <g stroke="#d8892f" stroke-width="7" fill="none">
+    <line x1="960" y1="640" x2="960" y2="170" />
+    <line x1="700" y1="170" x2="1090" y2="170" />
+    <line x1="960" y1="170" x2="1060" y2="108" />
+    <line x1="960" y1="170" x2="760" y2="108" />
+  </g>
+  <g font-family="system-ui, sans-serif" fill="#3a3a38">
+    <rect x="0" y="0" width="1200" height="72" fill="#ffffff" opacity="0.82" />
+    <text x="32" y="34" font-size="22" font-weight="600">Façade nord depuis la voie d’accès</text>
+    <text x="32" y="58" font-size="18" opacity="0.7">2026-04-24 — gros œuvre 0 %</text>
+    <text x="1168" y="34" font-size="15" text-anchor="end" opacity="0.6">Image de démonstration</text>
+    <text x="1168" y="56" font-size="15" text-anchor="end" opacity="0.6">générée, non photographique</text>
+  </g>
+</svg>

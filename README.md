@@ -17,7 +17,7 @@ six mois après l'ordre de service, en léger retard.
 Next.js 16 (App Router, Server Components et Server Actions), React 19,
 PostgreSQL 16 avec Drizzle ORM, Auth.js, Tailwind 4, Recharts, Dexie pour la
 file hors ligne, `@react-pdf/renderer` pour les rapports. Tests : Vitest et
-Playwright. En ligne : Vercel (`fra1`) et Supabase (`eu-central-1`).
+Playwright. En ligne : Vercel (`dub1`) et Supabase (`eu-west-1`).
 
 ## Installation locale
 
@@ -69,10 +69,13 @@ L'ordre compte : la base d'abord, l'application ensuite.
 
 ### 1. Supabase
 
-1. Créer un projet dans la région `eu-central-1`.
-2. Relever les deux chaînes de connexion : le pooler en mode transaction, port
-   6543, pour `DATABASE_URL`, et la connexion directe, port 5432, pour
-   `DIRECT_URL` (conception, section 11.3).
+1. Créer un projet dans la région `eu-west-1`, à côté de la région Vercel `dub1`.
+2. Relever les deux chaînes de connexion, sur l'hôte du pooler, suffixées de
+   `?sslmode=require` : le pooler en mode transaction, port 6543, pour
+   `DATABASE_URL`, et le pooler en mode session, port 5432, pour `DIRECT_URL`
+   (conception, section 11.3). La connexion directe `db.<projet>.supabase.co`
+   ne répond qu'en IPv6 sur l'offre gratuite : ni Vercel ni la plupart des
+   postes ne l'atteignent. Le mode session admet migrations et DDL.
 3. Créer un compartiment de stockage privé `photos`, et relever la clé de
    service.
 4. Depuis un poste, avec `DIRECT_URL` pointant sur Supabase dans
@@ -94,7 +97,7 @@ Aucune modification de structure par l'interface Supabase, jamais
 
 ### 2. Vercel
 
-1. Importer le dépôt. `vercel.json` fixe la région `fra1`, la commande de
+1. Importer le dépôt. `vercel.json` fixe la région `dub1`, la commande de
    construction et le cron quotidien de 3 h.
 2. Variables d'environnement de production : `DATABASE_URL`, `DIRECT_URL`,
    `AUTH_SECRET` (32 caractères au moins), `AUTH_URL` (adresse publique),
