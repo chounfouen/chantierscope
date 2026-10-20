@@ -13,8 +13,8 @@
 
 import { avancementPrevu } from '@/db/compute/avancement'
 import { calculerReseau } from '@/db/compute/cpm'
-import { ecartDelaiJours, indicateurs, type IndicateursEvm } from '@/db/compute/evm'
-import type { LiaisonReseau, TacheReseau } from '@/db/compute/types'
+import { ecartDelaiJours, indicateurs, penaliteXof, type IndicateursEvm } from '@/db/compute/evm'
+import type { LiaisonReseau, ResultatReseau, TacheReseau } from '@/db/compute/types'
 
 /* -------------------------------------------------------------------------- */
 /* Dates                                                                      */
@@ -46,6 +46,8 @@ export type PointSynthese = {
   va: number
   /** Nul pour le maitre d'ouvrage. */
   cr: number | null
+  /** Fin projetee du reseau rejoue a cette date, quand elle est lue. */
+  finProjetee?: string | null
 }
 
 export type CadreProjet = {
@@ -56,6 +58,8 @@ export type CadreProjet = {
   dureeContractuelleJ: number
   montantMarcheXof: number
   tauxPenaliteJournaliere: number
+  /** Plafond du cumul des penalites, en fraction du marche. */
+  plafondPenalite?: number
 }
 
 /**
@@ -93,6 +97,7 @@ export function syntheseA(
     dureeContractuelleJ: cadre.dureeContractuelleJ,
     montantMarcheXof: cadre.montantMarcheXof,
     tauxPenaliteJournaliere: cadre.tauxPenaliteJournaliere,
+    ...(cadre.plafondPenalite === undefined ? {} : { plafondPenalite: cadre.plafondPenalite }),
   })
 
   return {
@@ -232,6 +237,13 @@ export function projeterCourbe(p: {
   ecartDelaiJ: number
   coefficientDebourse: number
   bac: number
+  /**
+   * Fin projetee retenue, en jours depuis l'origine. Donnee, elle fixe le
+   * rythme de la projection : la courbe rejoint le budget exactement a cette
+   * date, et le graphique raconte la meme fin que le reste du tableau de bord.
+   * Absente, le rythme est le SPI constate.
+   */
+  finProjeteeJ?: number
 }): PointProjete[] {
   if (p.spi === null || p.spi <= 0.05) return []
   const finPlan = p.courbeVp.length - 1
@@ -240,13 +252,16 @@ export function projeterCourbe(p: {
 
   const coutParValeur =
     p.cr !== null && p.cpi !== null && p.cpi > 0 ? p.coefficientDebourse / p.cpi : null
-  const fin = p.jourAnalyse + Math.ceil((finPlan - depart) / p.spi)
+  const finImposee =
+    p.finProjeteeJ !== undefined && p.finProjeteeJ > p.jourAnalyse ? p.finProjeteeJ : null
+  const rythme = finImposee === null ? p.spi : (finPlan - depart) / (finImposee - p.jourAnalyse)
+  const fin = finImposee ?? p.jourAnalyse + Math.ceil((finPlan - depart) / p.spi)
 
   const points: PointProjete[] = []
   for (let t = p.jourAnalyse; t <= fin; t++) {
     const va = Math.min(
       p.bac,
-      Math.max(p.va, lire(p.courbeVp, depart + (t - p.jourAnalyse) * p.spi)),
+      Math.max(p.va, lire(p.courbeVp, depart + (t - p.jourAnalyse) * rythme)),
     )
     points.push({
       jour: t,
@@ -303,6 +318,23 @@ export function projeterReseau(
   liaisons: readonly LiaisonReseau[],
   jourAnalyse: number,
 ): Map<string, number> {
+  const fins = new Map<string, number>()
+  for (const [id, d] of reseauRejoue(taches, liaisons, jourAnalyse).dates) fins.set(id, d.finTot)
+  return fins
+}
+
+/**
+ * Le reseau rejoue a la date d'etat, avec ses dates au plus tard et ses
+ * marges. Donnee, la date butoir — la fin contractuelle — fait apparaitre des
+ * marges NEGATIVES sur les taches qui la depassent : c'est le signal standard
+ * d'un planning en retard, et le nombre de jours a rattraper sur chacune.
+ */
+export function reseauRejoue(
+  taches: readonly TacheSuivie[],
+  liaisons: readonly LiaisonReseau[],
+  jourAnalyse: number,
+  finButoir?: number,
+): ResultatReseau {
   const fixes = new Set<string>()
   const reseau: TacheReseau[] = taches.map((t) => {
     if (t.avancement >= 1 - EPSILON) {
@@ -324,13 +356,93 @@ export function projeterReseau(
     }
   })
 
-  const resultat = calculerReseau({
+  return calculerReseau({
     taches: reseau,
     liaisons: liaisons.filter((l) => !fixes.has(l.aval)),
+    ...(finButoir === undefined ? {} : { finButoir }),
   })
-  const fins = new Map<string, number>()
-  for (const [id, d] of resultat.dates) fins.set(id, d.finTot)
-  return fins
+}
+
+/* -------------------------------------------------------------------------- */
+/* Achevement : une seule fin projetee, une seule penalite                    */
+/* -------------------------------------------------------------------------- */
+
+export type Achevement = {
+  /** Fin projetee, en jours depuis l'origine : fin du reseau rejoue. */
+  finProjeteeJ: number
+  dateFinProjetee: string
+  /** Jours de retard projetes sur la fin contractuelle. Jamais negatif. */
+  retardProjeteJ: number
+  /** Penalite sans plafond, pour dire ce que le plafond retient. */
+  penaliteBruteXof: number
+  penaliteXof: number
+  plafondAtteint: boolean
+  /**
+   * Fourchette de retard a l'achevement, en jours, selon deux hypotheses de
+   * rythme, a titre de comparaison. Negatif : avance.
+   *
+   * - `rythmePrevu` : le reste se deroule au rythme du planning ; le retard
+   *   final egale le retard constate sur la courbe en S.
+   * - `rythmeConstate` : le reste se deroule au rythme constate, mesure par
+   *   le SPI temporel de l'Earned Schedule, SPI(t) = ES / AT, qui ne tend pas
+   *   vers un en fin de chantier. Nul tant que rien n'est acquis.
+   */
+  fourchette: { rythmePrevuJ: number; rythmeConstateJ: number | null }
+}
+
+/**
+ * Fin projetee et penalite du chantier, a la date d'etat.
+ *
+ * Trois projections coexistaient : la duree contractuelle divisee par le SPI,
+ * la courbe en S prolongee au rythme du SPI, et le reseau rejoue pour les
+ * jalons. Elles donnaient des retards de 36 a 125 jours sur le meme ecran. La
+ * fin projetee retenue est desormais celle du reseau rejoue a la date d'etat
+ * (`projeterReseau`) : c'est la methode d'un planning recale, celle qu'un
+ * conducteur de travaux defend en reunion, et la seule qui tient compte des
+ * liaisons. La penalite en decoule, plafonnee. Les deux autres hypotheses ne
+ * servent plus qu'a encadrer ce chiffre.
+ */
+export function achevement(p: {
+  origine: string
+  fins: ReadonlyMap<string, number>
+  jourAnalyse: number
+  /** Duree du planning de reference, en jours. */
+  dureePlanifieeJ: number
+  dureeContractuelleJ: number
+  /** Retard constate par lecture horizontale de la courbe en S. */
+  ecartDelaiJ: number
+  montantMarcheXof: number
+  tauxPenaliteJournaliere: number
+  plafondPenalite?: number
+}): Achevement {
+  // Un chantier acheve garde sa fin reelle, meme anterieure a la date d'etat.
+  const finProjeteeJ = p.fins.size === 0 ? p.jourAnalyse : Math.max(...p.fins.values())
+  const retardProjeteJ = Math.max(0, finProjeteeJ - (p.dureeContractuelleJ - 1))
+  const brute = penaliteXof(retardProjeteJ, p.tauxPenaliteJournaliere, p.montantMarcheXof)
+  const plafonnee = penaliteXof(
+    retardProjeteJ,
+    p.tauxPenaliteJournaliere,
+    p.montantMarcheXof,
+    p.plafondPenalite,
+  )
+
+  const ecoules = p.jourAnalyse + 1
+  const es = ecoules - p.ecartDelaiJ
+  const rythmeConstateJ =
+    es > 0 ? Math.round((p.dureePlanifieeJ * ecoules) / es - p.dureeContractuelleJ) : null
+
+  return {
+    finProjeteeJ,
+    dateFinProjetee: dateApres(p.origine, finProjeteeJ),
+    retardProjeteJ,
+    penaliteBruteXof: brute,
+    penaliteXof: plafonnee,
+    plafondAtteint: plafonnee < brute,
+    fourchette: {
+      rythmePrevuJ: Math.round(p.dureePlanifieeJ + p.ecartDelaiJ - p.dureeContractuelleJ),
+      rythmeConstateJ,
+    },
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -360,7 +472,8 @@ export function prochainsJalons(
   jalons: readonly JalonSuivi[],
   finsProjetees: ReadonlyMap<string, number>,
   origine: string,
-  dateAnalyse: string,
+  /** Date depuis laquelle se comptent les jours restants : aujourd'hui. */
+  dateReference: string,
 ): JalonProjete[] {
   return jalons
     .filter((j) => j.dateReelle === null)
@@ -371,7 +484,7 @@ export function prochainsJalons(
       const glissementJ = dateProjetee === null ? 0 : jourDepuis(j.datePrevue, dateProjetee)
       return {
         ...j,
-        joursRestants: jourDepuis(dateAnalyse, j.datePrevue),
+        joursRestants: jourDepuis(dateReference, j.datePrevue),
         dateProjetee,
         glissementJ,
         menace: j.contractuel && glissementJ > 0,
@@ -394,6 +507,8 @@ export const SEUILS_ALERTE = {
   depassement: 0.05,
   /** Retard minimal d'une tache critique, en jours, pour etre signale. */
   retardTacheJ: 1,
+  /** Aucun releve valide depuis PLUS de trois jours. */
+  absenceReleveJours: 3,
 } as const
 
 export type RegleAlerte =
@@ -402,6 +517,8 @@ export type RegleAlerte =
   | 'NON_CONFORMITE_OUVERTE'
   | 'RELEVE_NON_VALIDE'
   | 'DEPASSEMENT_QUANTITATIF'
+  | 'RELEVE_ABSENT'
+  | 'INTEMPERIE_A_RECONNAITRE'
 
 /**
  * Trois niveaux. Le niveau critique engage la date de fin ou une penalite ;
@@ -422,7 +539,11 @@ export type Alerte = {
   /** Grandeur qui ordonne les alertes d'un meme niveau, la plus forte en tete. */
   ampleur: number
   /** Objet concerne, pour le lien de l'interface. */
-  cible: { type: 'tache' | 'jalon' | 'alea' | 'releve' | 'ligne'; id: string; lotId?: string }
+  cible: {
+    type: 'tache' | 'jalon' | 'alea' | 'releve' | 'ligne' | 'journal' | 'contrat'
+    id: string
+    lotId?: string
+  }
 }
 
 export type AleaSuivi = {
@@ -456,7 +577,14 @@ export type LigneSuivie = {
 
 export type EntreeAlertes = {
   origine: string
+  /** Date d'etat : celle du dernier releve valide. */
   dateAnalyse: string
+  /**
+   * Date du jour. L'age d'un releve en attente ou d'une non-conformite se
+   * compte jusqu'a elle, et non jusqu'a la date d'etat : un releve soumis
+   * apres la date d'etat attend bel et bien. Absente, la date d'etat.
+   */
+  aujourdhui?: string
   taches: readonly TacheSuivie[]
   jalons: readonly JalonProjete[]
   aleas: readonly AleaSuivi[]
@@ -528,7 +656,7 @@ export function regleJalons(e: EntreeAlertes): Alerte[] {
 export function regleNonConformites(e: EntreeAlertes): Alerte[] {
   return e.aleas.flatMap((a): Alerte[] => {
     if (a.type !== 'NON_CONFORMITE' || a.statut === 'SOLDE') return []
-    const age = jourDepuis(a.date, e.dateAnalyse)
+    const age = jourDepuis(a.date, e.aujourdhui ?? e.dateAnalyse)
     if (age <= SEUILS_ALERTE.nonConformiteJours) return []
     return [
       {
@@ -548,7 +676,7 @@ export function regleNonConformites(e: EntreeAlertes): Alerte[] {
 export function regleReleves(e: EntreeAlertes): Alerte[] {
   return e.releves.flatMap((r): Alerte[] => {
     if (r.statut !== 'BROUILLON' && r.statut !== 'SOUMIS') return []
-    const age = jourDepuis(r.date, e.dateAnalyse)
+    const age = jourDepuis(r.date, e.aujourdhui ?? e.dateAnalyse)
     if (age <= SEUILS_ALERTE.releveJours) return []
     return [
       {
@@ -588,6 +716,56 @@ export function regleDepassements(e: EntreeAlertes): Alerte[] {
 }
 
 /**
+ * Journee d'intemperie proposee depuis le journal, pas encore reconnue ni
+ * rejetee. Tant qu'elle n'est pas tranchee, elle ne prolonge pas le delai :
+ * la laisser en suspens, c'est renoncer a des jours que le marche accorde.
+ */
+export function regleIntemperies(e: EntreeAlertes): Alerte[] {
+  return e.aleas.flatMap((a): Alerte[] =>
+    a.type === 'INTEMPERIE'
+      ? [
+          {
+            cle: `intemperie:${a.id}`,
+            regle: 'INTEMPERIE_A_RECONNAITRE',
+            niveau: 'alerte',
+            titre: 'Intempérie à reconnaître',
+            detail: `Journée du ${a.date.split('-').reverse().join('/')} arrêtée par la météo. Reconnue, elle peut prolonger le délai contractuel.`,
+            ampleur: jourDepuis(a.date, e.aujourdhui ?? e.dateAnalyse),
+            cible: { type: 'contrat', id: a.id },
+          },
+        ]
+      : [],
+  )
+}
+
+/**
+ * Aucun releve valide depuis plus de trois jours.
+ *
+ * Les indicateurs sont arretes a la date du dernier releve valide. Sans cette
+ * alerte, un journal abandonne laisserait croire a un chantier fige dans
+ * l'etat de sa derniere saisie.
+ */
+export function regleAbsenceReleve(e: EntreeAlertes): Alerte[] {
+  if (e.aujourdhui === undefined) return []
+  const age = jourDepuis(e.dateAnalyse, e.aujourdhui)
+  if (age <= SEUILS_ALERTE.absenceReleveJours) return []
+  return [
+    {
+      cle: 'journal:absence',
+      regle: 'RELEVE_ABSENT',
+      niveau: 'alerte',
+      titre: 'Aucun relevé validé récemment',
+      detail: `Dernier relevé validé le ${e.dateAnalyse
+        .split('-')
+        .reverse()
+        .join('/')}, il y a ${pluriel(age, 'jour')}. Les indicateurs sont arrêtés à cette date.`,
+      ampleur: age,
+      cible: { type: 'journal', id: 'journal' },
+    },
+  ]
+}
+
+/**
  * Toutes les alertes, triees par criticite puis par ampleur decroissante.
  * Deux alertes de meme niveau et de meme ampleur restent dans un ordre stable,
  * celui de leur titre.
@@ -599,6 +777,8 @@ export function alertes(e: EntreeAlertes): Alerte[] {
     ...regleNonConformites(e),
     ...regleDepassements(e),
     ...regleReleves(e),
+    ...regleAbsenceReleve(e),
+    ...regleIntemperies(e),
   ].sort(
     (a, b) =>
       RANG_NIVEAU[a.niveau] - RANG_NIVEAU[b.niveau] ||

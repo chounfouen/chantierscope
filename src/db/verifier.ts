@@ -307,6 +307,9 @@ async function main(): Promise<void> {
     /* --- Audit --------------------------------------------------------------------- */
 
     const tablesAuditees = [
+      'alea',
+      'avenant',
+      'ordre_service',
       'releve_journalier',
       'releve_quantite',
       'ligne_quantitatif',
@@ -331,10 +334,12 @@ async function main(): Promise<void> {
       select count(*)::int as n from pg_trigger t
       join pg_proc p on p.oid = t.tgfoid
       where not t.tgisinternal and t.tgenabled <> 'D'
-        and p.proname in ('geler_releve_valide', 'geler_quantites_releve_valide')`
+        and p.proname in ('geler_releve_valide', 'geler_quantites_releve_valide',
+                          'geler_journal_releve_valide')`
     verifier(
       'Le gel des releves valides est en place et actif',
-      Number(gel[0]?.n) === 2,
+      // Le releve, ses quantites, ses coulages et ses livraisons.
+      Number(gel[0]?.n) === 4,
       `${gel[0]?.n} declencheurs de gel`,
     )
 

@@ -13,7 +13,8 @@
 import { sql } from 'drizzle-orm'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 import type { db as instanceDb } from '@/db/index'
-import type { Reseau } from '@/db/compute/types'
+import type { TacheSuivie } from '@/db/compute/tableau'
+import type { LiaisonReseau, Reseau } from '@/db/compute/types'
 import type { TypeLiaison } from '@/db/schema'
 
 type Db = ReturnType<typeof instanceDb>
@@ -65,6 +66,7 @@ export type Planning = {
     dureeContractuelleJ: number
     montantMarcheXof: number
     tauxPenaliteJournaliere: number
+    plafondPenalite: number
   }
   lots: { id: string; code: string; nom: string; rangCouleur: number }[]
   taches: TachePlanning[]
@@ -82,7 +84,8 @@ export async function chargerPlanning(db: Db, projetId: string): Promise<Plannin
              date_fin_contractuelle as "dateFinContractuelle",
              duree_contractuelle_j as "dureeContractuelleJ",
              montant_marche_xof::float8 as "montantMarcheXof",
-             taux_penalite_journaliere::float8 as "tauxPenaliteJournaliere"
+             taux_penalite_journaliere::float8 as "tauxPenaliteJournaliere",
+             plafond_penalite::float8 as "plafondPenalite"
         from projet where id = ${projetId}::uuid`),
     db.execute<Planning['lots'][number]>(sql`
       select id, code, nom, rang_couleur as "rangCouleur"
@@ -170,4 +173,75 @@ export async function chargerScenarios(db: Db, projetId: string): Promise<Scenar
      where s.projet_id = ${projetId}::uuid
      order by s.cree_le desc`)
   return [...lignes]
+}
+
+/** Reference active du planning, et ce qui la distingue du planning courant. */
+export type InfoReference = {
+  numero: number
+  motif: string
+  geleLe: Date
+  /** Fin de la reference, en date de planning. */
+  fin: string
+  /** Nombre de versions figees au total, la presente comprise. */
+  versions: number
+}
+
+export async function referenceActive(db: Db, projetId: string): Promise<InfoReference | null> {
+  const [r] = await db.execute<{
+    numero: number
+    motif: string
+    geleLe: Date
+    fin: string
+    versions: number
+  }>(sql`
+    select rp.numero, rp.motif, rp.gele_le as "geleLe",
+           (select max(rt.date_debut + rt.duree_j - 1) from reference_tache rt
+             where rt.reference_id = rp.id)::text as fin,
+           (select count(*)::int from reference_planning x
+             where x.projet_id = rp.projet_id) as versions
+      from reference_planning rp
+     where rp.projet_id = ${projetId}::uuid and rp.active`)
+  return r ?? null
+}
+
+/** Date d'etat : celle du dernier instantane, donc du dernier releve valide. */
+export async function dateEtat(db: Db, projetId: string): Promise<string | null> {
+  const [r] = await db.execute<{ date: string | null }>(sql`
+    select max(date)::text as date from snapshot_avancement
+     where projet_id = ${projetId}::uuid and lot_id is null`)
+  return r?.date ?? null
+}
+
+/**
+ * Taches et liaisons du planning, sous la forme que le noyau rejoue a la date
+ * d'etat (`reseauRejoue`).
+ */
+export function suiviDuPlanning(p: Pick<Planning, 'projet' | 'taches' | 'liaisons'>): {
+  taches: TacheSuivie[]
+  liaisons: LiaisonReseau[]
+} {
+  const origine = p.projet.dateOrdreService
+  const jour = (d: string | null) => (d === null ? null : jourDuPlanning(origine, d))
+  return {
+    taches: p.taches
+      .filter((t) => t.feuille)
+      .map((t) => ({
+        id: t.id,
+        codeWbs: t.codeWbs,
+        nom: t.nom,
+        debut: jourDuPlanning(origine, t.dateDebutPrevue),
+        duree: t.dureePrevueJ,
+        debutImpose: jour(t.debutImpose),
+        debutReel: jour(t.dateDebutReelle),
+        finReelle: jour(t.dateFinReelle),
+        avancement: t.avancement,
+        critique: t.critique,
+      })),
+    liaisons: p.liaisons.map((l) => ({
+      amont: l.amontId,
+      aval: l.avalId,
+      type: l.type,
+      decalage: l.decalageJ,
+    })),
+  }
 }

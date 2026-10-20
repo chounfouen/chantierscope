@@ -54,3 +54,55 @@ export function sousTitreSituation(e: EntreeSituation): string {
   if (parties.length === 0) return 'Rien d’urgent : aucune alerte critique à cette date.'
   return `${parties.join(' et ')}.`.replace(/^./, (c) => c.toUpperCase())
 }
+
+/* -------------------------------------------------------------------------- */
+/* Accueil et raccourcis selon le role                                        */
+/* -------------------------------------------------------------------------- */
+
+type RoleAccueil = 'CHEF_CHANTIER' | 'CONDUCTEUR' | 'MOE' | 'MOA' | 'ADMIN'
+
+/**
+ * Premier ecran apres la connexion, selon le role.
+ *
+ * Le chef de chantier ouvre l'application pour saisir sa journee : il arrive
+ * sur le formulaire, et non sur une courbe en S qu'il ne pilote pas. Les
+ * autres roles arrivent sur le tableau de bord, ou les releves a valider
+ * figurent parmi les alertes.
+ */
+export function pageAccueil(role: RoleAccueil, projetId: string): string {
+  const base = `/projet/${projetId}`
+  return role === 'CHEF_CHANTIER' ? `${base}/releve/nouveau` : base
+}
+
+export type Raccourci = {
+  libelle: string
+  href: string
+  icone: 'tableauBord' | 'planning' | 'releve' | 'photos' | 'ajouter'
+}
+
+/** Les trois onglets de la barre du telephone, selon le role. */
+export function raccourcisMobiles(role: RoleAccueil, projetId: string): Raccourci[] {
+  const base = `/projet/${projetId}`
+  switch (role) {
+    case 'CHEF_CHANTIER':
+      return [
+        { libelle: 'Saisir', href: `${base}/releve/nouveau`, icone: 'ajouter' },
+        { libelle: 'Journal', href: `${base}/releve`, icone: 'releve' },
+        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
+      ]
+    case 'CONDUCTEUR':
+    case 'ADMIN':
+      return [
+        { libelle: 'Tableau', href: base, icone: 'tableauBord' },
+        { libelle: 'Journal', href: `${base}/releve`, icone: 'releve' },
+        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning' },
+      ]
+    case 'MOE':
+    case 'MOA':
+      return [
+        { libelle: 'Tableau', href: base, icone: 'tableauBord' },
+        { libelle: 'Planning', href: `${base}/planning`, icone: 'planning' },
+        { libelle: 'Photos', href: `${base}/photos`, icone: 'photos' },
+      ]
+  }
+}

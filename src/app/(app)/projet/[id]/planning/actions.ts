@@ -11,7 +11,12 @@ import { invaliderDepuisAction } from '@/lib/cache'
 import { z } from 'zod'
 import { db } from '@/db/index'
 import { RefusMetier } from '@/db/mutations/erreurs'
-import { ajouterLiaison, modifierTachePlanning, supprimerLiaison } from '@/db/mutations/planning'
+import {
+  ajouterLiaison,
+  figerReference,
+  modifierTachePlanning,
+  supprimerLiaison,
+} from '@/db/mutations/planning'
 import { typeLiaison } from '@/db/schema'
 import { exiger, NonAuthentifie, NonAutorise, PEUT_PLANIFIER } from '@/lib/garde'
 import { DateSimple } from '@/lib/releve'
@@ -92,6 +97,32 @@ export async function supprimerLiaisonAction(brut: unknown): Promise<ResultatPla
     const r = await supprimerLiaison(db(), s.data.projetId, s.data.liaisonId, u.id)
     invaliderDepuisAction(s.data.projetId)
     return { ok: true, message: message(r.dureeReseauJ, null) }
+  } catch (e) {
+    return echec(e)
+  }
+}
+
+const Gel = z.object({
+  projetId: z.uuid(),
+  motif: z
+    .string()
+    .trim()
+    .min(5, 'Motiver le gel : avenant, ordre de service, décision du maître d’ouvrage.')
+    .max(300),
+})
+
+/** Fige le planning courant comme nouvelle reference de la valeur planifiee. */
+export async function figerReferenceAction(brut: unknown): Promise<ResultatPlanning> {
+  const g = Gel.safeParse(brut)
+  if (!g.success) return { ok: false, message: g.error.issues[0]?.message ?? 'Motif invalide.' }
+  try {
+    const u = await exiger(g.data.projetId, PEUT_PLANIFIER)
+    const r = await figerReference(db(), g.data.projetId, g.data.motif, u.id)
+    invaliderDepuisAction(g.data.projetId)
+    return {
+      ok: true,
+      message: `Référence n° ${r.numero} figée. La valeur planifiée se mesure désormais sur elle.`,
+    }
   } catch (e) {
     return echec(e)
   }

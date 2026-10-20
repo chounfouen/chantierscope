@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BasculeTheme } from '@/components/bascule-theme'
 import { MenuUtilisateur } from '@/components/coquille/menu-utilisateur'
 import { Navigation, type Groupe } from '@/components/coquille/navigation'
+import { NavigationMobile } from '@/components/coquille/navigation-mobile'
 import { IndicateurReseau } from '@/components/saisie/file-attente'
 import { EnregistrementServiceWorker } from '@/components/saisie/service-worker'
 import { db } from '@/db/index'
@@ -10,6 +11,7 @@ import { compteValide, projetsAccessibles } from '@/db/queries/lecture'
 import { habilite, PEUT_SAISIR, utilisateurEventuel, voitDonneesInternes } from '@/lib/garde'
 import { enDeveloppement } from '@/lib/env'
 import { Icone } from '@/lib/icones'
+import { raccourcisMobiles } from '@/lib/accueil'
 
 /**
  * Coquille de l'application.
@@ -91,6 +93,8 @@ export default async function CoquilleApplication({
               },
             ]
           : []),
+        { libelle: 'Contrat', href: `${base}/contrat`, icone: 'jalon' },
+        { libelle: 'Situations', href: `${base}/situations`, icone: 'cout' },
         {
           libelle: 'Rapports',
           href: `${base}/rapports`,
@@ -143,8 +147,18 @@ export default async function CoquilleApplication({
           <Navigation groupes={groupes} />
         </aside>
 
-        <main className="min-w-0 flex-1">{children}</main>
+        {/* Sous md, la barre d'onglets du bas occupe 4 rem : le contenu s'arrete au-dessus. */}
+        <main className="min-w-0 flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+          {children}
+        </main>
       </div>
+
+      {projet && (
+        <NavigationMobile
+          raccourcis={raccourcisMobiles(utilisateur.role, projet.id)}
+          groupes={groupes}
+        />
+      )}
     </div>
   )
 }

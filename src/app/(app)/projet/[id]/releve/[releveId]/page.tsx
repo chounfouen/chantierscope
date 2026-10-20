@@ -117,7 +117,7 @@ export default async function FicheReleve({
       )}
 
       <div className="mt-4">
-        <ActionsReleve projetId={id} releveId={r.id} actions={actions} />
+        <ActionsReleve projetId={id} releveId={r.id} actions={actions} version={r.version} />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -240,6 +240,82 @@ export default async function FicheReleve({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed whitespace-pre-line">{r.observations}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {(r.coulages.length > 0 || r.livraisons.length > 0) && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Icone.journal className="size-4" aria-hidden />
+              Journal : coulages et livraisons
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {r.coulages.length > 0 && (
+              <div>
+                <h3 className="font-bold">
+                  Coulages,{' '}
+                  {quantite(
+                    r.coulages.reduce((t, c) => t + c.volumeM3, 0),
+                    'M3',
+                  )}{' '}
+                  au total
+                </h3>
+                <ul className="divide-border/70 mt-1 divide-y">
+                  {r.coulages.map((c, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap items-baseline justify-between gap-2 py-2"
+                    >
+                      <span className="min-w-0">
+                        {c.ouvrage}
+                        <span className="text-muted-foreground block text-xs">
+                          Béton {c.classeBeton}
+                          {c.affaissementMm !== null && `, affaissement ${c.affaissementMm} mm`}
+                          {`, ${c.eprouvettes} éprouvette${c.eprouvettes > 1 ? 's' : ''}`}
+                          {c.bonLivraison && `, bon ${c.bonLivraison}`}
+                        </span>
+                      </span>
+                      <span className="chiffres-alignes font-medium">
+                        {quantite(c.volumeM3, 'M3')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {r.livraisons.length > 0 && (
+              <div>
+                <h3 className="font-bold">Livraisons</h3>
+                <ul className="divide-border/70 mt-1 divide-y">
+                  {r.livraisons.map((l, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap items-baseline justify-between gap-2 py-2"
+                    >
+                      <span className="min-w-0">
+                        {l.designation}
+                        <span className="text-muted-foreground block text-xs">
+                          {[l.fournisseur, l.bonLivraison && `bon ${l.bonLivraison}`]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                        {!l.conforme && (
+                          <span className="text-etat-retard block text-xs font-bold">
+                            Sous réserve : {l.reserve}
+                          </span>
+                        )}
+                      </span>
+                      <span className="chiffres-alignes font-medium">
+                        {quantite(l.quantite, l.unite)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

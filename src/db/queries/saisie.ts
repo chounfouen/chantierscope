@@ -14,7 +14,7 @@
 import { sql } from 'drizzle-orm'
 import type { db as instanceDb } from '@/db/index'
 import type { StatutReleve, TypeAlea, Unite } from '@/db/schema'
-import type { ReleveSaisi } from '@/lib/releve'
+import type { CoulageSaisi, LivraisonSaisie, ReleveSaisi } from '@/lib/releve'
 
 type Db = ReturnType<typeof instanceDb>
 
@@ -192,6 +192,53 @@ export async function chargerJournal(
   }
 }
 
+/** Releve soumis, tel que le conducteur le voit avant une validation groupee. */
+export type ReleveAValider = {
+  id: string
+  date: string
+  lotCode: string
+  lotNom: string
+  rangCouleur: number
+  journeeTravaillee: boolean
+  effectifOuvriers: number
+  nombreLignes: number
+  /** Lignes dont le cumul, ce releve compris, depasse la quantite prevue. */
+  depassements: number
+  aAlea: boolean
+  /** Livraisons acceptees sous reserve : a lire avant de valider. */
+  reserves: number
+  auteur: string | null
+  version: string
+}
+
+export async function relevesAValider(db: Db, projetId: string): Promise<ReleveAValider[]> {
+  const lignes = await db.execute<ReleveAValider>(sql`
+    select r.id, r.date, l.code as "lotCode", l.nom as "lotNom", l.rang_couleur as "rangCouleur",
+           r.journee_travaillee as "journeeTravaillee", r.effectif_ouvriers as "effectifOuvriers",
+           (select count(*)::int from releve_quantite q
+             where q.releve_journalier_id = r.id) as "nombreLignes",
+           (select count(*)::int
+              from releve_quantite q
+              join ligne_quantitatif lq on lq.id = q.ligne_quantitatif_id
+             where q.releve_journalier_id = r.id
+               and q.quantite_realisee + coalesce((
+                     select sum(q2.quantite_realisee)
+                       from releve_quantite q2
+                       join releve_journalier r2 on r2.id = q2.releve_journalier_id
+                      where q2.ligne_quantitatif_id = lq.id and r2.statut = 'VALIDE'), 0)
+                   > lq.quantite_prevue) as depassements,
+           exists (select 1 from alea a where a.releve_journalier_id = r.id) as "aAlea",
+           (select count(*)::int from releve_livraison v
+             where v.releve_journalier_id = r.id and not v.conforme) as reserves,
+           u.nom as auteur, r.modifie_le::text as version
+      from releve_journalier r
+      join lot l on l.id = r.lot_id
+      left join utilisateur u on u.id = r.auteur_id
+     where r.projet_id = ${projetId}::uuid and r.statut = 'SOUMIS'
+     order by r.date, l.ordre`)
+  return [...lignes]
+}
+
 /* -------------------------------------------------------------------------- */
 /* Detail d'un releve                                                         */
 /* -------------------------------------------------------------------------- */
@@ -217,6 +264,12 @@ export type DetailReleve = {
   auteurId: string | null
   creeLe: Date
   modifieLe: Date
+  /**
+   * `modifie_le` au texte, a la microseconde : la version que la validation
+   * compare. Un `Date` JavaScript perdrait les microseconds et ne retrouverait
+   * jamais la ligne.
+   */
+  version: string
   validePar: string | null
   valideLe: Date | null
   meteoCode: number | null
@@ -235,6 +288,8 @@ export type DetailReleve = {
   /** Releve que celui-ci a remplace, s'il est un rectificatif. */
   remplace: { id: string; date: string } | null
   quantites: QuantiteDetail[]
+  coulages: CoulageSaisi[]
+  livraisons: (Omit<LivraisonSaisie, 'unite'> & { unite: Unite })[]
   photos: { id: string; chemin: string; cheminVignette: string; legende: string | null }[]
   alea: {
     type: TypeAlea
@@ -246,9 +301,12 @@ export type DetailReleve = {
 }
 
 export async function chargerReleve(db: Db, releveId: string): Promise<DetailReleve | null> {
-  const [entetes, quantites, aleas, remplace, photos] = await Promise.all([
+  const [entetes, quantites, aleas, remplace, photos, coulages, livraisons] = await Promise.all([
     db.execute<
-      Omit<DetailReleve, 'lot' | 'quantites' | 'alea' | 'remplace' | 'remplacePar'> & {
+      Omit<
+        DetailReleve,
+        'lot' | 'quantites' | 'coulages' | 'livraisons' | 'alea' | 'remplace' | 'remplacePar'
+      > & {
         lotId: string
         lotCode: string
         lotNom: string
@@ -261,6 +319,7 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
              r.lot_id as "lotId", l.code as "lotCode", l.nom as "lotNom",
              l.rang_couleur as "rangCouleur",
              a.nom as auteur, r.auteur_id as "auteurId", r.cree_le as "creeLe", r.modifie_le as "modifieLe",
+             r.modifie_le::text as version,
              v.nom as "validePar", r.valide_le as "valideLe",
              r.meteo_code as "meteoCode", r.temperature_c::float8 as "temperatureC",
              r.precipitations_mm::float8 as "precipitationsMm",
@@ -295,6 +354,14 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
     db.execute<DetailReleve['photos'][number]>(sql`
       select id, chemin, chemin_vignette as "cheminVignette", legende
         from photo where releve_journalier_id = ${releveId}::uuid order by prise_le`),
+    db.execute<DetailReleve['coulages'][number]>(sql`
+      select ouvrage, classe_beton as "classeBeton", volume_m3::float8 as "volumeM3",
+             bon_livraison as "bonLivraison", affaissement_mm as "affaissementMm", eprouvettes
+        from releve_coulage where releve_journalier_id = ${releveId}::uuid order by rang`),
+    db.execute<DetailReleve['livraisons'][number]>(sql`
+      select designation, fournisseur, quantite::float8 as quantite, unite::text as unite,
+             bon_livraison as "bonLivraison", conforme, reserve
+        from releve_livraison where releve_journalier_id = ${releveId}::uuid order by rang`),
   ])
 
   const e = entetes[0]
@@ -310,6 +377,8 @@ export async function chargerReleve(db: Db, releveId: string): Promise<DetailRel
         : null,
     remplace: remplace[0] ?? null,
     quantites: [...quantites],
+    coulages: [...coulages],
+    livraisons: [...livraisons],
     photos: [...photos],
     alea: aleas[0] ?? null,
   }
@@ -336,6 +405,8 @@ export function versSaisie(d: DetailReleve): Omit<ReleveSaisi, 'id' | 'soumettre
       commentaire: q.commentaire,
     })),
     observations: d.observations,
+    coulages: d.coulages,
+    livraisons: d.livraisons,
     alea: d.alea,
   }
 }

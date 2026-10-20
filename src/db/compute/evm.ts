@@ -41,6 +41,8 @@ export type EntreeEvm = {
   montantMarcheXof: number
   /** Fraction du marche due par jour calendaire de retard. */
   tauxPenaliteJournaliere: number
+  /** Plafond du cumul des penalites, en fraction du marche. Absent : aucun. */
+  plafondPenalite?: number
   /**
    * Budget en cout sur budget en prix, voir `budgetDebourse`. Un, valeur par
    * defaut, signifie que VA et BAC sont deja exprimes au cout.
@@ -101,10 +103,16 @@ export function indicateurs(e: EntreeEvm): IndicateursEvm {
    * Extrapolation de la duree par la performance de delai.
    *
    * Approximation grossiere mais lisible : elle suppose que le rythme
-   * constate se maintiendra. L'ecart de delai lu horizontalement sur la
-   * courbe en S, par `ecartDelaiJours`, est une mesure plus fine de la
-   * situation A LA DATE D'ANALYSE ; celle-ci est une PROJECTION a
-   * l'achevement. Les deux ne mesurent pas la meme chose et n'ont aucune
+   * constate se maintiendra. Elle est conservee comme indicateur EVM
+   * classique, verifie contre le calcul de reference au tableur, mais n'est
+   * plus la projection affichee : elle applique le SPI a toute la duree, y
+   * compris a la part deja realisee, et le SPI tend vers un en fin de
+   * chantier quel que soit le retard. La fin projetee et la penalite viennent
+   * du reseau rejoue a la date d'etat (`achevement` dans `tableau.ts`).
+   *
+   * L'ecart de delai lu horizontalement sur la courbe en S, par
+   * `ecartDelaiJours`, est une mesure plus fine de la situation A LA DATE
+   * D'ANALYSE ; celle-ci est une PROJECTION a l'achevement. Les deux ne mesurent pas la meme chose et n'ont aucune
    * raison de coincider.
    */
   const dureeProjeteeJ = spi !== null && spi > 0 ? Math.round(e.dureeContractuelleJ / spi) : null
@@ -126,7 +134,12 @@ export function indicateurs(e: EntreeEvm): IndicateursEvm {
     vac,
     dureeProjeteeJ,
     retardJ,
-    penaliteXof: penaliteXof(retardJ ?? 0, e.tauxPenaliteJournaliere, e.montantMarcheXof),
+    penaliteXof: penaliteXof(
+      retardJ ?? 0,
+      e.tauxPenaliteJournaliere,
+      e.montantMarcheXof,
+      e.plafondPenalite,
+    ),
   }
 }
 
@@ -196,14 +209,24 @@ export function ecartDelaiJours(
 /* Penalite                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Penalite de retard, arrondie a l'entier de FCFA. Nulle en cas d'avance. */
+/**
+ * Penalite de retard, arrondie a l'entier de FCFA. Nulle en cas d'avance.
+ *
+ * Le cumul est plafonne a une fraction du marche quand un plafond est donne :
+ * 10 % du montant hors taxes selon le CCAG Travaux 2021 (article 19.2.2), sauf
+ * derogation du CCAP. Sans plafond, une projection de retard importante
+ * produirait une penalite qu'aucun marche ne permet d'appliquer.
+ */
 export function penaliteXof(
   retardJ: number,
   tauxJournalier: number,
   montantMarcheXof: number,
+  plafond?: number,
 ): number {
   if (retardJ <= 0) return 0
-  return Math.round(retardJ * tauxJournalier * montantMarcheXof)
+  const brute = Math.round(retardJ * tauxJournalier * montantMarcheXof)
+  if (plafond === undefined) return brute
+  return Math.min(brute, Math.round(plafond * montantMarcheXof))
 }
 
 /* -------------------------------------------------------------------------- */

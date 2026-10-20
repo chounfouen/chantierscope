@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { prenom, salutation, sousTitreSituation, titreSituation } from '@/lib/accueil'
+import {
+  pageAccueil,
+  prenom,
+  raccourcisMobiles,
+  salutation,
+  sousTitreSituation,
+  titreSituation,
+} from '@/lib/accueil'
 
 const base = { ecartDelaiJ: 0, jalonsMenaces: 0, alertesCritiques: 0, avancement: 0.4 }
 
@@ -33,5 +40,25 @@ describe('accueil', () => {
       '3 jalons contractuels menacés et 6 points critiques à traiter.',
     )
     expect(sousTitreSituation({ ...base, alertesCritiques: 1 })).toBe('1 point critique à traiter.')
+  })
+})
+
+describe('accueil selon le role', () => {
+  it('le chef de chantier arrive sur la saisie, les autres sur le tableau de bord', () => {
+    expect(pageAccueil('CHEF_CHANTIER', 'p')).toBe('/projet/p/releve/nouveau')
+    expect(pageAccueil('CONDUCTEUR', 'p')).toBe('/projet/p')
+    expect(pageAccueil('MOA', 'p')).toBe('/projet/p')
+  })
+
+  it('la barre du telephone met la saisie a portee du chef', () => {
+    expect(raccourcisMobiles('CHEF_CHANTIER', 'p').map((r) => r.href)).toEqual([
+      '/projet/p/releve/nouveau',
+      '/projet/p/releve',
+      '/projet/p/photos',
+    ])
+  })
+
+  it('la barre du maitre d ouvrage ne mene pas au journal, qui porte les effectifs', () => {
+    expect(raccourcisMobiles('MOA', 'p').some((r) => r.href.endsWith('/releve'))).toBe(false)
   })
 })

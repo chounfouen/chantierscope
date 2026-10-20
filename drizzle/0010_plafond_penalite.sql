@@ -1,0 +1,2 @@
+ALTER TABLE "projet" ADD COLUMN "plafond_penalite" numeric(5, 4) DEFAULT 0.1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "projet" ADD CONSTRAINT "projet_plafond_penalite_fraction" CHECK ("projet"."plafond_penalite" >= 0 and "projet"."plafond_penalite" <= 1);

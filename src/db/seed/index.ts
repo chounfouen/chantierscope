@@ -49,7 +49,12 @@ const MOT_DE_PASSE_DEMO = 'chantier2026'
 /** Tables videes avant rechargement, dans l'ordre inverse des dependances. */
 const TABLES_A_VIDER = [
   'journal_audit',
+  'tentative_connexion',
   'snapshot_avancement',
+  'ordre_service',
+  'avenant',
+  'reference_tache',
+  'reference_planning',
   'photo',
   'point_de_vue',
   'regle_maquette',
@@ -63,6 +68,8 @@ const TABLES_A_VIDER = [
   'alea',
   'jalon',
   'releve_quantite',
+  'releve_coulage',
+  'releve_livraison',
   'releve_journalier',
   'ligne_quantitatif',
   'liaison',
@@ -74,8 +81,13 @@ const TABLES_A_VIDER = [
 ]
 
 const TABLES_AUDITEES = [
+  'alea',
+  'avenant',
+  'ordre_service',
   'releve_journalier',
   'releve_quantite',
+  'releve_coulage',
+  'releve_livraison',
   'ligne_quantitatif',
   'tache',
   'liaison',
@@ -251,6 +263,29 @@ async function peupler(): Promise<void> {
         tacheAvalId: idTache.get(l.aval) as string,
         type: l.type,
         decalageJ: l.decalage,
+      })),
+    )
+
+    /* --- Planning de reference ------------------------------------------- */
+
+    // Le planning calcule est fige a l'ordre de service : c'est contre lui que
+    // se mesure la valeur planifiee, quoi qu'il advienne du planning courant.
+    const [reference] = await db
+      .insert(t.referencePlanning)
+      .values({
+        projetId,
+        numero: 1,
+        motif: 'Planning contractuel initial',
+        geleLe: new Date(`${DATE_ORDRE_SERVICE}T08:00:00Z`),
+        geleParId: idConducteur,
+      })
+      .returning({ id: t.referencePlanning.id })
+    await db.insert(t.referenceTache).values(
+      planning.taches.map((x) => ({
+        referenceId: (reference as { id: string }).id,
+        tacheId: idTache.get(x.code) as string,
+        dateDebut: jourDepuisOs(x.debut),
+        dureeJ: x.duree,
       })),
     )
 
@@ -450,6 +485,57 @@ async function peupler(): Promise<void> {
       await db.insert(t.releveQuantite).values(paquet)
     }
 
+    /* --- Journal : coulages et livraisons -------------------------------------- */
+
+    // Chaque quantite de beton coule devient un coulage trace : classe selon
+    // l'ouvrage, bon de la centrale, affaissement au cone, et un jeu de trois
+    // eprouvettes par tranche de 50 m3 entamee. Les valeurs d'essai sont
+    // tirees de la date et du code de la tache : le jeu reste reproductible.
+    const coulages = await client`
+      insert into releve_coulage (releve_journalier_id, rang, ouvrage, classe_beton, volume_m3,
+                                  bon_livraison, affaissement_mm, eprouvettes)
+      select q.releve_journalier_id,
+             row_number() over (partition by q.releve_journalier_id order by t.code_wbs) - 1,
+             t.nom,
+             case when lq.designation ilike '%propret%' then 'C16/20'
+                  when t.code_wbs like '03%' then 'C25/30'
+                  else 'C30/37' end,
+             round(q.quantite_realisee, 2),
+             'BL-' || to_char(r.date, 'YYMMDD') || '-' || replace(t.code_wbs, '.', ''),
+             80 + abs(hashtext(r.date::text || t.code_wbs)) % 70,
+             least(60, 3 * ceil(q.quantite_realisee / 50))::int
+        from releve_quantite q
+        join releve_journalier r on r.id = q.releve_journalier_id
+        join ligne_quantitatif lq on lq.id = q.ligne_quantitatif_id
+        join tache t on t.id = lq.tache_id
+       where r.projet_id = ${projetId}::uuid and lq.unite = 'M3'
+         and lq.designation ilike 'Béton%' and q.quantite_realisee >= 0.5`
+
+    // Livraisons du gros oeuvre : acier le lundi, ciment le jeudi. Une
+    // livraison d'acier de juillet est acceptee sous reserve.
+    const livraisons = await client`
+      with jours as (
+        select r.id, r.date, extract(isodow from r.date)::int as jour,
+               row_number() over (partition by extract(isodow from r.date) order by r.date) as n
+          from releve_journalier r join lot l on l.id = r.lot_id
+         where r.projet_id = ${projetId}::uuid and l.code = '04' and r.journee_travaillee
+           and extract(isodow from r.date) in (1, 4))
+      insert into releve_livraison (releve_journalier_id, rang, designation, fournisseur, quantite,
+                                    unite, bon_livraison, conforme, reserve)
+      select id, 0,
+             case jour when 1 then 'Acier HA haute adhérence, barres de 12 m'
+                       else 'Ciment CEM II/A 42,5 R, sacs de 50 kg' end,
+             case jour when 1 then 'Aciers de la Lagune' else 'Ciments de la Lagune' end,
+             case jour when 1 then 6 + abs(hashtext(date::text)) % 7 else 10 end,
+             'T'::unite_mesure,
+             case jour when 1 then 'ACV-' else 'CDL-' end || to_char(date, 'YYMMDD'),
+             not (jour = 1 and date between '2026-07-01' and '2026-07-07'),
+             case when jour = 1 and date between '2026-07-01' and '2026-07-07'
+                  then 'Barres HA 12 oxydées sur un paquet de 0,8 t : paquet refusé, avoir demandé.'
+             end
+        from jours`
+    console.log(`  ${coulages.count} coulages et ${livraisons.count} livraisons au journal`)
+
     /* --- Aleas ---------------------------------------------------------------- */
 
     await db.insert(t.alea).values(
@@ -464,10 +550,23 @@ async function peupler(): Promise<void> {
         impactDelaiJ: a.impactDelaiJ,
         impactCoutXof: a.impactCoutXof,
         statut: a.statut,
+        // Constatees contradictoirement en reunion de chantier.
+        decisionIntemperie: a.type === 'INTEMPERIE' ? ('RECONNUE' as const) : null,
         declareParId: idConducteur,
         resoluLe: a.resoluLe,
       })),
     )
+
+    /* --- Ordres de service -------------------------------------------------- */
+
+    await db.insert(t.ordreService).values({
+      projetId,
+      numero: 1,
+      date: DATE_ORDRE_SERVICE,
+      type: 'DEMARRAGE',
+      objet: 'Ordre de service de démarrage des travaux',
+      creeParId: idConducteur,
+    })
 
     /* --- Points de vue et planches photographiques ----------------------------- */
 

@@ -41,6 +41,9 @@ export const ENONCE_REGLE: Record<RegleAlerte, string> = {
   NON_CONFORMITE_OUVERTE: `Non-conformité non soldée, ouverte depuis plus de ${SEUILS_ALERTE.nonConformiteJours} jours.`,
   RELEVE_NON_VALIDE: `Relevé en brouillon ou soumis, non validé plus de ${SEUILS_ALERTE.releveJours} jours après sa journée.`,
   DEPASSEMENT_QUANTITATIF: `Quantité réalisée supérieure de plus de ${SEUILS_ALERTE.depassement * 100} % au quantitatif.`,
+  INTEMPERIE_A_RECONNAITRE:
+    'Journée arrêtée par la météo, proposée depuis le journal et pas encore reconnue ou rejetée.',
+  RELEVE_ABSENT: `Aucun relevé validé depuis plus de ${SEUILS_ALERTE.absenceReleveJours} jours : les indicateurs restent arrêtés au dernier.`,
 }
 
 function lien(projetId: string, a: Alerte): string | null {
@@ -49,6 +52,10 @@ function lien(projetId: string, a: Alerte): string | null {
       return `/projet/${projetId}/releve/${a.cible.id}`
     case 'jalon':
       return `/projet/${projetId}/planning`
+    case 'journal':
+      return `/projet/${projetId}/releve`
+    case 'contrat':
+      return `/projet/${projetId}/contrat`
     default:
       return a.cible.lotId === undefined ? null : `/projet/${projetId}/lot/${a.cible.lotId}`
   }

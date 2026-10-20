@@ -3,11 +3,13 @@ import { db } from '@/db/index'
 import { projetsAccessibles } from '@/db/queries/lecture'
 import { utilisateurCourant } from '@/lib/garde'
 import { Icone } from '@/lib/icones'
+import { pageAccueil } from '@/lib/accueil'
 
 /**
  * Point d'entree. Tant que l'application ne gere qu'un projet, elle y
  * redirige directement plutot que d'imposer un ecran de selection a un seul
- * element.
+ * element, sur l'ecran qui sert le role : la saisie pour le chef de chantier,
+ * le tableau de bord pour les autres.
  */
 export default async function Accueil() {
   const utilisateur = await utilisateurCourant()
@@ -15,7 +17,7 @@ export default async function Accueil() {
   const projets = await projetsAccessibles(db(), utilisateur.id)
 
   const premier = projets[0]
-  if (premier) redirect(`/projet/${premier.id}`)
+  if (premier) redirect(pageAccueil(utilisateur.role, premier.id))
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">

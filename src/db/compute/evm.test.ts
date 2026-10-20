@@ -178,6 +178,15 @@ describe('penalite de retard', () => {
   it('est arrondie a l entier de FCFA', () => {
     expect(Number.isInteger(penaliteXof(7, 0.0013, 999_999_999))).toBe(true)
   })
+
+  it('est plafonnee a une fraction du marche', () => {
+    // 125 jours a un millieme : 12,5 % du marche, ramenes au plafond de 10 %.
+    expect(penaliteXof(125, 0.001, 1_000_000_000, 0.1)).toBe(100_000_000)
+  })
+
+  it('n est pas touchee par un plafond qu elle n atteint pas', () => {
+    expect(penaliteXof(14, 0.001, 1_156_141_200, 0.1)).toBe(16_185_977)
+  })
 })
 
 describe('modele de cout reel', () => {

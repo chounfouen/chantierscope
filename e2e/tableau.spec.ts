@@ -46,7 +46,7 @@ test('le bandeau affiche les indicateurs des instantanes, avec leur tendance', a
   expect(contenu).toMatch(/en 30 jours/)
 
   await expect(page.getByText('Coût estimé final', { exact: true })).toBeVisible()
-  await expect(page.getByText(/Projection au rythme constaté/)).toBeVisible()
+  await expect(page.getByText(/Projection selon le planning recalé/)).toBeVisible()
 })
 
 test('le panneau d alertes signale les jalons menaces et enonce ses regles', async ({ page }) => {

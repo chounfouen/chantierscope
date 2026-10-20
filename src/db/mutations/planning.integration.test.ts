@@ -12,6 +12,7 @@ import { RefusMetier } from '@/db/mutations/erreurs'
 import {
   ajouterLiaison,
   enregistrerScenario,
+  figerReference,
   modifierTachePlanning,
   supprimerLiaison,
   supprimerScenario,
@@ -316,5 +317,53 @@ describe('scenarios de simulation', () => {
         conducteurId,
       ),
     )
+  })
+})
+
+describe('planning de reference', () => {
+  const vpAu = async (date: string) => {
+    const [s] = await client<{ vp: number }[]>`
+      select valeur_planifiee_xof::float8 as vp from snapshot_avancement
+       where lot_id is null and date = ${date}::date`
+    return Number(s?.vp)
+  }
+
+  it('le peuplement fige une reference numero 1, active', async () => {
+    const refs = await client<{ numero: number; active: boolean; n: number }[]>`
+      select r.numero, r.active, (select count(*)::int from reference_tache t
+                                   where t.reference_id = r.id) as n
+        from reference_planning r where r.projet_id = ${projetId}::uuid`
+    expect(refs).toEqual([{ numero: 1, active: true, n: 59 }])
+  })
+
+  it('modifier le planning ne reecrit pas la valeur planifiee passee', async () => {
+    const t = await tache('04.4.3')
+    const avant = await vpAu('2026-09-27')
+    await modifierTachePlanning(db, projetId, t.id, { dureeJ: t.duree + 20 }, conducteurId)
+    expect(await vpAu('2026-09-27')).toBe(avant)
+    await modifierTachePlanning(db, projetId, t.id, { dureeJ: t.duree }, conducteurId)
+  })
+
+  it('une nouvelle reference figee porte desormais la valeur planifiee', async () => {
+    const t = await tache('04.1.1')
+    await modifierTachePlanning(db, projetId, t.id, { dureeJ: t.duree + 30 }, conducteurId)
+    try {
+      // Le 15 juin, la tache est a mi-course : sa valeur planifiee depend de sa duree.
+      const avant = await vpAu('2026-06-15')
+      const r = await figerReference(db, projetId, 'Avenant n° 1 : test', conducteurId)
+      expect(r.numero).toBe(2)
+      expect(await vpAu('2026-06-15')).toBeLessThan(avant)
+      const actives = await client<{ numero: number }[]>`
+        select numero from reference_planning where projet_id = ${projetId}::uuid and active`
+      expect(actives).toEqual([{ numero: 2 }])
+    } finally {
+      // Retour a l'etat initial, quoi qu'il arrive : les autres suites
+      // s'appuient sur le planning et la reference du jeu de demonstration.
+      await modifierTachePlanning(db, projetId, t.id, { dureeJ: t.duree }, conducteurId)
+      await client`delete from reference_planning where projet_id = ${projetId}::uuid and numero > 1`
+      await client`update reference_planning set active = true
+                    where projet_id = ${projetId}::uuid and numero = 1`
+      await recompute(db, projetId)
+    }
   })
 })

@@ -124,6 +124,27 @@ describe('aller-retour avec un releve existant', () => {
       versReleve(
         rempli({
           observations: 'Coulage dalle',
+          coulages: [
+            {
+              ouvrage: 'Dalle haute RDC',
+              classeBeton: 'C25/30',
+              volumeM3: '38,5',
+              bonLivraison: 'BL-12',
+              affaissementMm: '110',
+              eprouvettes: '3',
+            },
+          ],
+          livraisons: [
+            {
+              designation: 'Sable de lagune',
+              fournisseur: '',
+              quantite: '12',
+              unite: 'M3',
+              bonLivraison: '',
+              conforme: false,
+              reserve: 'Sable chargé en argile',
+            },
+          ],
           aleaDeclare: true,
           alea: {
             type: 'INTEMPERIE',

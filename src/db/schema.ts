@@ -34,6 +34,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -118,6 +119,23 @@ export const typeAlea = pgEnum('type_alea', [
 
 export const statutAlea = pgEnum('statut_alea', ['OUVERT', 'EN_TRAITEMENT', 'SOLDE'])
 
+/**
+ * Sort d'une journee d'intemperie au sens contractuel. Une journee non
+ * travaillee pour cause de meteo est PROPOSEE a partir du journal ; elle
+ * n'ouvre droit a prolongation qu'une fois RECONNUE contradictoirement par le
+ * maitre d'oeuvre ou le conducteur, et seulement au-dela du nombre de
+ * journees reputees previsibles fixe au CCAP.
+ */
+export const decisionIntemperie = pgEnum('decision_intemperie', ['PROPOSEE', 'RECONNUE', 'REJETEE'])
+
+export const typeOrdreService = pgEnum('type_ordre_service', [
+  'DEMARRAGE',
+  'ARRET',
+  'REPRISE',
+  'PROLONGATION',
+  'AUTRE',
+])
+
 export const typeRessource = pgEnum('type_ressource', ['EQUIPE', 'ENGIN', 'MATERIEL', 'MATERIAU'])
 
 export const uniteCout = pgEnum('unite_cout', ['JOUR', 'HEURE', 'UNITE'])
@@ -154,9 +172,38 @@ export const utilisateur = pgTable(
     role: roleUtilisateur().notNull(),
     motDePasseHash: text().notNull(),
     actif: boolean().notNull().default(true),
+    /**
+     * Les sessions ouvertes avant cet instant sont refusees. Pose au
+     * changement de mot de passe : un jeton derobe ne survit pas au
+     * changement que son vol a motive.
+     */
+    sessionsValidesApres: timestamp({ withTimezone: true }).notNull().defaultNow(),
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('utilisateur_email_unique').on(sql`lower(${t.email})`)],
+).enableRLS()
+
+/**
+ * Tentatives de connexion, pour limiter les essais de mot de passe.
+ *
+ * Sans limite, la force brute en ligne est libre. Cinq echecs en quinze
+ * minutes bloquent l'adresse, vingt bloquent l'adresse IP : de quoi gener un
+ * attaquant sans enfermer dehors un chef de chantier qui se trompe deux fois.
+ * La table est purgee chaque nuit au-dela de vingt-quatre heures.
+ */
+export const tentativeConnexion = pgTable(
+  'tentative_connexion',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    email: text().notNull(),
+    ip: text(),
+    reussie: boolean().notNull(),
+    le: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('tentative_email_le_idx').on(sql`lower(${t.email})`, t.le),
+    index('tentative_ip_le_idx').on(t.ip, t.le),
+  ],
 ).enableRLS()
 
 /**
@@ -211,6 +258,33 @@ export const projet = pgTable(
     tauxPenaliteJournaliere: numeric({ precision: 8, scale: 7, mode: 'number' })
       .notNull()
       .default(0.001),
+    /**
+     * Plafond du cumul des penalites de retard, en fraction du montant du
+     * marche. Le CCAG Travaux 2021 le fixe a 10 % du montant hors taxes
+     * (article 19.2.2) ; le CCAP peut y deroger, d'ou une valeur par projet.
+     */
+    plafondPenalite: numeric({ precision: 5, scale: 4, mode: 'number' }).notNull().default(0.1),
+    /**
+     * Journees d'intemperie reputees previsibles, fixees au CCAP : seules
+     * celles qui les depassent prolongent le delai d'execution.
+     */
+    intemperiesPrevisiblesJ: integer().notNull().default(0),
+    /**
+     * Clauses financieres du CCAP, qui fondent les situations mensuelles.
+     * La retenue de garantie est une fraction des travaux executes, rendue a
+     * la reception ; l'avance de demarrage une fraction du montant initial,
+     * remboursee lineairement entre deux seuils d'execution du marche.
+     */
+    retenueGarantieTaux: numeric({ precision: 5, scale: 4, mode: 'number' })
+      .notNull()
+      .default(0.05),
+    avanceDemarrageTaux: numeric({ precision: 5, scale: 4, mode: 'number' }).notNull().default(0),
+    avanceRemboursementDebut: numeric({ precision: 5, scale: 4, mode: 'number' })
+      .notNull()
+      .default(0.65),
+    avanceRemboursementFin: numeric({ precision: 5, scale: 4, mode: 'number' })
+      .notNull()
+      .default(0.8),
 
     devise: text().notNull().default('XOF'),
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -223,7 +297,19 @@ export const projet = pgTable(
       'projet_penalite_fraction',
       sql`${t.tauxPenaliteJournaliere} >= 0 and ${t.tauxPenaliteJournaliere} <= 1`,
     ),
+    check(
+      'projet_plafond_penalite_fraction',
+      sql`${t.plafondPenalite} >= 0 and ${t.plafondPenalite} <= 1`,
+    ),
     check('projet_fin_apres_debut', sql`${t.dateFinContractuelle} > ${t.dateOrdreService}`),
+    check(
+      'projet_clauses_financieres_fractions',
+      sql`${t.retenueGarantieTaux} between 0 and 1 and ${t.avanceDemarrageTaux} between 0 and 1`,
+    ),
+    check(
+      'projet_seuils_avance_ordonnes',
+      sql`${t.avanceRemboursementDebut} >= 0 and ${t.avanceRemboursementDebut} < ${t.avanceRemboursementFin} and ${t.avanceRemboursementFin} <= 1`,
+    ),
   ],
 ).enableRLS()
 
@@ -249,6 +335,8 @@ export const lot = pgTable(
   },
   (t) => [
     unique('lot_code_unique').on(t.projetId, t.code),
+    /** Cible de la cle etrangere composite du releve : lot ET projet. */
+    unique('lot_id_projet_unique').on(t.id, t.projetId),
     unique('lot_rang_couleur_unique').on(t.projetId, t.rangCouleur),
     check('lot_budget_positif', sql`${t.budgetXof} >= 0`),
     check('lot_rang_couleur_borne', sql`${t.rangCouleur} between 0 and 7`),
@@ -410,6 +498,13 @@ export const releveJournalier = pgTable(
 
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
     modifieLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Revision de la saisie, horodatee par le telephone a chaque envoi. Une
+     * version plus ancienne qui arrive apres une plus recente — file hors
+     * ligne rejouee pendant que le chef renvoie en direct — est ignoree au
+     * lieu d'ecraser la recente.
+     */
+    revision: bigint({ mode: 'number' }).notNull().default(0),
   },
   (t) => [
     /**
@@ -420,6 +515,16 @@ export const releveJournalier = pgTable(
     uniqueIndex('releve_actif_unique')
       .on(t.lotId, t.date)
       .where(sql`statut <> 'RECTIFIE'`),
+    /**
+     * Le lot d'un releve appartient au projet du releve. Sans cette cle
+     * composite, rien n'interdisait en base un releve du projet B rattache a
+     * un lot du projet A : la regle ne vivait que dans le code applicatif.
+     */
+    foreignKey({
+      name: 'releve_lot_meme_projet',
+      columns: [t.lotId, t.projetId],
+      foreignColumns: [lot.id, lot.projetId],
+    }).onDelete('cascade'),
     index('releve_projet_date_idx').on(t.projetId, t.date),
     index('releve_statut_idx').on(t.statut),
     check(
@@ -455,6 +560,69 @@ export const releveQuantite = pgTable(
     unique('releve_quantite_unique').on(t.releveJournalierId, t.ligneQuantitatifId),
     index('releve_quantite_ligne_idx').on(t.ligneQuantitatifId),
     check('releve_quantite_positive', sql`${t.quantiteRealisee} >= 0`),
+  ],
+).enableRLS()
+
+/**
+ * Journal de chantier d'un releve : les coulages de beton et les livraisons
+ * de la journee. Ce ne sont pas des quantites du marche mais des faits
+ * traces : un coulage fonde la tracabilite du beton en place (classe,
+ * volume, bon de livraison de la centrale, essai d'affaissement au cone,
+ * eprouvettes prelevees) ; une livraison, la reception des materiaux et ses
+ * reserves. Geles avec le releve, comme ses quantites.
+ */
+export const releveCoulage = pgTable(
+  'releve_coulage',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    releveJournalierId: uuid()
+      .notNull()
+      .references(() => releveJournalier.id, { onDelete: 'cascade' }),
+    /** Ordre de saisie dans le releve. */
+    rang: smallint().notNull().default(0),
+    /** Element coule et sa position : « Voiles R+2, files A a C ». */
+    ouvrage: text().notNull(),
+    /** Classe de resistance, au format de la norme NF EN 206 : C25/30. */
+    classeBeton: text().notNull(),
+    volumeM3: numeric('volume_m3', { precision: 8, scale: 2, mode: 'number' }).notNull(),
+    bonLivraison: text(),
+    /** Affaissement au cone d'Abrams, en millimetres (NF EN 12350-2). */
+    affaissementMm: smallint(),
+    eprouvettes: smallint().notNull().default(0),
+  },
+  (t) => [
+    index('releve_coulage_releve_idx').on(t.releveJournalierId),
+    check('releve_coulage_volume', sql`${t.volumeM3} > 0 and ${t.volumeM3} <= 2000`),
+    check(
+      'releve_coulage_affaissement',
+      sql`${t.affaissementMm} is null or ${t.affaissementMm} between 0 and 300`,
+    ),
+    check('releve_coulage_eprouvettes', sql`${t.eprouvettes} between 0 and 60`),
+  ],
+).enableRLS()
+
+export const releveLivraison = pgTable(
+  'releve_livraison',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    releveJournalierId: uuid()
+      .notNull()
+      .references(() => releveJournalier.id, { onDelete: 'cascade' }),
+    /** Ordre de saisie dans le releve. */
+    rang: smallint().notNull().default(0),
+    designation: text().notNull(),
+    fournisseur: text(),
+    quantite: numeric({ precision: 14, scale: 3, mode: 'number' }).notNull(),
+    unite: uniteMesure().notNull(),
+    bonLivraison: text(),
+    /** Faux pour une livraison acceptee sous reserve, ou refusee. */
+    conforme: boolean().notNull().default(true),
+    reserve: text(),
+  },
+  (t) => [
+    index('releve_livraison_releve_idx').on(t.releveJournalierId),
+    check('releve_livraison_quantite', sql`${t.quantite} > 0`),
+    check('releve_livraison_reserve', sql`${t.conforme} or ${t.reserve} is not null`),
   ],
 ).enableRLS()
 
@@ -605,6 +773,58 @@ export const zoneTache = pgTable(
 ).enableRLS()
 
 /**
+ * Planning de reference : la version figee du planning contre laquelle se
+ * mesure la valeur planifiee.
+ *
+ * Sans reference, modifier le planning reecrivait la valeur planifiee de tout
+ * l'historique : allonger aujourd'hui une tache du gros oeuvre changeait le
+ * SPI publie dans le rapport du mois dernier, et la courbe en S n'etait plus
+ * opposable. La reference ne change que par une decision tracee — avenant,
+ * ordre de service — qui en fige une nouvelle version ; le planning courant,
+ * lui, se recale librement et sert a la projection.
+ */
+export const referencePlanning = pgTable(
+  'reference_planning',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    motif: text().notNull(),
+    geleLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    geleParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    /** Une seule reference active par projet : celle qui porte la VP. */
+    active: boolean().notNull().default(true),
+  },
+  (t) => [
+    unique('reference_numero_unique').on(t.projetId, t.numero),
+    uniqueIndex('reference_active_unique')
+      .on(t.projetId)
+      .where(sql`active`),
+  ],
+).enableRLS()
+
+/** Dates figees de chaque tache feuille dans une version de reference. */
+export const referenceTache = pgTable(
+  'reference_tache',
+  {
+    referenceId: uuid()
+      .notNull()
+      .references(() => referencePlanning.id, { onDelete: 'cascade' }),
+    tacheId: uuid()
+      .notNull()
+      .references(() => tache.id, { onDelete: 'cascade' }),
+    dateDebut: date().notNull(),
+    dureeJ: integer().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.referenceId, t.tacheId] }),
+    check('reference_tache_duree_positive', sql`${t.dureeJ} > 0`),
+  ],
+).enableRLS()
+
+/**
  * Cadrage photographique de reference.
  *
  * Deux photos du meme point de vue a deux dates sont comparables : c'est ce
@@ -711,6 +931,8 @@ export const alea = pgTable(
     impactDelaiJ: integer().notNull().default(0),
     impactCoutXof: bigint({ mode: 'number' }).notNull().default(0),
     statut: statutAlea().notNull().default('OUVERT'),
+    /** Pour une intemperie seulement : proposee, reconnue ou rejetee. */
+    decisionIntemperie: decisionIntemperie(),
     declareParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
     resoluLe: date(),
     creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -723,6 +945,66 @@ export const alea = pgTable(
     check('alea_impact_delai_positif', sql`${t.impactDelaiJ} >= 0`),
     check('alea_resolution_coherente', sql`${t.statut} <> 'SOLDE' or ${t.resoluLe} is not null`),
     check('alea_resolution_apres_fait', sql`${t.resoluLe} is null or ${t.resoluLe} >= ${t.date}`),
+    /** Une decision d'intemperie ne se pose que sur une intemperie, et toujours. */
+    check(
+      'alea_decision_intemperie_coherente',
+      sql`(${t.type} = 'INTEMPERIE') = (${t.decisionIntemperie} is not null)`,
+    ),
+  ],
+).enableRLS()
+
+/**
+ * Avenants au marche. Un avenant modifie le montant, le delai, ou les deux ;
+ * il augmente le marche, et non le cout reel de l'entreprise. Le montant et
+ * la fin contractuelle en vigueur se deduisent du marche initial et de ses
+ * avenants : le marche initial, lui, reste fige.
+ */
+export const avenant = pgTable(
+  'avenant',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    date: date().notNull(),
+    objet: text().notNull(),
+    /** Montant hors taxes, signe : un avenant peut aussi reduire le marche. */
+    montantXof: bigint({ mode: 'number' }).notNull().default(0),
+    delaiJ: integer().notNull().default(0),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('avenant_numero_unique').on(t.projetId, t.numero),
+    check('avenant_delai_positif', sql`${t.delaiJ} >= 0`),
+  ],
+).enableRLS()
+
+/**
+ * Ordres de service. Un ordre d'arret suspend le delai jusqu'a l'ordre de
+ * reprise qui le suit ; un ordre de prolongation l'allonge de son nombre de
+ * jours. Les autres ordres sont consignes sans effet sur le delai.
+ */
+export const ordreService = pgTable(
+  'ordre_service',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projetId: uuid()
+      .notNull()
+      .references(() => projet.id, { onDelete: 'cascade' }),
+    numero: smallint().notNull(),
+    date: date().notNull(),
+    type: typeOrdreService().notNull(),
+    objet: text().notNull(),
+    /** Jours de prolongation, pour un ordre de type PROLONGATION. */
+    delaiJ: integer().notNull().default(0),
+    creeParId: uuid().references(() => utilisateur.id, { onDelete: 'set null' }),
+    creeLe: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('ordre_service_numero_unique').on(t.projetId, t.numero),
+    check('ordre_service_delai_positif', sql`${t.delaiJ} >= 0`),
   ],
 ).enableRLS()
 
@@ -927,3 +1209,5 @@ export type TypeLiaison = (typeof typeLiaison.enumValues)[number]
 export type StatutReleve = (typeof statutReleve.enumValues)[number]
 export type TypeAlea = (typeof typeAlea.enumValues)[number]
 export type StatutAlea = (typeof statutAlea.enumValues)[number]
+export type DecisionIntemperie = (typeof decisionIntemperie.enumValues)[number]
+export type TypeOrdreService = (typeof typeOrdreService.enumValues)[number]

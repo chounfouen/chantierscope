@@ -28,6 +28,7 @@ export function planningReference(): Planning {
       dureeContractuelleJ: 35,
       montantMarcheXof: 10_000_000,
       tauxPenaliteJournaliere: 0.001,
+      plafondPenalite: 0.1,
     },
     lots: [{ id: 'lot', code: '01', nom: 'Lot unique', rangCouleur: 0 }],
     taches: [

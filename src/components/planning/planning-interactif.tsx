@@ -36,12 +36,19 @@ export function PlanningInteractif({
   grisees,
   editable,
   simulationPermise,
+  margesRecalees = {},
 }: {
   projetId: string
   donnees: DonneesGantt
   grisees: JourneeGrisee[]
   editable: boolean
   simulationPermise: boolean
+  /**
+   * Marge totale de chaque tache dans le planning recale a la date d'etat,
+   * mesuree contre la fin contractuelle : negative, elle chiffre le retard a
+   * rattraper sur la tache.
+   */
+  margesRecalees?: Record<string, number>
 }) {
   const router = useRouter()
   const [selection, setSelection] = useState<string | null>(null)
@@ -70,6 +77,7 @@ export function PlanningInteractif({
             id={element.id}
             editable={editable}
             simulationPermise={simulationPermise}
+            margeRecalee={margesRecalees[element.id]}
           />
         ) : (
           <div className="grid justify-items-center gap-3 py-6 text-center">
@@ -95,12 +103,14 @@ function Panneau({
   id,
   editable,
   simulationPermise,
+  margeRecalee,
 }: {
   projetId: string
   donnees: DonneesGantt
   id: string
   editable: boolean
   simulationPermise: boolean
+  margeRecalee: number | undefined
 }) {
   const router = useRouter()
   const [enCours, demarrer] = useTransition()
@@ -197,6 +207,14 @@ function Panneau({
         <dd>
           totale {e.margeTotaleJ ?? '—'} j, libre {e.margeLibreJ ?? '—'} j
         </dd>
+        {margeRecalee !== undefined && (
+          <>
+            <dt className="text-muted-foreground">À la date d’état</dt>
+            <dd className={margeRecalee < 0 ? 'text-etat-critique font-bold' : undefined}>
+              {margeRecalee < 0 ? `${-margeRecalee} j à rattraper` : `marge de ${margeRecalee} j`}
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">Avancement</dt>
         <dd>{pourcent(e.avancement)}</dd>
         <dt className="text-muted-foreground">Budget</dt>

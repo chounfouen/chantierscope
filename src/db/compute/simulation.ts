@@ -45,6 +45,8 @@ export type ContexteSimulation = {
   dureeContractuelleJ: number
   montantMarcheXof: number
   tauxPenaliteJournaliere: number
+  /** Plafond du cumul des penalites, en fraction du marche. Absent : aucun. */
+  plafondPenalite?: number
 }
 
 /* -------------------------------------------------------------------------- */
@@ -115,11 +117,17 @@ export function simuler(
   const retardReferenceJ = Math.max(0, dureeReferenceJ - contexte.dureeContractuelleJ)
   const retardJ = Math.max(0, dureeSimuleeJ - contexte.dureeContractuelleJ)
 
-  const penalite = penaliteXof(retardJ, contexte.tauxPenaliteJournaliere, contexte.montantMarcheXof)
+  const penalite = penaliteXof(
+    retardJ,
+    contexte.tauxPenaliteJournaliere,
+    contexte.montantMarcheXof,
+    contexte.plafondPenalite,
+  )
   const penaliteReference = penaliteXof(
     retardReferenceJ,
     contexte.tauxPenaliteJournaliere,
     contexte.montantMarcheXof,
+    contexte.plafondPenalite,
   )
 
   /* --- Jalons -------------------------------------------------------------- */

@@ -10,7 +10,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { soumettreAction, validerAction } from '@/app/(app)/projet/[id]/releve/actions'
 import { Button } from '@/components/ui/button'
@@ -21,13 +21,18 @@ export function ActionsReleve({
   projetId,
   releveId,
   actions,
+  version,
 }: {
   projetId: string
   releveId: string
   actions: ActionReleve[]
+  /** Version affichee, que la validation exige inchangee. */
+  version: string
 }) {
   const router = useRouter()
   const [enCours, demarrer] = useTransition()
+  /** La validation gele le releve : elle se confirme d'un second geste. */
+  const [confirmation, setConfirmation] = useState(false)
 
   function executer(action: (id: string) => Promise<{ ok: boolean; message: string }>) {
     demarrer(async () => {
@@ -57,12 +62,28 @@ export function ActionsReleve({
           Soumettre
         </Button>
       )}
-      {actions.includes('valider') && (
-        <Button className="h-11" disabled={enCours} onClick={() => executer(validerAction)}>
-          <Icone.valide className="size-4" />
-          Valider
-        </Button>
-      )}
+      {actions.includes('valider') &&
+        (confirmation ? (
+          <span className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirmer">
+            <span className="text-sm">Une fois validé, le relevé ne se modifie plus.</span>
+            <Button
+              className="h-11"
+              disabled={enCours}
+              onClick={() => executer((id) => validerAction(id, version))}
+            >
+              <Icone.valide className="size-4" />
+              Confirmer la validation
+            </Button>
+            <Button variant="outline" className="h-11" onClick={() => setConfirmation(false)}>
+              Annuler
+            </Button>
+          </span>
+        ) : (
+          <Button className="h-11" disabled={enCours} onClick={() => setConfirmation(true)}>
+            <Icone.valide className="size-4" />
+            Valider
+          </Button>
+        ))}
       {actions.includes('rectifier') && (
         <Button asChild variant="outline" className="h-11">
           <Link href={`${base}/rectifier`}>

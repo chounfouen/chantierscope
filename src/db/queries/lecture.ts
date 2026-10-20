@@ -13,7 +13,7 @@
 
 import { sql } from 'drizzle-orm'
 import type { db as instanceDb } from '@/db/index'
-import type { Nature, Unite } from '@/db/schema'
+import type { Nature, Role, Unite } from '@/db/schema'
 
 type Db = ReturnType<typeof instanceDb>
 
@@ -361,6 +361,48 @@ export async function chargerCourbeS(
  * Une lecture indexee par page, ce qui est le prix d'une revocation
  * immediate.
  */
+/**
+ * Etat du compte tel qu'il est en base, relu a chaque requete par la garde.
+ *
+ * Le jeton de session porte le role et les projets au moment de la
+ * connexion, pour douze heures. Sans relecture, un compte desactive, retrogade
+ * ou retire d'un projet gardait ses droits jusqu'a l'expiration du jeton dans
+ * les Server Actions et les routes, qui ne passent pas par la mise en page.
+ */
+export async function etatCompte(
+  db: Db,
+  utilisateurId: string,
+): Promise<{
+  actif: boolean
+  role: Role
+  projetIds: string[]
+  sessionsValidesApres: number
+} | null> {
+  const lignes = await db.execute<{
+    actif: boolean
+    role: Role
+    projetIds: string[]
+    sessionsValidesApres: number
+  }>(sql`
+    select u.actif, u.role,
+           coalesce(array_agg(a.projet_id::text) filter (where a.projet_id is not null), '{}')
+             as "projetIds",
+           (extract(epoch from u.sessions_valides_apres) * 1000)::float8
+             as "sessionsValidesApres"
+      from utilisateur u
+      left join acces_projet a on a.utilisateur_id = u.id
+     where u.id = ${utilisateurId}::uuid
+     group by u.id`)
+  const l = lignes[0]
+  if (!l) return null
+  return {
+    actif: l.actif,
+    role: l.role,
+    projetIds: [...l.projetIds],
+    sessionsValidesApres: l.sessionsValidesApres,
+  }
+}
+
 export async function compteValide(db: Db, utilisateurId: string): Promise<boolean> {
   const lignes = await db.execute<{ actif: boolean }>(sql`
     select actif from utilisateur where id = ${utilisateurId}::uuid`)

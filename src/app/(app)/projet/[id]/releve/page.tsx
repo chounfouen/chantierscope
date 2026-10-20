@@ -3,6 +3,7 @@ import { TitrePage } from '@/components/coquille/titre-page'
 import Link from 'next/link'
 import { FilAriane } from '@/components/coquille/fil-ariane'
 import { FileAttente } from '@/components/saisie/file-attente'
+import { ValidationGroupee } from '@/components/saisie/validation-groupee'
 import { PastilleStatut } from '@/components/saisie/statut-releve'
 import { Button } from '@/components/ui/button'
 import { db } from '@/db/index'
@@ -10,13 +11,20 @@ import {
   chargerJournal,
   chargerReferentielSaisie,
   journeesDeReleve,
+  relevesAValider,
   type FiltresJournal,
 } from '@/db/queries/saisie'
 import { serieDeReleves } from '@/db/compute/serie'
 import { statutReleve, type StatutReleve } from '@/db/schema'
 import { STATUT_RELEVE } from '@/lib/etats'
 import { aujourdhui, dateLongue } from '@/lib/format'
-import { exigerPage, habilite, PEUT_CONSULTER_JOURNAL, PEUT_SAISIR } from '@/lib/garde'
+import {
+  exigerPage,
+  habilite,
+  PEUT_CONSULTER_JOURNAL,
+  PEUT_SAISIR,
+  PEUT_VALIDER,
+} from '@/lib/garde'
 import { Icone } from '@/lib/icones'
 import { DateSimple } from '@/lib/releve'
 import { cn } from '@/lib/utils'
@@ -60,9 +68,11 @@ export default async function JournalDeChantier({
   const filtres = lireFiltres(await searchParams)
 
   const base = db()
-  const [journal, referentiel] = await Promise.all([
+  const peutValider = habilite(utilisateur.role, PEUT_VALIDER)
+  const [journal, referentiel, aValider] = await Promise.all([
     chargerJournal(base, id, filtres),
     chargerReferentielSaisie(base, id),
+    peutValider ? relevesAValider(base, id) : Promise.resolve([]),
   ])
   const { entrees, tronque, enAttente } = journal
   const peutSaisir = habilite(utilisateur.role, PEUT_SAISIR)
@@ -148,6 +158,8 @@ export default async function JournalDeChantier({
       </header>
 
       {peutSaisir && <FileAttente projetId={id} utilisateurId={utilisateur.id} />}
+
+      {peutValider && <ValidationGroupee projetId={id} releves={aValider} />}
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-2" aria-label="Filtres">
         <label className="grid gap-1.5 text-xs">

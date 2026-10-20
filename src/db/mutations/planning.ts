@@ -24,6 +24,7 @@ import {
   type Planning,
 } from '@/db/queries/planning'
 import { recompute, type Recalcul } from '@/db/recompute'
+import { verrouillerProjet } from '@/db/verrou'
 import { dateCourte } from '@/lib/format'
 import type { TypeLiaison } from '@/db/schema'
 
@@ -137,6 +138,7 @@ export async function modifierTachePlanning(
 ): Promise<ResultatEdition> {
   return db.transaction(async (tx) => {
     await poserAuteur(tx, auteurId)
+    await verrouillerProjet(tx, projetId)
     const planning = await chargerPlanning(tx as unknown as Db, projetId)
     const t = tacheFeuille(planning, tacheId)
     const origine = planning.projet.dateOrdreService
@@ -206,6 +208,7 @@ export async function ajouterLiaison(
 ): Promise<ResultatEdition & { liaisonId: string }> {
   return db.transaction(async (tx) => {
     await poserAuteur(tx, auteurId)
+    await verrouillerProjet(tx, projetId)
     const planning = await chargerPlanning(tx as unknown as Db, projetId)
     tacheFeuille(planning, l.amontId)
     tacheFeuille(planning, l.avalId)
@@ -256,6 +259,7 @@ export async function supprimerLiaison(
 ): Promise<ResultatEdition> {
   return db.transaction(async (tx) => {
     await poserAuteur(tx, auteurId)
+    await verrouillerProjet(tx, projetId)
     const planning = await chargerPlanning(tx as unknown as Db, projetId)
     if (!planning.liaisons.some((l) => l.id === liaisonId)) {
       throw new RefusMetier('INTROUVABLE', 'Liaison introuvable dans ce projet.')
@@ -304,4 +308,50 @@ export async function supprimerScenario(
 ): Promise<void> {
   await db.execute(sql`
     delete from scenario_simulation where id = ${scenarioId}::uuid and projet_id = ${projetId}::uuid`)
+}
+
+/* -------------------------------------------------------------------------- */
+/* Planning de reference                                                      */
+/* -------------------------------------------------------------------------- */
+
+export type ResultatReference = { numero: number; recalcul: Recalcul }
+
+/**
+ * Fige le planning courant comme nouvelle reference, et rend la precedente
+ * inactive. La valeur planifiee de TOUT l'historique se mesure ensuite sur
+ * elle : l'acte est donc reserve aux decisions contractuelles — avenant,
+ * ordre de service de prolongation — et toujours motive.
+ *
+ * Les versions precedentes sont conservees : elles disent contre quoi chaque
+ * rapport passe a ete etabli.
+ */
+export async function figerReference(
+  db: Db,
+  projetId: string,
+  motif: string,
+  auteurId: string,
+): Promise<ResultatReference> {
+  return db.transaction(async (tx) => {
+    await poserAuteur(tx, auteurId)
+    await verrouillerProjet(tx, projetId)
+
+    await tx.execute(sql`
+      update reference_planning set active = false
+       where projet_id = ${projetId}::uuid and active`)
+    const [nouvelle] = await tx.execute<{ id: string; numero: number }>(sql`
+      insert into reference_planning (projet_id, numero, motif, gele_par_id)
+      select ${projetId}::uuid, coalesce(max(numero), 0) + 1, ${motif}, ${auteurId}::uuid
+        from reference_planning where projet_id = ${projetId}::uuid
+      returning id, numero`)
+    if (!nouvelle) throw new Error('Création de la référence impossible.')
+
+    await tx.execute(sql`
+      insert into reference_tache (reference_id, tache_id, date_debut, duree_j)
+      select ${nouvelle.id}::uuid, t.id, t.date_debut_prevue, t.duree_prevue_j
+        from tache t join lot l on l.id = t.lot_id
+       where l.projet_id = ${projetId}::uuid and t.parent_id is not null`)
+
+    const recalcul = await recompute(tx as unknown as Db, projetId)
+    return { numero: Number(nouvelle.numero), recalcul }
+  })
 }

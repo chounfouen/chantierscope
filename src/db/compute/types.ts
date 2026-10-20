@@ -36,6 +36,14 @@ export type LiaisonReseau = {
 export type Reseau = {
   taches: readonly TacheReseau[]
   liaisons: readonly LiaisonReseau[]
+  /**
+   * Date butoir du reseau, dernier jour admis, bornes incluses : en general la
+   * fin contractuelle. Donnee, la passe arriere part d'elle et non de la fin
+   * calculee : un reseau en retard porte alors des marges NEGATIVES, qui
+   * chiffrent ce qu'il faut rattraper sur chaque tache. Absente, la passe
+   * arriere part de la fin du reseau, et les marges sont positives ou nulles.
+   */
+  finButoir?: number
 }
 
 /* -------------------------------------------------------------------------- */

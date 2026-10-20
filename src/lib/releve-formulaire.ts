@@ -9,10 +9,48 @@
  * Module pur, sans React : il se teste sans navigateur.
  */
 
-import type { TypeAlea } from '@/db/schema'
+import type { TypeAlea, Unite } from '@/db/schema'
 import { lireNombre, type ReleveSaisi } from '@/lib/releve'
 
 export type EtatQuantite = { quantite: string; commentaire: string }
+
+export type EtatCoulage = {
+  ouvrage: string
+  classeBeton: string
+  volumeM3: string
+  bonLivraison: string
+  affaissementMm: string
+  eprouvettes: string
+}
+
+export type EtatLivraison = {
+  designation: string
+  fournisseur: string
+  quantite: string
+  unite: Unite
+  bonLivraison: string
+  conforme: boolean
+  reserve: string
+}
+
+export const COULAGE_VIDE: EtatCoulage = {
+  ouvrage: '',
+  classeBeton: 'C25/30',
+  volumeM3: '',
+  bonLivraison: '',
+  affaissementMm: '',
+  eprouvettes: '0',
+}
+
+export const LIVRAISON_VIDE: EtatLivraison = {
+  designation: '',
+  fournisseur: '',
+  quantite: '',
+  unite: 'T',
+  bonLivraison: '',
+  conforme: true,
+  reserve: '',
+}
 
 export type EtatFormulaire = {
   id: string
@@ -34,6 +72,12 @@ export type EtatFormulaire = {
   /** Par identifiant de ligne du quantitatif. */
   quantites: Record<string, EtatQuantite>
   observations: string
+  /**
+   * Journal de la journee. Facultatifs dans le type : un brouillon garde sur
+   * le telephone avant leur introduction ne les porte pas.
+   */
+  coulages?: EtatCoulage[]
+  livraisons?: EtatLivraison[]
 
   aleaDeclare: boolean
   alea: {
@@ -70,6 +114,8 @@ export function etatVierge(id: string, date: string, lotId: string): EtatFormula
     heuresTravaillees: '',
     quantites: {},
     observations: '',
+    coulages: [],
+    livraisons: [],
     aleaDeclare: false,
     alea: { ...ALEA_VIDE },
   }
@@ -102,6 +148,23 @@ export function etatDepuisReleve(
       ]),
     ),
     observations: r.observations ?? '',
+    coulages: r.coulages.map((c) => ({
+      ouvrage: c.ouvrage,
+      classeBeton: c.classeBeton,
+      volumeM3: enTexte(c.volumeM3),
+      bonLivraison: c.bonLivraison ?? '',
+      affaissementMm: c.affaissementMm === null ? '' : String(c.affaissementMm),
+      eprouvettes: String(c.eprouvettes),
+    })),
+    livraisons: r.livraisons.map((l) => ({
+      designation: l.designation,
+      fournisseur: l.fournisseur ?? '',
+      quantite: enTexte(l.quantite),
+      unite: l.unite,
+      bonLivraison: l.bonLivraison ?? '',
+      conforme: l.conforme,
+      reserve: l.reserve ?? '',
+    })),
     aleaDeclare: r.alea !== null,
     alea: r.alea
       ? {
@@ -127,6 +190,10 @@ export function enTexte(v: number): string {
 function nombre(saisie: string): number | null {
   if (saisie.trim() === '') return null
   return lireNombre(saisie) ?? Number.NaN
+}
+
+function texteOuNul(saisie: string): string | null {
+  return saisie.trim() === '' ? null : saisie.trim()
 }
 
 /** Zero pour un champ vide : un effectif non renseigne est un effectif nul. */
@@ -167,6 +234,25 @@ export function versReleve(e: EtatFormulaire, soumettre: boolean): unknown {
     heuresTravaillees: nombreOuZero(e.heuresTravaillees),
     quantites: e.journeeTravaillee ? quantites : [],
     observations: e.observations.trim() === '' ? null : e.observations.trim(),
+    coulages: e.journeeTravaillee
+      ? (e.coulages ?? []).map((c) => ({
+          ouvrage: c.ouvrage.trim(),
+          classeBeton: c.classeBeton.trim(),
+          volumeM3: nombre(c.volumeM3),
+          bonLivraison: texteOuNul(c.bonLivraison),
+          affaissementMm: nombre(c.affaissementMm),
+          eprouvettes: nombreOuZero(c.eprouvettes),
+        }))
+      : [],
+    livraisons: (e.livraisons ?? []).map((l) => ({
+      designation: l.designation.trim(),
+      fournisseur: texteOuNul(l.fournisseur),
+      quantite: nombre(l.quantite),
+      unite: l.unite,
+      bonLivraison: texteOuNul(l.bonLivraison),
+      conforme: l.conforme,
+      reserve: l.conforme ? null : texteOuNul(l.reserve),
+    })),
     alea: e.aleaDeclare
       ? {
           type: e.alea.type,

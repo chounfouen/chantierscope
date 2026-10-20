@@ -138,13 +138,33 @@ export async function synchroniser(
   utilisateurId: string,
   envoyer: (projetId: string, r: ReleveSaisi) => Promise<IssueEnvoi> = envoyerReleve,
 ): Promise<BilanSynchronisation> {
+  // Deux onglets ouverts sur le journal synchroniseraient la meme file en
+  // parallele : le verrou du navigateur les fait passer l'un apres l'autre.
+  if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+    return navigator.locks.request('chantierscope-synchronisation', () =>
+      synchroniserSansVerrou(projetId, utilisateurId, envoyer),
+    )
+  }
+  return synchroniserSansVerrou(projetId, utilisateurId, envoyer)
+}
+
+async function synchroniserSansVerrou(
+  projetId: string,
+  utilisateurId: string,
+  envoyer: (projetId: string, r: ReleveSaisi) => Promise<IssueEnvoi>,
+): Promise<BilanSynchronisation> {
   const bilan: BilanSynchronisation = { envoyes: 0, refuses: 0, restants: 0, interrompue: false }
   const entrees = (await lister(projetId, utilisateurId)).filter((e) => e.etat === 'en_attente')
 
   for (const [i, e] of entrees.entries()) {
     const issue = await envoyer(projetId, e.releve)
     if (issue.issue === 'enregistre') {
-      await bd().releves.delete(e.id)
+      // Une version plus recente du meme releve a pu etre remise en file
+      // pendant l'envoi : elle reste, et partira au prochain passage.
+      await bd().transaction('rw', bd().releves, async () => {
+        const actuelle = await bd().releves.get(e.id)
+        if (actuelle?.releve.revision === e.releve.revision) await bd().releves.delete(e.id)
+      })
       bilan.envoyes++
       continue
     }

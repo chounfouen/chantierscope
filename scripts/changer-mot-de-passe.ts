@@ -31,7 +31,8 @@ if (motDePasse.length < 12) {
 const { client, fermer } = dbScript()
 try {
   const lignes = await client`
-    update utilisateur set mot_de_passe_hash = ${bcrypt.hashSync(motDePasse, 12)}
+    update utilisateur set mot_de_passe_hash = ${bcrypt.hashSync(motDePasse, 12)},
+                           sessions_valides_apres = now()
      where lower(email) = lower(${email}) returning email`
   console.log(
     lignes.length === 1 ? `Mot de passe change pour ${email}.` : `Compte introuvable : ${email}.`,

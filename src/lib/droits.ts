@@ -47,6 +47,13 @@ export const PEUT_VALIDER: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
 export const PEUT_PLANIFIER: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
 export const PEUT_OUVRIR_NON_CONFORMITE: readonly Role[] = ['MOE', 'CONDUCTEUR', 'ADMIN']
 export const PEUT_ADMINISTRER: readonly Role[] = ['ADMIN']
+/**
+ * Reconnaitre une journee d'intemperie se fait contradictoirement : par le
+ * maitre d'oeuvre, ou par le conducteur de travaux qui la consigne.
+ */
+export const PEUT_STATUER_INTEMPERIE: readonly Role[] = ['MOE', 'CONDUCTEUR', 'ADMIN']
+/** Avenants et ordres de service : actes du marche, saisis par le conducteur. */
+export const PEUT_GERER_CONTRAT: readonly Role[] = ['CONDUCTEUR', 'ADMIN']
 
 /**
  * Roles autorises a voir les donnees internes de l'entreprise : couts,

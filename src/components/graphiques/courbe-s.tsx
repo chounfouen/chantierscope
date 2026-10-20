@@ -261,7 +261,8 @@ export function CourbeS({
                 strokeDasharray="4 3"
               />
             </svg>
-            Projection au rythme constaté, achèvement vers le {dateLongue(finProjetee.date)}
+            Projection selon le planning recalé à la date d’état, achèvement le{' '}
+            {dateLongue(finProjetee.date)}
           </span>
         )}
       </figcaption>

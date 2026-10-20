@@ -1,0 +1,1 @@
+ALTER TABLE "releve_journalier" ADD COLUMN "revision" bigint DEFAULT 0 NOT NULL;

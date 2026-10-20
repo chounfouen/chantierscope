@@ -15,7 +15,7 @@
  */
 
 import { z } from 'zod'
-import { typeAlea } from '@/db/schema'
+import { typeAlea, uniteMesure } from '@/db/schema'
 
 /* -------------------------------------------------------------------------- */
 /* Briques                                                                    */
@@ -143,8 +143,66 @@ export const EtapeQuantites = z.object({
     ),
 })
 
+/** Classe de resistance du beton, NF EN 206 : C25/30, C30/37. */
+export const CLASSE_BETON = /^C\d{1,3}\/\d{1,3}$/
+
+const TexteCourt = z.string().trim().max(200)
+const TexteFacultatif = TexteCourt.nullable()
+
+export const CoulageSaisi = z.object({
+  ouvrage: TexteCourt.min(2, 'Désigner l’ouvrage coulé.'),
+  classeBeton: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(CLASSE_BETON, 'Classe attendue au format C25/30.'),
+  volumeM3: z
+    .number('Volume attendu.')
+    .positive('Un volume coulé est strictement positif.')
+    .max(2000)
+    .refine((v) => auPlusDecimales(v, 2), 'Au plus 2 décimales.'),
+  bonLivraison: TexteFacultatif,
+  /** Essai au cone d'Abrams, facultatif. */
+  affaissementMm: z.number().int().min(0).max(300).nullable(),
+  eprouvettes: z.number().int().min(0).max(60),
+})
+
+export const LivraisonSaisie = z
+  .object({
+    designation: TexteCourt.min(2, 'Désigner le matériau livré.'),
+    fournisseur: TexteFacultatif,
+    quantite: z
+      .number('Quantité attendue.')
+      .positive('Une quantité livrée est strictement positive.')
+      .max(99_999_999_999)
+      .refine(
+        (v) => auPlusDecimales(v, DECIMALES_QUANTITE),
+        `Au plus ${DECIMALES_QUANTITE} décimales.`,
+      ),
+    unite: z.enum(uniteMesure.enumValues),
+    bonLivraison: TexteFacultatif,
+    conforme: z.boolean(),
+    reserve: z.string().trim().max(1000).nullable(),
+  })
+  .superRefine((l, ctx) => {
+    if (!l.conforme && (l.reserve === null || l.reserve === '')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reserve'],
+        message: 'Une livraison non conforme porte sa réserve.',
+      })
+    }
+  })
+
+/**
+ * Observations et journal de la journee. Les deux listes ont une valeur par
+ * defaut : un releve mis en file hors ligne avant leur introduction reste
+ * recevable.
+ */
 export const EtapeObservations = z.object({
   observations: z.string().trim().max(4000).nullable(),
+  coulages: z.array(CoulageSaisi).max(20).default([]),
+  livraisons: z.array(LivraisonSaisie).max(50).default([]),
 })
 
 export const AleaSaisi = z.object({
@@ -173,6 +231,11 @@ export const ReleveSaisi = z
     id: Identifiant,
     /** Vrai pour soumettre a la validation, faux pour garder un brouillon. */
     soumettre: z.boolean(),
+    /**
+     * Horodatage de la saisie par le telephone, en millisecondes. Facultatif
+     * pour les releves mis en file avant son introduction.
+     */
+    revision: z.number().int().nonnegative().optional(),
   })
   .extend(EtapeDateLot.shape)
   .extend(EtapeMeteo.shape)
@@ -188,11 +251,20 @@ export const ReleveSaisi = z
         message: 'Une journée non travaillée ne porte aucune quantité réalisée.',
       })
     }
+    if (!r.journeeTravaillee && r.coulages.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['coulages'],
+        message: 'Une journée non travaillée ne porte aucun coulage.',
+      })
+    }
   })
 
 export type ReleveSaisi = z.infer<typeof ReleveSaisi>
 export type AleaSaisi = z.infer<typeof AleaSaisi>
 export type QuantiteSaisie = z.infer<typeof QuantiteSaisie>
+export type CoulageSaisi = z.infer<typeof CoulageSaisi>
+export type LivraisonSaisie = z.infer<typeof LivraisonSaisie>
 
 /** Les etapes du formulaire, dans l'ordre, avec le schema qui les valide. */
 export const ETAPES = [
@@ -200,7 +272,7 @@ export const ETAPES = [
   { cle: 'meteo', titre: 'Météo', schema: EtapeMeteo },
   { cle: 'moyens', titre: 'Effectifs et heures', schema: EtapeMoyens },
   { cle: 'quantites', titre: 'Quantités du jour', schema: EtapeQuantites },
-  { cle: 'observations', titre: 'Observations', schema: EtapeObservations },
+  { cle: 'observations', titre: 'Observations et journal', schema: EtapeObservations },
   { cle: 'alea', titre: 'Aléa éventuel', schema: EtapeAlea },
 ] as const
 

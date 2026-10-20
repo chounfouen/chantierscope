@@ -30,9 +30,11 @@ import {
   encadrementNecessaire,
   indicateurs,
 } from '@/db/compute/evm'
+import { projeterReseau, type TacheSuivie } from '@/db/compute/tableau'
 import type { Reseau, ResultatAvancement } from '@/db/compute/types'
 import type { db as instanceDb } from '@/db/index'
 import { chargerContexte, type Contexte } from '@/db/queries/contexte'
+import { verrouillerProjet } from '@/db/verrou'
 
 type Db = ReturnType<typeof instanceDb>
 /** Une transaction expose la meme surface que l'instance pour ce qui nous sert. */
@@ -44,13 +46,22 @@ type Executeur = Db | Parameters<Parameters<Db['transaction']>[0]>[0]
 
 export type OptionsRecalcul = {
   /**
-   * Date a laquelle on se place pour mesurer l'avancement.
+   * Date d'etat : date a laquelle on se place pour mesurer l'avancement.
    *
-   * Par defaut la date du jour, bornee a l'intervalle contractuel. Un
-   * chantier acheve ne continue pas a accumuler de la valeur planifiee, et un
-   * chantier non demarre n'en a pas encore.
+   * Par defaut, la date du dernier releve VALIDE, et non la date du jour.
+   * Seuls les releves valides alimentent les indicateurs : se placer au-dela
+   * ferait monter la valeur planifiee sur des journees dont la valeur acquise
+   * n'est pas encore connue, et le SPI baisserait chaque jour sans releve
+   * (0,880 au 30 septembre, 0,767 vingt jours plus tard, sans un seul fait
+   * nouveau). L'absence de releve est signalee par une alerte.
+   *
+   * La date est bornee a l'ordre de service et a la date du jour, mais plus a
+   * la fin contractuelle : un chantier en retard doit continuer a etre mesure
+   * pendant la periode de penalites.
    */
   dateAnalyse?: string
+  /** Date du jour, injectable pour les tests. Par defaut, l'horloge. */
+  aujourdhui?: string
 }
 
 export type Recalcul = {
@@ -80,6 +91,8 @@ export async function recompute(
   options: OptionsRecalcul = {},
 ): Promise<Recalcul> {
   const debut = Date.now()
+  // Reentrant : sans effet si l'appelant l'a deja pose en tete de transaction.
+  await verrouillerProjet(executeur, projetId)
   const contexte = await chargerContexte(executeur as Db, projetId)
   const calcul = calculer(contexte, options)
 
@@ -153,10 +166,11 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
   const { projet, lots, taches, liaisons, lignes } = contexte
 
   const origine = projet.dateOrdreService
+  const aujourdhui = options.aujourdhui ?? formatISO(new Date(), { representation: 'date' })
   const dateAnalyse = bornerDateAnalyse(
-    options.dateAnalyse ?? formatISO(new Date(), { representation: 'date' }),
+    options.dateAnalyse ?? dateEtatParDefaut(contexte),
     origine,
-    projet.dateFinContractuelle,
+    aujourdhui,
   )
   const jourAnalyse = jourDepuis(origine, dateAnalyse)
 
@@ -248,6 +262,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
     jourAnalyse,
     feuilles,
     lignes,
+    liaisons,
   })
 
   /* --- Synthese a la date d'analyse ---------------------------------------- */
@@ -269,6 +284,7 @@ export function calculer(contexte: Contexte, options: OptionsRecalcul = {}): Cal
     dureeContractuelleJ: projet.dureeContractuelleJ,
     montantMarcheXof: projet.montantMarcheXof,
     tauxPenaliteJournaliere: projet.tauxPenaliteJournaliere,
+    plafondPenalite: projet.plafondPenalite,
   })
 
   void lots
@@ -316,6 +332,7 @@ function construireInstantanes(
     jourAnalyse: number
     feuilles: Contexte['taches']
     lignes: Contexte['lignes']
+    liaisons: Contexte['liaisons']
   },
 ): Instantane[] {
   const { projet, lots } = contexte
@@ -383,6 +400,21 @@ function construireInstantanes(
     }
   }
 
+  /*
+   * Dates reelles constatees au fil des jours, pour rejouer le reseau a
+   * chaque date : debut au premier jour d'avancement, fin au jour ou la tache
+   * atteint cent pour cent. Une date reelle enregistree en base prime des
+   * qu'elle est atteinte.
+   */
+  const debutReelParTache = new Map<string, number>()
+  const finReelleParTache = new Map<string, number>()
+  const liaisonsReseau = p.liaisons.map((l) => ({
+    amont: l.amont,
+    aval: l.aval,
+    type: l.type,
+    decalage: l.decalage,
+  }))
+
   /* Cumuls de moyens, qui ne redescendent jamais. */
   const heuresParLot = new Map<string, number>()
   const encadrementParLot = new Map<string, number>()
@@ -412,6 +444,7 @@ function construireInstantanes(
     /* Avancement de chaque tache a cette date, methode appliquee. */
     const vaParLot = new Map<string, number>()
     const vpParLot = new Map<string, number>()
+    const suivies: TacheSuivie[] = []
 
     for (const t of p.feuilles) {
       const lignesTache = lignesParTache.get(t.id) ?? []
@@ -428,8 +461,35 @@ function construireInstantanes(
         j,
       )
       vaParLot.set(t.lotId, (vaParLot.get(t.lotId) ?? 0) + a.valeurAcquise)
+      const ref = contexte.reference.get(t.id)
 
-      const prevu = avancementPrevu({ debut: debutTache, duree: t.dureePrevueJ }, j)
+      if (a.avancement > 1e-9 && !debutReelParTache.has(t.id)) debutReelParTache.set(t.id, j)
+      if (a.avancement >= 1 - 1e-6 && !finReelleParTache.has(t.id)) finReelleParTache.set(t.id, j)
+      const debutBase = t.dateDebutReelle === null ? null : jourDepuis(p.origine, t.dateDebutReelle)
+      const finBase = t.dateFinReelle === null ? null : jourDepuis(p.origine, t.dateFinReelle)
+      suivies.push({
+        id: t.id,
+        codeWbs: t.codeWbs,
+        nom: t.nom,
+        debut: debutTache,
+        duree: t.dureePrevueJ,
+        debutImpose: t.debutImpose === null ? null : jourDepuis(p.origine, t.debutImpose),
+        debutReel:
+          debutBase !== null && debutBase <= j ? debutBase : (debutReelParTache.get(t.id) ?? null),
+        finReelle:
+          finBase !== null && finBase <= j ? finBase : (finReelleParTache.get(t.id) ?? null),
+        avancement: a.avancement,
+        critique: false,
+      })
+
+      // La valeur planifiee se mesure sur la reference figee, et non sur le
+      // planning courant : recaler le planning ne reecrit pas l'historique.
+      const prevu = avancementPrevu(
+        ref
+          ? { debut: jourDepuis(p.origine, ref.debut), duree: ref.duree }
+          : { debut: debutTache, duree: t.dureePrevueJ },
+        j,
+      )
       vpParLot.set(t.lotId, (vpParLot.get(t.lotId) ?? 0) + prevu * a.budget)
     }
 
@@ -471,16 +531,19 @@ function construireInstantanes(
 
     const crProjet = crLotsTotal + (j + 1) * COUT.fraisChantierJour + aleasSansLotCumul
     const spi = vpTotal > 0 ? vaTotal / vpTotal : null
+
+    /*
+     * Fin projetee : le reseau rejoue a cette date, comme au tableau de bord.
+     * Une seule methode pour toutes les dates, si bien que l'historique et
+     * l'ecran racontent la meme fin.
+     */
+    const fins = projeterReseau(suivies, liaisonsReseau, j)
     const dateFinProjetee =
-      spi !== null && spi > 0
-        ? formatISO(
-            addDays(
-              parseISO(projet.dateOrdreService),
-              Math.round(projet.dureeContractuelleJ / spi) - 1,
-            ),
-            { representation: 'date' },
-          )
-        : null
+      fins.size === 0
+        ? null
+        : formatISO(addDays(parseISO(projet.dateOrdreService), Math.max(...fins.values())), {
+            representation: 'date',
+          })
 
     instantanes.push({
       lotId: null,
@@ -669,10 +732,20 @@ function jourDepuis(origine: string, date: string): number {
   return differenceInCalendarDays(parseISO(date), parseISO(origine))
 }
 
-function bornerDateAnalyse(demandee: string, origine: string, fin: string): string {
+function bornerDateAnalyse(demandee: string, origine: string, aujourdhui: string): string {
   if (demandee < origine) return origine
-  if (demandee > fin) return fin
+  if (demandee > aujourdhui && aujourdhui >= origine) return aujourdhui
   return demandee
+}
+
+/**
+ * Date d'etat par defaut : celle du dernier releve valide, travaille ou non.
+ * Avant tout releve valide, l'ordre de service.
+ */
+export function dateEtatParDefaut(contexte: Contexte): string {
+  let derniere = contexte.projet.dateOrdreService
+  for (const m of contexte.moyens) if (m.date > derniere) derniere = m.date
+  return derniere
 }
 
 function arrondir(v: number, decimales: number): number {

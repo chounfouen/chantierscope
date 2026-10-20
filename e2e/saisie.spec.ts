@@ -42,6 +42,8 @@ test('saisie, validation, gel : l avancement bouge des la validation', async ({
   await connecter(conducteur, 'conducteur')
   await conducteur.goto(fiche)
   await conducteur.getByRole('button', { name: 'Valider' }).click()
+  // La validation gele le releve : elle se confirme d'un second geste.
+  await conducteur.getByRole('button', { name: 'Confirmer la validation' }).click()
   await expect(conducteur.getByText('Validé', { exact: true })).toBeVisible()
   expect(await avancement()).toBeGreaterThan(avant)
 

@@ -15,6 +15,7 @@
  * l'en-tete Authorization.
  */
 
+import { timingSafeEqual } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { db } from '@/db/index'
 import { completerMeteoProjet } from '@/db/mutations/meteo'
@@ -34,8 +35,7 @@ type Rapport = {
 }
 
 export async function GET(requete: Request): Promise<Response> {
-  const attendu = `Bearer ${env().CRON_SECRET}`
-  if (requete.headers.get('authorization') !== attendu) {
+  if (!secretValide(requete.headers.get('authorization'), `Bearer ${env().CRON_SECRET}`)) {
     return Response.json({ erreur: 'Non autorisé' }, { status: 401 })
   }
 
@@ -44,6 +44,8 @@ export async function GET(requete: Request): Promise<Response> {
 
   try {
     const meteoCompletee = await completerMeteo(base)
+    // La limitation des essais de connexion ne regarde qu'un quart d'heure.
+    await base.execute(sql`delete from tentative_connexion where le < now() - interval '1 day'`)
 
     const projets = await base.execute<{ id: string; code: string }>(
       sql`select id, code from projet order by code`,
@@ -74,6 +76,18 @@ export async function GET(requete: Request): Promise<Response> {
       { status: 500 },
     )
   }
+}
+
+/**
+ * Comparaison du secret en temps constant : une comparaison ordinaire
+ * s'arrete au premier caractere different, et sa duree renseigne sur le
+ * prefixe juste.
+ */
+function secretValide(recu: string | null, attendu: string): boolean {
+  if (recu === null) return false
+  const a = Buffer.from(recu)
+  const b = Buffer.from(attendu)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 /**

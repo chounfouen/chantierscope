@@ -14,6 +14,8 @@ import { COUT } from '@/db/compute/evm'
 import { debourse, recompute } from '@/db/recompute'
 import { chargerContexte } from '@/db/queries/contexte'
 import { recalculerProjet, validerReleve } from '@/db/mutations/releve'
+import { chargerTableau } from '@/db/queries/tableau'
+import { construireTableau } from '@/lib/tableau-donnees'
 
 const { db, client, fermer } = dbScript()
 
@@ -31,7 +33,10 @@ afterAll(async () => {
 })
 
 /** Empreinte du cache, pour comparer deux etats sans les enumerer. */
-async function empreinteCache(): Promise<{ taches: string; instantanes: string }> {
+async function empreinteCache(): Promise<{
+  taches: string
+  instantanes: string
+}> {
   const [t] = await client<{ e: string }[]>`
     select md5(string_agg(
       code_wbs || ':' || avancement_pct || ':' || poids_budgetaire_xof || ':' ||
@@ -352,11 +357,37 @@ describe('coherence du cache : incremental contre integral', () => {
 })
 
 describe('date d analyse', () => {
-  it('est bornee a la fin contractuelle', async () => {
-    const r = await recompute(db, projetId, { dateAnalyse: '2099-01-01' })
-    const [projet] = await client<{ fin: string }[]>`
-      select date_fin_contractuelle as fin from projet where id = ${projetId}::uuid`
-    expect(r.dateAnalyse).toBe(projet?.fin)
+  it('est par defaut celle du dernier releve valide, et non la date du jour', async () => {
+    const r = await recompute(db, projetId)
+    const [dernier] = await client<{ date: string }[]>`
+      select max(date)::text as date from releve_journalier
+       where projet_id = ${projetId}::uuid and statut = 'VALIDE'`
+    expect(r.dateAnalyse).toBe(dernier?.date)
+  })
+
+  it('n est plus bornee a la fin contractuelle : un chantier en retard reste mesure', async () => {
+    const r = await recompute(db, projetId, {
+      dateAnalyse: '2027-06-01',
+      aujourdhui: '2027-07-01',
+    })
+    expect(r.dateAnalyse).toBe('2027-06-01')
+    // Au-dela de la fin du planning, la valeur planifiee vaut le budget.
+    expect(r.valeurPlanifieeXof).toBeGreaterThanOrEqual(r.valeurAcquiseXof)
+  })
+
+  it('est bornee a la date du jour', async () => {
+    const r = await recompute(db, projetId, {
+      dateAnalyse: '2099-01-01',
+      aujourdhui: '2026-10-20',
+    })
+    expect(r.dateAnalyse).toBe('2026-10-20')
+  })
+
+  it('la fin projetee de l instantane est celle du tableau de bord', async () => {
+    await recompute(db, projetId, { dateAnalyse: DATE_ANALYSE })
+    const donnees = await chargerTableau(db, projetId, true)
+    const tableau = construireTableau(donnees)
+    expect(tableau?.achevement.dateFinProjetee).toBe(donnees.courbe.at(-1)?.finProjetee)
   })
 
   it('est bornee a l ordre de service', async () => {

@@ -87,6 +87,7 @@ Projet
 | date_fin_contractuelle | date | calculee, stockee pour figer le contrat |
 | montant_marche_xof | bigint | en FCFA entiers |
 | taux_penalite_journaliere | numeric(6,5) | fraction du marche par jour de retard |
+| plafond_penalite | numeric(5,4) | plafond du cumul des penalites, 10 % du marche par defaut (CCAG Travaux 2021, art. 19.2.2) |
 | devise | text | `XOF`, fixe |
 
 **lot** : `id`, `projet_id`, `code` (ex. `02-GO`), `nom`, `ordre`,
@@ -224,9 +225,10 @@ A la date d'analyse `t` :
 | `EAC` cout estime final | `k x BAC / CPI` | projection budgetaire, au cout |
 | `ETC` reste a depenser | `EAC - CR` | |
 | `VAC` ecart final | `k x BAC - EAC` | |
-| duree projetee | `duree_contractuelle / SPI` | projection de delai |
-| retard estime | `duree_projetee - duree_contractuelle` | en jours |
-| penalite prevue | `retard x taux_penalite x montant_marche` | en FCFA |
+| IEAC(t) | `duree_planifiee / SPI(t)`, `SPI(t) = ES / AT` | projection de delai au rythme constate (Earned Schedule) |
+| fin projetee | fin du reseau rejoue a la date d'etat | projection de delai retenue |
+| retard projete | `fin_projetee - fin_contractuelle` | en jours, jamais negatif |
+| penalite prevue | `min(retard x taux x marche, plafond x marche)` | en FCFA |
 
 Le budget est un bordereau de prix, marge comprise, alors que le cout reel est
 un cout de revient. Le CPI compare donc le cout reel au cout BUDGETE du travail
@@ -239,7 +241,28 @@ n'est pas concerne, VP et VA etant dans la meme base.
 
 L'ecart de delai en jours s'obtient plus finement par lecture horizontale de la
 courbe en S : on cherche la date `t'` a laquelle `VP(t') = VA(t)`, le retard
-vaut `t - t'`.
+vaut `t - t'`. C'est l'Earned Schedule : `ES = t'`, et `SPI(t) = ES / AT`, qui,
+contrairement au SPI, ne tend pas vers un en fin de chantier.
+
+**Date d'etat.** Les indicateurs se calculent a la date du dernier releve
+VALIDE, et non a la date du jour. Au-dela, la valeur planifiee continuerait de
+monter sur des journees dont la valeur acquise n'est pas connue : le SPI
+baisserait chaque jour sans releve, sans aucun fait nouveau. Une alerte
+signale l'absence de releve valide depuis plus de trois jours.
+
+**Une seule projection de fin.** La fin projetee, le retard projete et la
+penalite viennent du reseau rejoue a la date d'etat : les taches achevees
+gardent leurs dates reelles, les taches entamees finissent leur reste au
+rythme prevu, les autres ne peuvent commencer avant le lendemain de la date
+d'etat, et le CPM recalcule la fin. C'est la methode d'un planning recale,
+la seule qui tienne compte des liaisons. La formule `duree / SPI` reste
+calculee comme indicateur EVM classique, verifie contre le tableur de
+reference, mais n'est plus affichee comme projection : elle applique le SPI a
+toute la duree, y compris a la part deja realisee a l'heure, et donnait sur le
+jeu de demonstration un retard trois fois superieur au retard constate. Le
+tableau de bord encadre la fin projetee par deux hypotheses : le reste au
+rythme prevu (retard final egal au retard constate) et le reste au rythme
+constate (IEAC(t)).
 
 ### 4.4 Chemin critique (CPM)
 
@@ -513,26 +536,40 @@ production :
 3. Une rupture d'approvisionnement en acier de six jours en juin, qui tombe
    sur le ferraillage des longrines et bloque toute la chaine aval.
 
-### 8.4 Situation constatee a la date d'analyse
+### 8.4 Situation constatee a la date d'etat
+
+Tableau produit par `npm run db:situation`, et non recopie de l'ecran. Les
+trois derniers releves du jeu de demonstration (28 au 30 septembre) attendent
+volontairement leur validation : la date d'etat est donc le 27 septembre 2026,
+date du dernier releve valide.
 
 | Indicateur | Valeur |
 |---|---|
-| Avancement planifie | 49,6 % |
-| Avancement reel | 44,7 % |
-| Valeur planifiee | 573 504 519 FCFA |
-| Valeur acquise | 517 077 955 FCFA |
-| SPI | 0,902 |
-| Ecart de delai | 14 jours, par lecture horizontale de la courbe en S |
-| Penalite projetee | environ 16 200 000 FCFA |
+| Date d'etat | 27 septembre 2026, jour 210 sur 416 |
+| Avancement planifie | 48,2 % |
+| Avancement reel | 43,6 % |
+| Valeur planifiee | 557 272 121 FCFA |
+| Valeur acquise | 504 483 806 FCFA |
+| Cout reel reconstitue | 484 223 673 FCFA |
+| Coefficient de debourse | 0,859 |
+| SPI | 0,905 |
+| CPI | 0,895 |
+| Retard constate | 13,7 jours, par lecture horizontale de la courbe en S |
+| Fin projetee | 2 mai 2027, planning recale a la date d'etat |
+| Delai contractuel en vigueur | 416 jours, fin le 21 avril 2027 : 4 jours d'intemperies reconnues au-dela des 6 previsibles du CCAP |
+| Retard projete | 11 jours |
+| Penalite prevue | 12 717 553 FCFA, sous le plafond de 10 % |
+| Fourchette de retard | 10 jours au rythme prevu, 25 jours au rythme constate |
 
-Un SPI de 0,902 place le chantier dans la zone d'alerte : la derive est nette
+Un SPI de 0,905 place le chantier dans la zone d'alerte : la derive est nette
 mais encore rattrapable. C'est la situation la plus interessante a
 demontrer — un chantier a l'arret ou un chantier a l'heure ne montreraient
 ni la projection, ni la simulation, ni les alertes.
 
 L'analyse par lot montre que la derive est concentree : les lots 01 a 03 sont
-a l'heure, le gros oeuvre accuse 7,2 points de retard, et les lots aval, qui
-en dependent, davantage encore par effet de cascade. C'est le comportement
+a l'heure, le gros oeuvre accuse 7,2 points de retard, le second oeuvre 4,9
+et les lots techniques 12,8, par effet de cascade sur les taches qui en
+dependent. C'est le comportement
 attendu d'un reseau a chemin critique.
 
 ### 8.5 Reproductibilite
@@ -553,6 +590,7 @@ L'ordre de service et la date d'analyse sont deux constantes de
 2. `npm run db:meteo` pour re-archiver l'historique meteo de la nouvelle
    periode.
 3. `npm run db:reset`, puis `npm run db:check`.
+4. `npm run db:situation` pour regenerer le tableau de la section 8.4.
 
 Les dates internes aux aleas scenarises, rupture d'acier et non-conformites,
 sont a decaler d'autant.

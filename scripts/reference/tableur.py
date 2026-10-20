@@ -63,7 +63,9 @@ PARAMETRES = [
 ]
 # Cellules des parametres, dans l'ordre ci-dessus, puis le projet.
 P_TAUX_H, P_ENC, P_MAT, P_FRAIS, P_HJOUR, P_OUV = (f"Parametres!$B${i}" for i in range(2, 8))
-P_ORIGINE, P_DUREE, P_MONTANT, P_PENALITE = (f"Parametres!$B${i}" for i in range(9, 13))
+P_ORIGINE, P_DUREE, P_MONTANT, P_PENALITE, P_PREVISIBLES = (
+    f"Parametres!$B${i}" for i in range(9, 14)
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -99,7 +101,8 @@ def jour(texte: str) -> date:
 def extraire() -> dict:
     projet = requete(
         """select date_ordre_service as origine, duree_contractuelle_j as duree,
-                  montant_marche_xof as montant, taux_penalite_journaliere as taux
+                  montant_marche_xof as montant, taux_penalite_journaliere as taux,
+                  intemperies_previsibles_j as previsibles
              from projet order by code limit 1"""
     )[0]
     lots = requete("select code from lot order by ordre")
@@ -138,7 +141,21 @@ def extraire() -> dict:
              join tache t on t.id = a.tache_id join lot l on l.id = t.lot_id
             where r.type = 'EQUIPE' order by l.code, a.date_debut"""
     )
+    # Actes qui modifient le delai ou le montant du marche, chacun a sa date :
+    # le contrat en vigueur a une date d'analyse ne retient que ceux qui la
+    # precedent. Les suspensions (ordre d'arret a ordre de reprise) ne sont
+    # pas modelisees : le jeu de demonstration n'en porte aucune.
+    actes = requete(
+        """select 'INTEMPERIE' as nature, date, greatest(impact_delai_j, 1) as jours, 0 as montant
+             from alea where type = 'INTEMPERIE' and decision_intemperie = 'RECONNUE'
+           union all
+           select 'AVENANT', date, delai_j, montant_xof from avenant
+           union all
+           select 'PROLONGATION', date, delai_j, 0 from ordre_service where type = 'PROLONGATION'
+           order by 2, 1"""
+    )
     return {
+        "actes": actes,
         "projet": projet,
         "lots": lots,
         "taches": taches,
@@ -187,6 +204,7 @@ def construire(d: dict, chemin: str) -> None:
     par.append(["Durée contractuelle, jours", int(p["duree"])])
     par.append(["Montant du marché, FCFA", int(p["montant"])])
     par.append(["Pénalité journalière, fraction du marché", float(p["taux"])])
+    par.append(["Intempéries prévisibles au CCAP, jours", int(p["previsibles"])])
     par.column_dimensions["A"].width = 46
 
     # --- Dates d'analyse ------------------------------------------------------
@@ -200,6 +218,13 @@ def construire(d: dict, chemin: str) -> None:
 
     def cellule_jour(n: int) -> str:
         return f"Dates!$B${n + 2}"
+
+    # --- Actes du marche -------------------------------------------------------
+    act = classeur.create_sheet("Actes")
+    entete(act, ["Nature", "Date", "Jours", "Montant, FCFA"])
+    for a in d["actes"]:
+        act.append([a["nature"], jour(a["date"]), int(a["jours"]), int(a["montant"])])
+    nact = max(len(d["actes"]) + 1, 2)
 
     # --- Donnees sources ------------------------------------------------------
     cles_lignes = {l["id"]: f"Q{i:03d}" for i, l in enumerate(d["lignes"], start=1)}
@@ -404,6 +429,27 @@ def construire(d: dict, chemin: str) -> None:
         return f"SUM(Lots!{c}2:{c}{nlots})"
 
     ajouter("Jour d'analyse", "jour", lambda n, c: f"={cellule_jour(n)}")
+
+    def actes(nature: str, colonne: str, n: int) -> str:
+        return (
+            f'SUMIFS(Actes!${colonne}$2:${colonne}${nact},Actes!$A$2:$A${nact},"{nature}",'
+            f'Actes!$B$2:$B${nact},"<="&{cellule_date(n)})'
+        )
+
+    # Delai en vigueur a la date d'analyse : delai initial, jours des avenants
+    # et des ordres de prolongation, intemperies reconnues au-dela des
+    # previsibles du CCAP. C'est lui qui fixe le retard et la penalite.
+    ajouter(
+        "Délai en vigueur, jours",
+        "dureeContrat",
+        lambda n, c: f'={P_DUREE}+{actes("AVENANT", "C", n)}+{actes("PROLONGATION", "C", n)}'
+        f'+MAX(0,{actes("INTEMPERIE", "C", n)}-{P_PREVISIBLES})',
+    )
+    ajouter(
+        "Montant du marché en vigueur, FCFA",
+        "montantContrat",
+        lambda n, c: f'={P_MONTANT}+{actes("AVENANT", "D", n)}',
+    )
     ajouter("BAC, budget à l'achèvement", "bac", lambda n, c: f"=SUM(Taches!$G$2:$G${nt})")
     ajouter(
         "Budget au coût du projet",
@@ -428,12 +474,20 @@ def construire(d: dict, chemin: str) -> None:
     ajouter("EAC, coût estimé final", "eac", lambda n, c: f"=ROUND({ref('bacCout', c)}/{ref('cpi', c)},0)")
     ajouter("ETC, reste à dépenser", "etc", lambda n, c: f"={ref('eac', c)}-{ref('cr', c)}")
     ajouter("VAC, écart final", "vac", lambda n, c: f"={ref('bacCout', c)}-{ref('eac', c)}")
-    ajouter("Durée projetée, jours", "dureeProjeteeJ", lambda n, c: f"=ROUND({P_DUREE}/{ref('spi', c)},0)")
-    ajouter("Retard estimé, jours", "retardJ", lambda n, c: f"=MAX(0,{ref('dureeProjeteeJ', c)}-{P_DUREE})")
+    ajouter(
+        "Durée projetée, jours",
+        "dureeProjeteeJ",
+        lambda n, c: f"=ROUND({ref('dureeContrat', c)}/{ref('spi', c)},0)",
+    )
+    ajouter(
+        "Retard estimé, jours",
+        "retardJ",
+        lambda n, c: f"=MAX(0,{ref('dureeProjeteeJ', c)}-{ref('dureeContrat', c)})",
+    )
     ajouter(
         "Pénalité prévue, FCFA",
         "penaliteXof",
-        lambda n, c: f"=ROUND({ref('retardJ', c)}*{P_PENALITE}*{P_MONTANT},0)",
+        lambda n, c: f"=ROUND({ref('retardJ', c)}*{P_PENALITE}*{ref('montantContrat', c)},0)",
     )
     # Lecture horizontale : dernier jour t' <= t ou VP(t') <= VA(t), puis
     # interpolation lineaire jusqu'au jour suivant.

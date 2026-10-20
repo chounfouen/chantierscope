@@ -53,8 +53,27 @@ export const PROJET = {
   lieu: 'Abidjan, Cocody Angre 7e Tranche',
   latitude: 5.3599,
   longitude: -3.9821,
-  /** Un millieme du montant du marche par jour calendaire de retard. */
+  /**
+   * Un millieme du montant du marche par jour calendaire de retard, taux fixe
+   * par le CCAP de l'operation. Le CCAG Travaux 2021 retient 1/3000 a defaut.
+   */
   tauxPenaliteJournaliere: 0.001,
+  /** Cumul des penalites plafonne a 10 % du marche (CCAG Travaux 2021, art. 19.2.2). */
+  plafondPenalite: 0.1,
+  /**
+   * Journees d'intemperie reputees previsibles au CCAP, sur la duree du
+   * marche : seules les suivantes prolongent le delai.
+   */
+  intemperiesPrevisiblesJ: 6,
+  /** Retenue de garantie de 5 % des travaux, rendue a la reception. */
+  retenueGarantieTaux: 0.05,
+  /**
+   * Avance de demarrage de 15 % du montant initial, remboursee par
+   * precompte sur les situations entre 65 % et 80 % d'execution.
+   */
+  avanceDemarrageTaux: 0.15,
+  avanceRemboursementDebut: 0.65,
+  avanceRemboursementFin: 0.8,
 } as const
 
 /* -------------------------------------------------------------------------- */
@@ -1417,14 +1436,22 @@ export const CATALOGUE: readonly GroupeCatalogue[] = [
           },
           {
             code: '08.1.3',
-            nom: 'Nettoyage et réception',
+            // Les reprises se font AVANT les operations prealables a la
+            // reception ; la levee des reserves, elle, vient apres la
+            // reception et sort du delai d'execution.
+            nom: 'Nettoyage et pré-réception',
             nature: 'INTERIEUR',
             duree: 12,
             apres: ['08.1.1', '07.3.2'],
             methode: 'ZERO_CENT',
             lignes: [
               { designation: 'Nettoyage de livraison', unite: 'M2', quantite: 2_240, pu: 2_800 },
-              { designation: 'Levée des réserves', unite: 'FORFAIT', quantite: 1, pu: 5_200_000 },
+              {
+                designation: 'Reprises avant opérations préalables à la réception',
+                unite: 'FORFAIT',
+                quantite: 1,
+                pu: 5_200_000,
+              },
             ],
           },
         ],
@@ -1508,7 +1535,13 @@ export const JALONS = [
   { nom: 'Achèvement du gros œuvre', declencheur: '04.4.3', contractuel: true, ordre: 3 },
   { nom: 'Hors d’eau', declencheur: '05.1.2', contractuel: true, ordre: 4 },
   { nom: 'Hors d’air', declencheur: '06.2.1', contractuel: false, ordre: 5 },
-  { nom: 'Réception provisoire', declencheur: '08.1.3', contractuel: true, ordre: 6 },
+  /*
+   * La reception se prononce a l'achevement de TOUS les ouvrages du marche,
+   * y compris les amenagements exterieurs et le repli des installations :
+   * elle est declenchee par la derniere tache du reseau, et tombe a la fin du
+   * delai contractuel.
+   */
+  { nom: 'Réception provisoire', declencheur: '01.1.5', contractuel: true, ordre: 6 },
 ] as const
 
 /* -------------------------------------------------------------------------- */

@@ -58,13 +58,13 @@ test('une liaison qui fermerait un circuit est refusee en nommant les taches', a
   const [avant] = await sql<{ n: number }[]>`select count(*)::int as n from liaison`
 
   // La reception precede le beton de proprete : boucle sur tout le chantier.
-  await page.getByRole('button', { name: 'Nettoyage et réception', exact: true }).click()
+  await page.getByRole('button', { name: 'Nettoyage et pré-réception', exact: true }).click()
   await page.getByLabel('Sens de la liaison').selectOption('aval')
   await page.getByLabel('Autre tâche').selectOption({ label: '03.1.1 — Béton de propreté' })
   await page.getByRole('button', { name: 'Ajouter la liaison' }).click()
 
   await expect(page.getByText(/fermerait un circuit/)).toBeVisible()
-  await expect(page.getByText(/08\.1\.3 Nettoyage et réception/)).toBeVisible()
+  await expect(page.getByText(/08\.1\.3 Nettoyage et pré-réception/)).toBeVisible()
   const [apres] = await sql<{ n: number }[]>`select count(*)::int as n from liaison`
   await sql.end()
   expect(apres?.n).toBe(avant?.n)
@@ -77,7 +77,11 @@ test('dix jours sur les fondations : fin et penalite du calcul manuel', async ({
 
   const resultat = page.getByRole('region', { name: 'Résultat' })
   await expect(resultat.getByText('27/04/2027')).toBeVisible()
-  await expect(resultat.getByText('11 561 412 F CFA', { exact: true })).toBeVisible()
+  // Fin en vigueur au 21/04/2027 : dix intemperies reconnues pour six
+  // previsibles au CCAP prolongent le delai de quatre jours. Six jours de
+  // retard, a un millieme de 1 156 141 200 F CFA par jour.
+  await expect(resultat.getByText('fin contractuelle 21/04/2027')).toBeVisible()
+  await expect(resultat.getByText('6 936 847 F CFA', { exact: true })).toBeVisible()
   await expect(page.getByText(/jalons? contractuels? menacés?/)).toBeVisible()
 })
 

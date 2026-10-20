@@ -13,9 +13,9 @@ import { chargerSynthese } from '@/db/queries/lecture'
 import { chargerTableau } from '@/db/queries/tableau'
 import { exigerPage, voitDonneesInternes } from '@/lib/garde'
 import {
+  aujourdhui,
   dateCourte,
   dateLongue,
-  ecartJours,
   fcfa,
   fcfaCompact,
   fcfaSigne,
@@ -27,6 +27,7 @@ import { Icone } from '@/lib/icones'
 import { teinteSerie } from '@/lib/viz'
 import { prenom, salutation, sousTitreSituation, titreSituation } from '@/lib/accueil'
 import { construireTableau } from '@/lib/tableau-donnees'
+import type { Achevement } from '@/db/compute/tableau'
 
 export const metadata: Metadata = { title: 'Tableau de bord' }
 
@@ -48,6 +49,32 @@ function enTrenteJours(texte: string | null): string {
   return texte === null ? 'moins de trente jours d’historique' : `${texte} en 30 jours`
 }
 
+/**
+ * La fin projetee en une phrase : la date du planning recale, la penalite qui
+ * en decoule, et la fourchette des deux hypotheses de rythme.
+ */
+function texteAchevement(fin: Achevement, finContractuelle: string): string {
+  const { rythmePrevuJ, rythmeConstateJ } = fin.fourchette
+  const signe = (j: number) => (j > 0 ? `+${j} j` : j < 0 ? `${j} j` : 'à l’heure')
+  const debut =
+    fin.retardProjeteJ > 0
+      ? `Le planning recalé à la date d’état finit le ${dateLongue(fin.dateFinProjetee)}, ${
+          fin.retardProjeteJ
+        } jours après la fin contractuelle du ${dateLongue(finContractuelle)}, soit une pénalité prévue de ${fcfa(
+          fin.penaliteXof,
+        )}${fin.plafondAtteint ? `, plafonnée (${fcfa(fin.penaliteBruteXof)} sans plafond)` : ''}.`
+      : `Le planning recalé à la date d’état finit le ${dateLongue(
+          fin.dateFinProjetee,
+        )}, dans le délai contractuel : aucune pénalité prévue.`
+  const fourchette =
+    rythmeConstateJ === null
+      ? ''
+      : ` Pour comparaison, selon le rythme du reste des travaux : ${signe(
+          rythmePrevuJ,
+        )} au rythme prévu, ${signe(rythmeConstateJ)} au rythme constaté.`
+  return debut + fourchette
+}
+
 function tonEcart(ecart: number): Ton {
   if (ecart < -0.05) return 'critique'
   if (ecart < -0.01) return 'alerte'
@@ -66,14 +93,13 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
   ])
 
   const { projet, global, lots, dateAnalyse } = synthese
-  const tableau = construireTableau(donnees)
+  const tableau = construireTableau(donnees, aujourdhui())
   const ind = tableau?.indicateurs
+  const fin = tableau?.achevement
   const ecart = ind ? ind.avancement - ind.avancementPrevu : 0
+  /** Retard constate sur la courbe en S, positif pour un retard. */
   const retardJ = ind?.ecartDelaiJ ?? 0
-  const glissementFin =
-    global?.dateFinProjetee !== undefined && global.dateFinProjetee !== null
-      ? ecartJours(projet.dateFinContractuelle, global.dateFinProjetee)
-      : null
+  const retardArrondi = Math.round(retardJ)
   const t = tableau?.tendances
 
   const prochainJalon = tableau?.jalons[0]
@@ -85,12 +111,12 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
     avancement: ind?.avancement ?? 0,
   }
   const reperes: Repere[] = [
-    ...(global?.dateFinProjetee
+    ...(fin
       ? [
           {
             icone: 'calendrier' as const,
             libelle: 'Fin projetée',
-            valeur: dateCourte(global.dateFinProjetee),
+            valeur: dateCourte(fin.dateFinProjetee),
           },
         ]
       : []),
@@ -103,12 +129,12 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
           },
         ]
       : []),
-    ...(ind && ind.penaliteXof > 0
+    ...(fin && fin.penaliteXof > 0
       ? [
           {
             icone: 'cout' as const,
-            libelle: 'Pénalité prévue',
-            valeur: fcfaCompact(ind.penaliteXof),
+            libelle: fin.plafondAtteint ? 'Pénalité prévue, plafonnée' : 'Pénalité prévue',
+            valeur: fcfaCompact(fin.penaliteXof),
           },
         ]
       : []),
@@ -212,7 +238,11 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
         )}
       </header>
 
-      {global === null || tableau === null || ind === undefined || t === undefined ? (
+      {global === null ||
+      tableau === null ||
+      ind === undefined ||
+      fin === undefined ||
+      t === undefined ? (
         <div className="surface mt-6 px-6 py-14 text-center">
           <Icone.tableauBord
             className="text-muted-foreground/60 mx-auto size-8"
@@ -220,11 +250,8 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
           />
           <p className="mt-3 font-medium">Aucun indicateur disponible</p>
           <p className="text-muted-foreground mx-auto mt-1.5 max-w-sm text-sm">
-            Le cache n&apos;a pas encore été calculé pour ce chantier. Lancer{' '}
-            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
-              npm run db:recalcul
-            </code>
-            .
+            Les indicateurs n&apos;ont pas encore été calculés pour ce chantier. Ils le seront à la
+            validation du prochain relevé, ou cette nuit.
           </p>
         </div>
       ) : (
@@ -264,22 +291,20 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                 }}
               />
               <Tuile
-                intitule="Écart de délai"
-                valeur={jours(-Math.round(retardJ))}
-                anime={{ valeur: -retardJ, format: 'jours' }}
+                intitule={retardArrondi >= 0 ? 'Retard constaté' : 'Avance constatée'}
+                valeur={`${Math.abs(retardArrondi)} j`}
                 precision="lecture horizontale de la courbe en S"
                 icone="planning"
                 ton={retardJ > 20 ? 'critique' : retardJ > 5 ? 'alerte' : 'bon'}
                 tendance={{
-                  serie: t.ecartDelaiJ.serie.map((v) => (v === null ? null : -v)),
-                  sens: sens(
-                    t.ecartDelaiJ.variation === null ? null : -t.ecartDelaiJ.variation,
-                    0.5,
-                  ),
+                  serie: t.ecartDelaiJ.serie,
+                  sens: sens(t.ecartDelaiJ.variation, 0.5),
                   libelle: enTrenteJours(
                     t.ecartDelaiJ.variation === null
                       ? null
-                      : `${jours(-Math.round(t.ecartDelaiJ.variation))}`,
+                      : Math.round(t.ecartDelaiJ.variation) === 0
+                        ? 'stable'
+                        : `${jours(Math.round(t.ecartDelaiJ.variation))} de retard`,
                   ),
                 }}
               />
@@ -325,18 +350,14 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               ) : (
                 <Tuile
                   intitule="Fin projetée"
-                  valeur={
-                    global.dateFinProjetee === null
-                      ? '—'
-                      : dateLongue(global.dateFinProjetee).replace(/ \d{4}$/, '')
-                  }
+                  valeur={dateLongue(fin.dateFinProjetee).replace(/ \d{4}$/, '')}
                   precision={
-                    glissementFin === null
-                      ? `contractuelle : ${dateLongue(projet.dateFinContractuelle)}`
-                      : `${jours(glissementFin)} sur la date contractuelle`
+                    fin.retardProjeteJ > 0
+                      ? `${fin.retardProjeteJ} j de retard sur la date contractuelle`
+                      : `dans le délai contractuel : ${dateLongue(donnees.finContractuelle)}`
                   }
                   icone="calendrier"
-                  ton={glissementFin !== null && glissementFin > 0 ? 'alerte' : 'bon'}
+                  ton={fin.retardProjeteJ > 0 ? 'alerte' : 'bon'}
                 />
               )}
             </div>
@@ -346,7 +367,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
             <dl className="surface divide-border/70 grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
               {(interne && ind.eac !== null
                 ? [
-                    { cle: 'Montant du marché', valeur: fcfa(projet.montantMarcheXof) },
+                    { cle: 'Montant du marché', valeur: fcfa(donnees.contrat.montantXof) },
                     { cle: 'Valeur acquise', valeur: fcfa(ind.va) },
                     { cle: 'Coût réel reconstitué', valeur: fcfa(ind.cr) },
                     {
@@ -359,12 +380,12 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
                     },
                   ]
                 : [
-                    { cle: 'Montant du marché', valeur: fcfa(projet.montantMarcheXof) },
+                    { cle: 'Montant du marché', valeur: fcfa(donnees.contrat.montantXof) },
                     { cle: 'Valeur planifiée', valeur: fcfa(ind.vp) },
                     { cle: 'Valeur acquise', valeur: fcfa(ind.va) },
                     {
                       cle: 'Reste à réaliser',
-                      valeur: fcfa(projet.montantMarcheXof - ind.va),
+                      valeur: fcfa(donnees.contrat.montantXof - ind.va),
                       note: undefined,
                     },
                   ]
@@ -383,13 +404,7 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               ))}
             </dl>
             <p className="text-muted-foreground mt-2 px-1 text-xs leading-relaxed">
-              Au rythme constaté, la durée projetée est de {ind.dureeProjeteeJ ?? '—'} jours pour{' '}
-              {projet.dureeContractuelleJ} contractuels
-              {ind.retardJ !== null && ind.retardJ > 0
-                ? `, soit ${ind.retardJ} jours de retard et une pénalité prévue de ${fcfa(
-                    ind.penaliteXof,
-                  )}.`
-                : ', sans pénalité prévue.'}
+              {texteAchevement(fin, donnees.finContractuelle)}
               {interne &&
                 ' Le coût réel est reconstitué à partir des heures relevées, des quantités mises en œuvre et du coût des aléas ; il ne remplace pas la comptabilité analytique de l’entreprise. Le CPI et le coût estimé final le comparent au coût budgété du travail, établi d’après les équipes prévues au planning, et non au prix de vente, qui inclut la marge.'}
             </p>
@@ -439,8 +454,24 @@ export default async function VueProjet({ params }: { params: Promise<{ id: stri
               ['Entreprise', projet.entreprise],
               ['Maîtrise d’œuvre', projet.maitreOeuvre],
               ['Ordre de service', dateLongue(projet.dateOrdreService)],
-              ['Fin contractuelle', dateLongue(projet.dateFinContractuelle)],
-              ['Durée contractuelle', `${projet.dureeContractuelleJ} jours calendaires`],
+              [
+                'Fin contractuelle',
+                donnees.finContractuelle === projet.dateFinContractuelle
+                  ? dateLongue(projet.dateFinContractuelle)
+                  : `${dateLongue(donnees.finContractuelle)} (initiale : ${dateCourte(projet.dateFinContractuelle)})`,
+              ],
+              [
+                'Durée contractuelle',
+                donnees.contrat.dureeJ === projet.dureeContractuelleJ
+                  ? `${projet.dureeContractuelleJ} jours calendaires`
+                  : `${donnees.contrat.dureeJ} jours, dont ${donnees.contrat.dureeJ - projet.dureeContractuelleJ} de prolongation`,
+              ],
+              [
+                'Montant du marché',
+                donnees.contrat.montantAvenantsXof === 0
+                  ? fcfa(donnees.contrat.montantXof)
+                  : `${fcfa(donnees.contrat.montantXof)}, avenants compris`,
+              ],
               [
                 'Pénalité de retard',
                 `${pourcent(projet.tauxPenaliteJournaliere, 2)} du marché par jour`,

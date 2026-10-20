@@ -34,6 +34,8 @@ function releve(modifs: Partial<TypeReleve> = {}): TypeReleve {
     heuresTravaillees: 96,
     quantites: [{ ligneId: LIGNE_A, quantite: 14.5, commentaire: null }],
     observations: null,
+    coulages: [],
+    livraisons: [],
     alea: null,
     ...modifs,
   }
@@ -324,5 +326,61 @@ describe('libelles', () => {
   it('chaque gravite de un a quatre porte un libelle', async () => {
     const { LIBELLE_GRAVITE } = await import('@/lib/releve')
     for (const g of [1, 2, 3, 4]) expect(LIBELLE_GRAVITE[g]).toBeTruthy()
+  })
+})
+
+describe('journal de la journee', () => {
+  const coulage = {
+    ouvrage: 'Plancher haut RDC',
+    classeBeton: 'c25/30',
+    volumeM3: 32.5,
+    bonLivraison: null,
+    affaissementMm: null,
+    eprouvettes: 3,
+  }
+  const livraison = {
+    designation: 'Ciment CEM II 42,5',
+    fournisseur: null,
+    quantite: 10,
+    unite: 'T' as const,
+    bonLivraison: null,
+    conforme: true,
+    reserve: null,
+  }
+
+  it('accepte un coulage et met la classe du beton au format de la norme', () => {
+    const r = ReleveSaisi.parse(releve({ coulages: [coulage] }))
+    expect(r.coulages[0]?.classeBeton).toBe('C25/30')
+  })
+
+  it('refuse une classe de beton illisible', () => {
+    expect(
+      ReleveSaisi.safeParse(releve({ coulages: [{ ...coulage, classeBeton: 'B25' }] })).success,
+    ).toBe(false)
+  })
+
+  it('une livraison non conforme porte sa reserve', () => {
+    const r = ReleveSaisi.safeParse(releve({ livraisons: [{ ...livraison, conforme: false }] }))
+    expect(r.success).toBe(false)
+    if (!r.success) expect(erreursParChamp(r.error)['livraisons.0.reserve']).toMatch(/réserve/)
+  })
+
+  it('une journee non travaillee ne porte aucun coulage, mais peut recevoir une livraison', () => {
+    const arret = {
+      journeeTravaillee: false,
+      motifArret: 'Pluie',
+      quantites: [],
+      effectifOuvriers: 0,
+      heuresTravaillees: 0,
+    }
+    expect(ReleveSaisi.safeParse(releve({ ...arret, coulages: [coulage] })).success).toBe(false)
+    expect(ReleveSaisi.safeParse(releve({ ...arret, livraisons: [livraison] })).success).toBe(true)
+  })
+
+  it('un releve mis en file avant le journal reste recevable', () => {
+    const { coulages: _c, livraisons: _l, ...ancien } = releve()
+    const r = ReleveSaisi.parse(ancien)
+    expect(r.coulages).toEqual([])
+    expect(r.livraisons).toEqual([])
   })
 })

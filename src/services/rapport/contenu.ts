@@ -9,6 +9,7 @@
 import sharp from 'sharp'
 import { effectifs } from '@/db/compute/analyses'
 import { faitsMarquants, semaineFinissantLe, type Periode } from '@/db/compute/rapport'
+import { penaliteXof } from '@/db/compute/evm'
 import { dateApres, jourDepuis, syntheseA, type SyntheseIndicateurs } from '@/db/compute/tableau'
 import type { db as instanceDb } from '@/db/index'
 import { chargerAnalyses } from '@/db/queries/analyses'
@@ -39,7 +40,11 @@ export type ContenuRapport = {
   periodeLue: DonneesPeriode
   effectifs: { date: string; reel: number; prevu: number }[]
   photos: PhotoRapport[]
+  /** Fin du reseau rejoue en fin de periode, comme au tableau de bord. */
   dateFinProjetee: string | null
+  retardProjeteJ: number
+  penaliteXof: number
+  penalitePlafonnee: boolean
 }
 
 export class PeriodeHorsSituation extends Error {}
@@ -90,6 +95,18 @@ export async function assemblerRapport(
   const indFin = syntheseA(tableau.courbe, iFin, tableau.cadre)
   const indDebut = syntheseA(tableau.courbe, iDebut, tableau.cadre)
 
+  const finProjetee = tableau.courbe[iFin]?.finProjetee ?? null
+  const retardProjeteJ =
+    finProjetee === null ? 0 : Math.max(0, jourDepuis(tableau.finContractuelle, finProjetee))
+  const { montantMarcheXof, tauxPenaliteJournaliere, plafondPenalite } = tableau.cadre
+  const penaliteBrute = penaliteXof(retardProjeteJ, tauxPenaliteJournaliere, montantMarcheXof)
+  const penalite = penaliteXof(
+    retardProjeteJ,
+    tauxPenaliteJournaliere,
+    montantMarcheXof,
+    plafondPenalite,
+  )
+
   const [periodeLue, analyses] = await Promise.all([
     chargerPeriode(db, projetId, periode, interne),
     interne ? chargerAnalyses(db, projetId, true) : Promise.resolve(null),
@@ -139,7 +156,9 @@ export async function assemblerRapport(
     periodeLue,
     effectifs: effectif,
     photos,
-    dateFinProjetee:
-      indFin.dureeProjeteeJ === null ? null : dateApres(tableau.origine, indFin.dureeProjeteeJ - 1),
+    dateFinProjetee: finProjetee,
+    retardProjeteJ,
+    penaliteXof: penalite,
+    penalitePlafonnee: penalite < penaliteBrute,
   }
 }

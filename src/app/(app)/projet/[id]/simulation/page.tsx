@@ -7,6 +7,7 @@ import { calculerReseau } from '@/db/compute/cpm'
 import { journeesGrisees } from '@/db/compute/gantt'
 import type { ContexteSimulation } from '@/db/compute/simulation'
 import { db } from '@/db/index'
+import { chargerContrat } from '@/db/queries/contrat'
 import { chargerPlanning, chargerScenarios, reseauDuPlanning } from '@/db/queries/planning'
 import { aujourdhui } from '@/lib/format'
 import { construireGantt } from '@/lib/gantt-donnees'
@@ -28,9 +29,10 @@ export default async function PageSimulation({
   const recherche = await searchParams
 
   const base = db()
-  const [planning, scenarios] = await Promise.all([
+  const [planning, scenarios, contrat] = await Promise.all([
     chargerPlanning(base, id),
     chargerScenarios(base, id),
+    chargerContrat(base, id, aujourdhui()),
   ])
   const reseau = reseauDuPlanning(planning)
   const donnees = construireGantt(planning, calculerReseau(reseau), aujourdhui())
@@ -52,9 +54,11 @@ export default async function PageSimulation({
         tacheDeclenchante: j.tacheDeclenchanteId as string,
         contractuel: j.contractuel,
       })),
-    dureeContractuelleJ: planning.projet.dureeContractuelleJ,
-    montantMarcheXof: planning.projet.montantMarcheXof,
+    // Le delai et le montant EN VIGUEUR, avenants et prolongations compris.
+    dureeContractuelleJ: contrat.cadre.dureeJ,
+    montantMarcheXof: contrat.cadre.montantXof,
     tauxPenaliteJournaliere: planning.projet.tauxPenaliteJournaliere,
+    plafondPenalite: planning.projet.plafondPenalite,
   }
 
   // Scenario prepare depuis le Gantt, par glisser-deposer ou par le panneau.

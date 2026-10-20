@@ -13,6 +13,8 @@ declare module 'next-auth' {
       id: string
       role: Role
       projetIds: string[]
+      /** Instant d'emission du jeton, en millisecondes. */
+      emisLe: number
     } & DefaultSession['user']
   }
 
@@ -31,5 +33,6 @@ declare module '@auth/core/jwt' {
   interface JWT {
     role: Role
     projetIds: string[]
+    emisLe: number
   }
 }

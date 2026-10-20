@@ -12,6 +12,7 @@
 import {
   AlertTriangle,
   Banknote,
+  BookOpenText,
   Box,
   Building2,
   Calendar,
@@ -58,6 +59,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Menu,
   PenTool,
   Undo2,
   X,
@@ -80,6 +82,7 @@ export const Icone = {
   tableauBord: TrendingUp,
   planning: GanttChartSquare,
   releve: ClipboardList,
+  journal: BookOpenText,
   quantitatif: ListChecks,
   plan: MapIcon,
   maquette: Box,
@@ -114,6 +117,7 @@ export const Icone = {
 
   /* Actions */
   ajouter: Plus,
+  menu: Menu,
   modifier: Pencil,
   rechercher: Search,
   exporter: Download,

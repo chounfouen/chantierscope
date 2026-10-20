@@ -9,7 +9,7 @@
  * Les messages sont destines a l'ecran : ils sont accentues.
  */
 
-export type CodeRefus = 'CONFLIT' | 'GELE' | 'INCOHERENT' | 'INTROUVABLE'
+export type CodeRefus = 'CONFLIT' | 'GELE' | 'INCOHERENT' | 'INTROUVABLE' | 'PERIME'
 
 export class RefusMetier extends Error {
   constructor(

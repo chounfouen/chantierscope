@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  achevement,
   alertes,
   courbePlanifiee,
   dateApres,
@@ -7,6 +8,7 @@ import {
   prochainsJalons,
   projeterCourbe,
   projeterReseau,
+  regleAbsenceReleve,
   regleDepassements,
   regleJalons,
   regleNonConformites,
@@ -400,6 +402,26 @@ describe('projection de la courbe en S', () => {
     expect(dernier.jour).toBe(49 + 75)
   })
 
+  it('rejoint le budget exactement a la fin projetee qui lui est donnee', () => {
+    const vp = Array.from({ length: 100 }, (_, j) => 10_000 * (j + 1))
+    const s = syntheseA(courbe(50), 49, CADRE)
+    const p = projeterCourbe({
+      courbeVp: vp,
+      jourAnalyse: 49,
+      va: s.va,
+      cr: s.cr,
+      spi: s.spi,
+      cpi: s.cpi,
+      ecartDelaiJ: s.ecartDelaiJ,
+      coefficientDebourse: s.coefficientDebourse,
+      bac: CADRE.bacXof,
+      finProjeteeJ: 130,
+    })
+    const dernier = p[p.length - 1]!
+    expect(dernier.jour).toBe(130)
+    expect(dernier.va).toBe(1_000_000)
+  })
+
   it('ne projette rien sans indice de delai', () => {
     expect(
       projeterCourbe({
@@ -414,5 +436,85 @@ describe('projection de la courbe en S', () => {
         bac: 2,
       }),
     ).toEqual([])
+  })
+})
+
+describe('achevement : une seule fin projetee', () => {
+  const base = {
+    origine: ORIGINE,
+    jourAnalyse: 99,
+    dureePlanifieeJ: 200,
+    dureeContractuelleJ: 200,
+    ecartDelaiJ: 10,
+    montantMarcheXof: 1_000_000_000,
+    tauxPenaliteJournaliere: 0.001,
+    plafondPenalite: 0.1,
+  }
+
+  it('retient la fin du reseau rejoue, et en tire retard et penalite', () => {
+    const a = achevement({
+      ...base,
+      fins: new Map([
+        ['a', 150],
+        ['b', 214],
+      ]),
+    })
+    expect(a.finProjeteeJ).toBe(214)
+    expect(a.dateFinProjetee).toBe(dateApres(ORIGINE, 214))
+    expect(a.retardProjeteJ).toBe(15)
+    expect(a.penaliteXof).toBe(15_000_000)
+    expect(a.plafondAtteint).toBe(false)
+  })
+
+  it('n affiche aucun retard pour une fin dans le delai', () => {
+    const a = achevement({ ...base, fins: new Map([['a', 180]]) })
+    expect(a.retardProjeteJ).toBe(0)
+    expect(a.penaliteXof).toBe(0)
+  })
+
+  it('plafonne la penalite et le dit', () => {
+    const a = achevement({ ...base, fins: new Map([['a', 349]]) })
+    expect(a.retardProjeteJ).toBe(150)
+    expect(a.penaliteBruteXof).toBe(150_000_000)
+    expect(a.penaliteXof).toBe(100_000_000)
+    expect(a.plafondAtteint).toBe(true)
+  })
+
+  it('encadre la fin par les deux hypotheses de rythme', () => {
+    const a = achevement({ ...base, fins: new Map([['a', 214]]) })
+    // Au rythme prevu, le retard final egale le retard constate.
+    expect(a.fourchette.rythmePrevuJ).toBe(10)
+    // Au rythme constate : ES = 100 - 10 = 90, SPI(t) = 0,9, 200 / 0,9 = 222,2.
+    expect(a.fourchette.rythmeConstateJ).toBe(22)
+  })
+})
+
+describe('regle : aucun releve valide depuis plus de trois jours', () => {
+  it('se declenche au-dela de trois jours sans releve valide', () => {
+    const [a] = regleAbsenceReleve(entree({ aujourdhui: dateApres(ANALYSE, 4) }))
+    expect(a?.regle).toBe('RELEVE_ABSENT')
+    expect(a?.ampleur).toBe(4)
+    expect(a?.cible.type).toBe('journal')
+  })
+
+  it('ne se declenche pas a trois jours', () => {
+    expect(regleAbsenceReleve(entree({ aujourdhui: dateApres(ANALYSE, 3) }))).toEqual([])
+  })
+
+  it('ne se declenche pas sans date du jour', () => {
+    expect(regleAbsenceReleve(entree({}))).toEqual([])
+  })
+
+  it('compte l age d un releve en attente jusqu a la date du jour', () => {
+    const releve: ReleveSuivi = {
+      id: 'r',
+      date: dateApres(ANALYSE, 1),
+      statut: 'SOUMIS',
+      lotId: 'l',
+      lotNom: 'Gros œuvre',
+    }
+    expect(regleReleves(entree({ releves: [releve] }))).toEqual([])
+    const [a] = regleReleves(entree({ releves: [releve], aujourdhui: dateApres(ANALYSE, 6) }))
+    expect(a?.ampleur).toBe(5)
   })
 })

@@ -15,13 +15,20 @@
  */
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { controlerQuantite } from '@/db/compute/saisie'
 import type { ReferentielSaisie, TacheSaisie } from '@/db/queries/saisie'
 import { typeAlea } from '@/db/schema'
 import { dateCourte, dateLongue, fcfa, LIBELLE_UNITE, libelleMeteo, quantite } from '@/lib/format'
+import {
+  cleBrouillon,
+  ecrireBrouillon,
+  effacerBrouillon,
+  lireBrouillon,
+  type BrouillonFormulaire,
+} from '@/lib/hors-ligne/brouillon'
 import type { IssueEnvoi } from '@/lib/hors-ligne/envoi'
 import { Icone } from '@/lib/icones'
 import {
@@ -44,6 +51,7 @@ import { cn } from '@/lib/utils'
 import { teinteSerie } from '@/lib/viz'
 import type { PhotoAEnvoyer } from '@/lib/photos/televersement'
 import { Bascule, Champ, ChampNombre, CLASSE_CHAMP } from './champs'
+import { EtapeJournal } from './etape-journal'
 import { EtapePhotos } from './etape-photos'
 
 export type ModeFormulaire = 'creation' | 'modification' | 'rectification'
@@ -59,6 +67,11 @@ type Proprietes = {
    * ligne pour une creation, action de rectification pour une rectification.
    */
   envoyer: (releve: ReleveSaisi, photos: PhotoAEnvoyer[]) => Promise<IssueEnvoi>
+  /**
+   * Sauvegarde locale du formulaire en cours, pour l'auteur donne. Absente,
+   * rien n'est garde : c'est le cas de la rectification, qui se fait en ligne.
+   */
+  brouillon?: { utilisateurId: string }
 }
 
 /**
@@ -89,25 +102,108 @@ const QUESTIONS: Record<Etape, string> = {
   moyens: 'Qui était sur le chantier ?',
   quantites: 'Qu’avez-vous réalisé aujourd’hui ?',
   photos: 'Une photo de la journée ?',
-  observations: 'Quelque chose à signaler ?',
+  observations: 'Quelque chose à signaler ? Un coulage, une livraison ?',
   alea: 'Un imprévu est-il survenu ?',
   envoi: 'Tout est bon ? On envoie.',
 }
 
-export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoyer }: Proprietes) {
+export function FormulaireReleve({
+  referentiel,
+  initial,
+  mode,
+  aujourdhui,
+  envoyer,
+  brouillon,
+}: Proprietes) {
   const router = useRouter()
+  const indiceDepart = mode === 'creation' ? 0 : 1
   // Un nouveau releve recoit son identifiant ici, dans le navigateur, et non
   // de la page : voir `nouvelIdentifiant`.
   const [etat, setEtat] = useState<EtatFormulaire>(() =>
     mode === 'creation' ? { ...initial, id: nouvelIdentifiant() } : initial,
   )
-  const [indice, setIndice] = useState(mode === 'creation' ? 0 : 1)
+  const [indice, setIndice] = useState(indiceDepart)
   const [erreurs, setErreurs] = useState<Record<string, string>>({})
   const [photos, setPhotos] = useState<PhotoAEnvoyer[]>([])
   const [enCours, demarrer] = useTransition()
   const [meteo, setMeteo] = useState<'inutile' | 'chargement' | 'chargee' | 'indisponible'>(
     initial.precipitationsMm === '' ? 'inutile' : 'chargee',
   )
+
+  /* --- Brouillon local ----------------------------------------------------- */
+
+  const cle = cleBrouillon(referentiel.projet.id, mode === 'creation' ? null : initial.id)
+  const auteur = brouillon?.utilisateurId ?? null
+  /** Brouillon trouve au chargement, en attente de la decision de l'utilisateur. */
+  const [reprise, setReprise] = useState<BrouillonFormulaire | null>(null)
+  /** Faux tant que la recherche d'un brouillon n'a pas abouti. */
+  const [pret, setPret] = useState(auteur === null)
+
+  useEffect(() => {
+    if (auteur === null) return
+    let actif = true
+    void lireBrouillon(cle, auteur).then((b) => {
+      if (!actif) return
+      setReprise(b)
+      setPret(true)
+    })
+    return () => {
+      actif = false
+    }
+  }, [cle, auteur])
+
+  /*
+   * Sauvegarde a chaque modification, une fois la question de la reprise
+   * tranchee : sans quoi un formulaire vierge ecraserait le brouillon avant
+   * meme que l'utilisateur ait pu le reprendre. Un formulaire encore intact
+   * n'est pas garde.
+   */
+  const intact =
+    indice === indiceDepart &&
+    photos.length === 0 &&
+    JSON.stringify({ ...etat, id: '' }) === JSON.stringify({ ...initial, id: '' })
+  useEffect(() => {
+    if (auteur === null || !pret || reprise !== null || intact) return
+    const minuterie = window.setTimeout(() => {
+      void ecrireBrouillon({
+        cle,
+        utilisateurId: auteur,
+        etat,
+        indice,
+        photos,
+        majLe: Date.now(),
+      })
+    }, 300)
+    return () => window.clearTimeout(minuterie)
+  }, [auteur, pret, reprise, intact, cle, etat, indice, photos])
+
+  function reprendre(b: BrouillonFormulaire) {
+    setEtat(b.etat)
+    setIndice(Math.min(Math.max(b.indice, indiceDepart), ORDRE.length - 1))
+    setPhotos(b.photos)
+    setMeteo(b.etat.precipitationsMm === '' ? 'inutile' : 'chargee')
+    setReprise(null)
+  }
+
+  function recommencer() {
+    void effacerBrouillon(cle)
+    setReprise(null)
+  }
+
+  /*
+   * Le bouton retour du telephone revient a l'etape precedente au lieu de
+   * quitter le formulaire : chaque etape franchie est une entree
+   * d'historique, sur la meme adresse.
+   */
+  useEffect(() => {
+    function surRetour(e: PopStateEvent) {
+      const cible = (e.state as { etapeReleve?: unknown } | null)?.etapeReleve
+      setErreurs({})
+      setIndice(typeof cible === 'number' ? cible : indiceDepart)
+    }
+    window.addEventListener('popstate', surRetour)
+    return () => window.removeEventListener('popstate', surRetour)
+  }, [indiceDepart])
 
   const etape = ORDRE[indice] as Etape
   const lot = referentiel.lots.find((l) => l.id === etat.lotId)
@@ -167,22 +263,41 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
   }
 
   function suivant() {
-    if (!validerEtape(etape)) return
+    if (!validerEtape(etape)) {
+      // L'erreur peut etre hors de l'ecran, sur la cinquieme ligne de
+      // quantites : on y amene l'utilisateur au lieu de ne rien faire.
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+      )
+      return
+    }
     if (ORDRE[indice + 1] === 'meteo') chargerMeteo()
-    setIndice((i) => Math.min(i + 1, ORDRE.length - 1))
+    const prochain = Math.min(indice + 1, ORDRE.length - 1)
+    window.history.pushState({ ...window.history.state, etapeReleve: prochain }, '')
+    setIndice(prochain)
     window.scrollTo({ top: 0 })
   }
 
   function precedent() {
     setErreurs({})
-    setIndice((i) => Math.max(i - 1, mode === 'creation' ? 0 : 1))
+    const courante = (window.history.state as { etapeReleve?: unknown } | null)?.etapeReleve
+    if (typeof courante === 'number' && courante === indice) {
+      // L'etape courante a sa propre entree : le retour du navigateur ramene a
+      // la precedente, et l'historique reste aligne sur l'ecran.
+      window.history.back()
+    } else {
+      setIndice((i) => Math.max(i - 1, indiceDepart))
+    }
     window.scrollTo({ top: 0 })
   }
 
   /* --- Envoi --------------------------------------------------------------- */
 
   function terminer(soumettre: boolean) {
-    const analyse = ReleveSaisi.safeParse(versReleve(etat, soumettre))
+    // La revision horodate cette version : le serveur ignore une version plus
+    // ancienne qui arriverait apres elle, par la file hors ligne par exemple.
+    const brut = versReleve(etat, soumettre) as Record<string, unknown>
+    const analyse = ReleveSaisi.safeParse({ ...brut, revision: Date.now() })
     if (!analyse.success) {
       const e = erreursParChamp(analyse.error)
       setErreurs(e)
@@ -190,13 +305,18 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
       const fautive = ETAPES.findIndex(
         (et) => !et.schema.safeParse(versReleve(etat, false)).success,
       )
-      if (fautive >= 0) setIndice(fautive)
+      // L'indice du schema n'est pas celui de l'ecran : l'etape des photos
+      // s'intercale entre les quantites et les observations.
+      if (fautive >= 0) setIndice(ORDRE.indexOf((ETAPES[fautive] as (typeof ETAPES)[number]).cle))
       toast.error('Le relevé est incomplet : corriger les champs signalés.')
       return
     }
 
     demarrer(async () => {
       const issue = await envoyer(analyse.data, photos)
+      // Enregistre ou mis en file : la saisie est en lieu sur, le brouillon
+      // local n'a plus lieu d'etre.
+      if (issue.issue !== 'refuse') await effacerBrouillon(cle)
       if (issue.issue === 'enregistre') {
         toast.success(
           mode === 'rectification'
@@ -223,6 +343,31 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
 
   return (
     <div className="pb-28">
+      {reprise !== null && (
+        <section
+          aria-label="Relevé non envoyé"
+          className="border-etat-retard/50 bg-card mb-5 rounded-2xl border-2 p-4"
+        >
+          <p className="font-bold">Un relevé commencé n’a pas été envoyé.</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Journée du {dateCourte(reprise.etat.date)}, arrêté à l’étape{' '}
+            {Math.min(reprise.indice + 1, ORDRE.length)} sur {ORDRE.length}
+            {reprise.photos.length > 0
+              ? `, avec ${reprise.photos.length} photo${reprise.photos.length > 1 ? 's' : ''}`
+              : ''}
+            . Il est gardé sur ce téléphone.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button type="button" className="h-11 flex-[2]" onClick={() => reprendre(reprise)}>
+              Reprendre
+            </Button>
+            <Button type="button" variant="outline" className="h-11 flex-1" onClick={recommencer}>
+              Recommencer
+            </Button>
+          </div>
+        </section>
+      )}
+
       <EnTeteEtapes indice={indice} mode={mode} />
 
       <form
@@ -282,21 +427,31 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
           )}
 
           {etape === 'observations' && (
-            <Champ
-              libelle="Observations"
-              aide="Faits marquants, visites, réserves, consignes. Facultatif."
-              erreur={erreurs['observations']}
-            >
-              {(a) => (
-                <textarea
-                  {...a}
-                  rows={7}
-                  value={etat.observations}
-                  onChange={(e) => modifier('observations', e.target.value)}
-                  className={cn(CLASSE_CHAMP, 'h-auto py-2.5 leading-relaxed')}
-                />
-              )}
-            </Champ>
+            <>
+              <Champ
+                libelle="Observations"
+                aide="Faits marquants, visites, réserves, consignes. Facultatif."
+                erreur={erreurs['observations']}
+              >
+                {(a) => (
+                  <textarea
+                    {...a}
+                    rows={7}
+                    value={etat.observations}
+                    onChange={(e) => modifier('observations', e.target.value)}
+                    className={cn(CLASSE_CHAMP, 'h-auto py-2.5 leading-relaxed')}
+                  />
+                )}
+              </Champ>
+              <EtapeJournal
+                coulages={etat.coulages ?? []}
+                livraisons={etat.livraisons ?? []}
+                journeeTravaillee={etat.journeeTravaillee}
+                erreurs={erreurs}
+                surCoulages={(c) => modifier('coulages', c)}
+                surLivraisons={(l) => modifier('livraisons', l)}
+              />
+            </>
           )}
 
           {etape === 'alea' && <EtapeAlea etat={etat} erreurs={erreurs} modifier={modifier} />}
@@ -313,7 +468,7 @@ export function FormulaireReleve({ referentiel, initial, mode, aujourdhui, envoy
 
         <nav
           aria-label="Navigation entre les étapes"
-          className="bg-background/95 border-border fixed inset-x-0 bottom-0 z-20 border-t px-4 py-3 backdrop-blur md:left-[15rem]"
+          className="bg-background/95 border-border fixed inset-x-0 bottom-0 z-20 border-t px-4 py-3 backdrop-blur md:left-[15.5rem]"
         >
           <div className="mx-auto flex max-w-xl gap-2">
             {indice > (mode === 'creation' ? 0 : 1) && (
@@ -939,6 +1094,29 @@ function Recapitulatif({
       </Ligne>
       <Ligne terme="Photos">{photos === 0 ? 'Aucune' : photos}</Ligne>
       {etat.observations.trim() !== '' && <Ligne terme="Observations">{etat.observations}</Ligne>}
+      {etat.journeeTravaillee && (etat.coulages ?? []).length > 0 && (
+        <Ligne terme="Coulages">
+          <ul className="space-y-0.5">
+            {(etat.coulages ?? []).map((c, i) => (
+              <li key={i}>
+                {c.ouvrage} : {c.volumeM3} m3 de {c.classeBeton}
+              </li>
+            ))}
+          </ul>
+        </Ligne>
+      )}
+      {(etat.livraisons ?? []).length > 0 && (
+        <Ligne terme="Livraisons">
+          <ul className="space-y-0.5">
+            {(etat.livraisons ?? []).map((l, i) => (
+              <li key={i}>
+                {l.designation} : {l.quantite} {LIBELLE_UNITE[l.unite]}
+                {!l.conforme && ', sous réserve'}
+              </li>
+            ))}
+          </ul>
+        </Ligne>
+      )}
       <Ligne terme="Aléa">
         {etat.aleaDeclare
           ? `${LIBELLE_TYPE_ALEA[etat.alea.type]}, gravité ${etat.alea.gravite}${coutAlea > 0 ? `, ${fcfa(coutAlea)}` : ''}`

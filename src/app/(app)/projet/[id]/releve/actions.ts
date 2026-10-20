@@ -23,7 +23,9 @@ import {
   rectifierReleve,
   soumettreReleve,
   validerReleve,
+  validerReleves,
 } from '@/db/mutations/releve'
+import { z } from 'zod'
 import { exiger, NonAuthentifie, NonAutorise, PEUT_SAISIR, PEUT_VALIDER } from '@/lib/garde'
 import { ReleveSaisi } from '@/lib/releve'
 import type { Role } from '@/db/schema'
@@ -67,10 +69,10 @@ export async function soumettreAction(releveId: string): Promise<ResultatAction>
   }
 }
 
-export async function validerAction(releveId: string): Promise<ResultatAction> {
+export async function validerAction(releveId: string, version?: string): Promise<ResultatAction> {
   try {
     const { projetId, utilisateur } = await garderReleve(releveId, PEUT_VALIDER)
-    const r = await validerReleve(db(), releveId, utilisateur.id)
+    const r = await validerReleve(db(), releveId, utilisateur.id, version)
     rafraichir(projetId)
     return {
       ok: true,
@@ -98,5 +100,43 @@ export async function rectifierAction(ancienId: string, brut: unknown): Promise<
     }
   } catch (e) {
     return echec(e)
+  }
+}
+
+const Selection = z
+  .array(z.object({ id: z.uuid(), version: z.string().min(10).max(64) }))
+  .min(1)
+  .max(200)
+
+export type ResultatValidationGroupee =
+  { ok: true; valides: number; perimes: number; message: string } | { ok: false; message: string }
+
+/**
+ * Validation groupee depuis le journal. La garde porte sur le projet de
+ * l'URL ; la mutation ne touche que les releves de CE projet, si bien qu'un
+ * identifiant etranger glisse dans la selection est simplement ignore.
+ */
+export async function validerSelectionAction(
+  projetId: string,
+  brut: unknown,
+): Promise<ResultatValidationGroupee> {
+  try {
+    const utilisateur = await exiger(projetId, PEUT_VALIDER)
+    const selection = Selection.safeParse(brut)
+    if (!selection.success) return { ok: false, message: 'Sélection de relevés invalide.' }
+    const r = await validerReleves(db(), projetId, selection.data, utilisateur.id)
+    rafraichir(projetId)
+    const n = r.valides.length
+    const message =
+      (n === 0
+        ? 'Aucun relevé validé.'
+        : `${n} relevé${n > 1 ? 's validés' : ' validé'}. Les indicateurs du projet sont à jour.`) +
+      (r.perimes.length > 0
+        ? ` ${r.perimes.length} relevé${r.perimes.length > 1 ? 's ont' : ' a'} changé depuis l’affichage : à relire.`
+        : '')
+    return { ok: true, valides: n, perimes: r.perimes.length, message }
+  } catch (e) {
+    const r = echec(e)
+    return { ok: false, message: r.ok ? 'Action impossible.' : r.message }
   }
 }

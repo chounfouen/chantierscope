@@ -39,6 +39,7 @@ export function SaisieDirecte(
   return (
     <FormulaireReleve
       {...reste}
+      brouillon={{ utilisateurId }}
       envoyer={async (releve, photos): Promise<IssueEnvoi> => {
         const issue: IssueEnvoi = navigator.onLine
           ? await envoyerReleve(projetId, releve)

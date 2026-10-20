@@ -12,7 +12,10 @@
  */
 
 import { sql } from 'drizzle-orm'
+import type { CadreContractuel } from '@/db/compute/contrat'
 import type { db as instanceDb } from '@/db/index'
+import { cadreA, chargerContrat } from '@/db/queries/contrat'
+import { formatISO } from 'date-fns'
 import {
   jourDepuis,
   type AleaSuivi,
@@ -31,9 +34,21 @@ type Db = ReturnType<typeof instanceDb>
 
 export type DonneesTableau = {
   origine: string
+  /**
+   * Fin contractuelle EN VIGUEUR, apres avenants, ordres de service et
+   * intemperies reconnues. Le cadre porte de meme le delai et le montant en
+   * vigueur : ce sont eux qui fixent penalite et retard.
+   */
+  finContractuelle: string
+  /** Detail du cadre contractuel, pour l'expliquer a l'ecran. */
+  contrat: CadreContractuel
   courbe: PointSynthese[]
   cadre: CadreProjet
-  taches: (TacheSuivie & { lotId: string; budget: number })[]
+  /**
+   * `refDebut` et `refDuree` : dates de la reference active, sur lesquelles se
+   * prolonge la courbe planifiee. Les dates courantes servent a la projection.
+   */
+  taches: (TacheSuivie & { lotId: string; budget: number; refDebut: number; refDuree: number })[]
   liaisons: LiaisonReseau[]
   jalons: JalonSuivi[]
   aleas: AleaSuivi[]
@@ -46,25 +61,28 @@ export async function chargerTableau(
   projetId: string,
   interne: boolean,
 ): Promise<DonneesTableau> {
-  const [projets, courbe, debourses, taches, liaisons, jalons, aleas, releves, lignes] =
+  const [projets, courbe, debourses, taches, liaisons, jalons, aleas, releves, lignes, contrat] =
     await Promise.all([
       db.execute<{
         origine: string
         dureeContractuelleJ: number
         montantMarcheXof: number
         tauxPenaliteJournaliere: number
+        plafondPenalite: number
       }>(sql`
         select date_ordre_service as origine,
                duree_contractuelle_j as "dureeContractuelleJ",
                montant_marche_xof::float8 as "montantMarcheXof",
-               taux_penalite_journaliere::float8 as "tauxPenaliteJournaliere"
+               taux_penalite_journaliere::float8 as "tauxPenaliteJournaliere",
+               plafond_penalite::float8 as "plafondPenalite"
           from projet where id = ${projetId}`),
 
       db.execute<PointSynthese>(sql`
         select date, avancement_pct::float8 as avancement,
                valeur_planifiee_xof::float8 as vp,
                valeur_acquise_xof::float8   as va,
-               ${interne ? sql`cout_reel_xof::float8` : sql`null::float8`} as cr
+               ${interne ? sql`cout_reel_xof::float8` : sql`null::float8`} as cr,
+               date_fin_projetee as "finProjetee"
           from snapshot_avancement
          where projet_id = ${projetId} and lot_id is null
          order by date`),
@@ -88,14 +106,19 @@ export async function chargerTableau(
         avancement: number
         critique: boolean
         budget: number
+        refDebut: string | null
+        refDuree: number | null
       }>(sql`
         select t.id, t.lot_id as "lotId", t.code_wbs as "codeWbs", t.nom,
                t.date_debut_prevue as debut, t.duree_prevue_j as duree,
                t.debut_impose as "debutImpose",
                t.date_debut_reelle as "debutReel", t.date_fin_reelle as "finReelle",
                t.avancement_pct::float8 as avancement, t.critique,
-               t.poids_budgetaire_xof::float8 as budget
+               t.poids_budgetaire_xof::float8 as budget,
+               rt.date_debut as "refDebut", rt.duree_j as "refDuree"
           from tache t join lot l on l.id = t.lot_id
+          left join reference_planning rp on rp.projet_id = l.projet_id and rp.active
+          left join reference_tache rt on rt.reference_id = rp.id and rt.tache_id = t.id
          where l.projet_id = ${projetId} and t.parent_id is not null
          order by t.code_wbs`),
 
@@ -116,7 +139,9 @@ export async function chargerTableau(
       db.execute<AleaSuivi>(sql`
         select id, type, gravite, statut, date, description, lot_id as "lotId"
           from alea
-         where projet_id = ${projetId} and type = 'NON_CONFORMITE' and statut <> 'SOLDE'`),
+         where projet_id = ${projetId}
+           and ((type = 'NON_CONFORMITE' and statut <> 'SOLDE')
+                or (type = 'INTEMPERIE' and decision_intemperie = 'PROPOSEE'))`),
 
       // Le circuit de validation est une affaire interne : le maitre
       // d'ouvrage ne voit pas les releves en attente.
@@ -142,11 +167,17 @@ export async function chargerTableau(
              group by 1
           ) r on r.ligne = q.id
          where l.projet_id = ${projetId}`),
+
+      chargerContrat(db, projetId, formatISO(new Date(), { representation: 'date' })),
     ])
 
   const projet = projets[0]
   if (!projet) throw new Error(`Projet introuvable : ${projetId}.`)
   const { origine } = projet
+  // Le contrat se lit a la date d'etat, comme tout le reste du tableau : une
+  // analyse a une date passee ignore les actes signes depuis.
+  const dateEtat = courbe.at(-1)?.date
+  const cadreContrat = dateEtat === undefined ? contrat.cadre : cadreA(contrat, dateEtat)
   const jour = (d: string | null) => (d === null ? null : jourDepuis(origine, d))
 
   const tachesSuivies = taches.map((t) => ({
@@ -162,6 +193,8 @@ export async function chargerTableau(
     avancement: t.avancement,
     critique: t.critique,
     budget: t.budget,
+    refDebut: t.refDebut === null ? jourDepuis(origine, t.debut) : jourDepuis(origine, t.refDebut),
+    refDuree: t.refDuree ?? t.duree,
   }))
   const bacXof = tachesSuivies.reduce((s, t) => s + t.budget, 0)
 
@@ -173,10 +206,13 @@ export async function chargerTableau(
       // Pour le maitre d'ouvrage, le debourse n'est pas lu : le coefficient
       // vaut un, et les indicateurs de cout restent nuls faute de cout reel.
       budgetDebourseXof: debourses[0]?.debourse ?? bacXof,
-      dureeContractuelleJ: projet.dureeContractuelleJ,
-      montantMarcheXof: projet.montantMarcheXof,
+      dureeContractuelleJ: cadreContrat.dureeJ,
+      montantMarcheXof: cadreContrat.montantXof,
       tauxPenaliteJournaliere: projet.tauxPenaliteJournaliere,
+      plafondPenalite: projet.plafondPenalite,
     },
+    finContractuelle: cadreContrat.finContractuelle,
+    contrat: cadreContrat,
     taches: tachesSuivies,
     liaisons: [...liaisons],
     jalons: [...jalons],
@@ -188,5 +224,5 @@ export async function chargerTableau(
 
 /** Taches budgetees, pour prolonger la courbe planifiee au-dela du jour. */
 export function tachesBudgetees(d: DonneesTableau): TacheBudgetee[] {
-  return d.taches.map((t) => ({ debut: t.debut, duree: t.duree, budget: t.budget }))
+  return d.taches.map((t) => ({ debut: t.refDebut, duree: t.refDuree, budget: t.budget }))
 }

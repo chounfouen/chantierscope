@@ -192,3 +192,21 @@ describe('nouvel essai apres interruption', () => {
     expect([0, 1, 2, 3, 10].map(delaiNouvelEssai)).toEqual([5_000, 10_000, 20_000, 60_000, 60_000])
   })
 })
+
+describe('versions successives d un meme releve', () => {
+  beforeEach(async () => {
+    await viderPourTest()
+  })
+
+  it('une version remise en file pendant l envoi de la precedente n est pas perdue', async () => {
+    await mettreEnFile(P, CHEF, { ...releve('r-v'), revision: 1 })
+    const envoyer = async (_p: string, r: ReleveSaisi): Promise<IssueEnvoi> => {
+      // Le chef renvoie une version plus recente pendant que la file envoie.
+      if (r.revision === 1) await mettreEnFile(P, CHEF, { ...releve('r-v'), revision: 2 })
+      return { issue: 'enregistre', releveId: r.id, statut: 'SOUMIS', cree: false }
+    }
+    await synchroniser(P, CHEF, envoyer)
+    const restants = await lister(P, CHEF)
+    expect(restants.map((e) => e.releve.revision)).toEqual([2])
+  })
+})

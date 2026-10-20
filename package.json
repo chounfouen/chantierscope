@@ -28,6 +28,7 @@
     "db:meteo": "tsx --env-file=.env.local src/db/seed/meteo.ts",
     "db:empreinte": "tsx --env-file=.env.local scripts/empreinte.ts",
     "db:recalcul": "tsx --env-file=.env.local scripts/recalculer.ts",
+    "db:situation": "tsx --env-file=.env.local scripts/situation.ts",
     "reference:tableur": "python3 scripts/reference/tableur.py",
     "test:e2e": "next build && playwright test",
     "compte:mot-de-passe": "tsx --env-file=.env.local scripts/changer-mot-de-passe.ts"

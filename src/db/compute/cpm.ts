@@ -40,11 +40,21 @@ export function calculerReseau(reseau: Reseau): ResultatReseau {
   passeAvant(ordre, taches, predecesseurs, debutTot, finTot)
 
   const dureeTotale = Math.max(...finTot.values()) + 1
-  const finProjet = dureeTotale - 1
+  const butoir = reseau.finButoir
+  const finProjet = butoir ?? dureeTotale - 1
 
   const debutTard = new Map<string, number>()
   const finTard = new Map<string, number>()
-  passeArriere(ordre, taches, successeurs, debutTot, debutTard, finTard, finProjet)
+  passeArriere(
+    ordre,
+    taches,
+    successeurs,
+    debutTot,
+    debutTard,
+    finTard,
+    finProjet,
+    butoir !== undefined,
+  )
 
   const dates = assembler(
     ordre,
@@ -254,6 +264,8 @@ function passeArriere(
   debutTard: Map<string, number>,
   finTard: Map<string, number>,
   finProjet: number,
+  /** Vrai si la fin vient d'une date butoir : les marges negatives sont admises. */
+  butoir: boolean,
 ): void {
   for (let i = ordre.length - 1; i >= 0; i--) {
     const id = ordre[i] as string
@@ -267,11 +279,12 @@ function passeArriere(
       fin = Math.min(fin, contrainteFin(l, dTardAval, fTardAval, t.duree))
     }
 
-    // Une contrainte de debut impose plaque la tache : elle ne peut pas
-    // remonter plus tot, donc sa date au plus tard ne descend pas sous sa
-    // date au plus tot.
+    // Sans butoir, une contrainte de debut impose plaque la tache : elle ne
+    // peut pas remonter plus tot, donc sa date au plus tard ne descend pas
+    // sous sa date au plus tot. Avec un butoir, ce plancher effacerait
+    // justement l'information cherchee : de combien le reseau deborde.
     const finMinimale = (debutTot.get(id) as number) + t.duree - 1
-    if (fin < finMinimale) fin = finMinimale
+    if (!butoir && fin < finMinimale) fin = finMinimale
 
     finTard.set(id, fin)
     debutTard.set(id, fin - t.duree + 1)
@@ -315,7 +328,6 @@ function assembler(
         ...aval.map((l) => {
           const dAval = debutTot.get(l.aval) as number
           const fAval = finTot.get(l.aval) as number
-          const dureeAmont = (taches.get(id) as TacheReseau).duree
           switch (l.type) {
             case 'FD':
               return dAval - fTot - 1 - l.decalage
@@ -324,7 +336,9 @@ function assembler(
             case 'FF':
               return fAval - fTot - l.decalage
             case 'DF':
-              return fAval - dTot - l.decalage - dureeAmont + 1
+              // fin aval >= debut amont + decalage : retarder l'amont de x
+              // ne deplace que son debut.
+              return fAval - dTot - l.decalage
           }
         }),
       )
@@ -337,7 +351,8 @@ function assembler(
       finTard: fTard,
       margeTotale,
       margeLibre: Math.max(0, Math.min(margeLibre, margeTotale)),
-      critique: margeTotale === 0,
+      // Avec un butoir depasse, le chemin critique porte une marge negative.
+      critique: margeTotale <= 0,
     })
   }
 

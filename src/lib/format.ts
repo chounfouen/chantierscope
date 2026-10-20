@@ -153,6 +153,11 @@ export function moisCourt(d: DateSimple): string {
   return format(parseISO(d), 'MMM yy', { locale: fr })
 }
 
+/** `2025-01` ou `2025-01-06` devient `janvier 2025`, pour un mois de situation. */
+export function moisLong(d: DateSimple): string {
+  return format(parseISO(d.length === 7 ? `${d}-01` : d), 'MMMM yyyy', { locale: fr })
+}
+
 /** Un instant reel, horodate : validation, prise de vue, audit. */
 export function instant(d: Date): string {
   return format(d, "dd/MM/yyyy 'a' HH'h'mm", { locale: fr })

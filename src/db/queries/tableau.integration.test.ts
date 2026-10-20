@@ -12,6 +12,12 @@
  * synthese par le noyau. Les treize indicateurs de la methode de la valeur
  * acquise, l'avancement et l'ecart de delai en jours doivent concorder.
  *
+ * La duree projetee, le retard et la penalite se rapportent au delai EN
+ * VIGUEUR a la date d'analyse, pas au delai initial : au 31 juillet et au
+ * 27 septembre, dix journees d'intemperie reconnues pour six previsibles au
+ * CCAP portent le delai de 412 a 416 jours. Le classeur le calcule lui-meme,
+ * depuis sa feuille des actes du marche.
+ *
  * Les trois dates precedent toutes les journees que les autres suites
  * d'integration modifient : la base partagee est, pour elles, le jeu de
  * demonstration intact.

@@ -1,6 +1,6 @@
 'use server'
 
-import { AuthError } from 'next-auth'
+import { AuthError, CredentialsSignin } from 'next-auth'
 import { z } from 'zod'
 import { signIn } from '@/auth'
 
@@ -37,6 +37,12 @@ export async function seConnecter(_etat: EtatConnexion, donnees: FormData): Prom
     })
     return { erreur: null, email }
   } catch (e) {
+    if (e instanceof CredentialsSignin && e.code === 'trop_de_tentatives') {
+      return {
+        erreur: 'Trop de tentatives de connexion. Patienter un quart d’heure avant de réessayer.',
+        email,
+      }
+    }
     if (e instanceof AuthError) {
       return { erreur: 'Adresse électronique ou mot de passe incorrect.', email }
     }

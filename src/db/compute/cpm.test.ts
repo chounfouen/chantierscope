@@ -325,3 +325,55 @@ describe('circuits multiples et imbriques', () => {
     }
   })
 })
+
+describe('date butoir et marges negatives', () => {
+  const reseau = {
+    taches: [
+      { id: 'A', duree: 10 },
+      { id: 'B', duree: 10 },
+      { id: 'C', duree: 5 },
+    ],
+    liaisons: [
+      { amont: 'A', aval: 'B', type: 'FD' as const, decalage: 0 },
+      { amont: 'A', aval: 'C', type: 'FD' as const, decalage: 0 },
+    ],
+  }
+
+  it('sans butoir, les marges restent positives ou nulles', () => {
+    const r = calculerReseau(reseau)
+    expect(r.dates.get('A')?.margeTotale).toBe(0)
+    expect(r.dates.get('C')?.margeTotale).toBe(5)
+  })
+
+  it('un butoir depasse donne au chemin critique une marge negative', () => {
+    // Le reseau finit au jour 19 ; le contrat exige le jour 14.
+    const r = calculerReseau({ ...reseau, finButoir: 14 })
+    expect(r.dates.get('A')?.margeTotale).toBe(-5)
+    expect(r.dates.get('B')?.margeTotale).toBe(-5)
+    expect(r.dates.get('C')?.margeTotale).toBe(0)
+    expect(r.dates.get('B')?.critique).toBe(true)
+    // Les dates au plus tot ne bougent pas : le butoir ne raccourcit rien.
+    expect(r.dates.get('B')?.finTot).toBe(19)
+  })
+
+  it('un butoir lointain donne de la marge a toutes les taches', () => {
+    const r = calculerReseau({ ...reseau, finButoir: 24 })
+    expect(r.dates.get('A')?.margeTotale).toBe(5)
+    expect(r.cheminCritique).toEqual([])
+  })
+})
+
+describe('marge libre d une liaison debut-fin', () => {
+  it('retarder l amont ne deplace que son debut', () => {
+    // fin de B >= debut de A + 10 ; B est tenue par sa contrainte au jour 18.
+    const r = calculerReseau({
+      taches: [
+        { id: 'A', duree: 5 },
+        { id: 'B', duree: 3, debutImpose: 18 },
+      ],
+      liaisons: [{ amont: 'A', aval: 'B', type: 'DF', decalage: 10 }],
+    })
+    // A peut demarrer jusqu'au jour 10 sans repousser B, qui finit au jour 20.
+    expect(r.dates.get('A')?.margeLibre).toBe(10)
+  })
+})

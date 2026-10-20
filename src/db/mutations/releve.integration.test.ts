@@ -17,6 +17,7 @@ import {
   rectifierReleve,
   soumettreReleve,
   validerReleve,
+  validerReleves,
 } from '@/db/mutations/releve'
 import { premierProjetId } from '@/db/queries/contexte'
 import { recompute } from '@/db/recompute'
@@ -91,6 +92,8 @@ function saisie(modifs: Partial<ReleveSaisi> = {}): ReleveSaisi {
     heuresTravaillees: 80,
     quantites: [{ ligneId: ligneA, quantite: 5, commentaire: null }],
     observations: 'Coulage poteaux niveau 2',
+    coulages: [],
+    livraisons: [],
     alea: null,
     ...modifs,
   }
@@ -166,6 +169,55 @@ describe('enregistrement d un releve', () => {
     const q = await quantitesDe(r.id)
     expect(q).toHaveLength(2)
     expect(q.find((l) => l.ligne === ligneA)?.q).toBe(6.25)
+  })
+
+  it('consigne les coulages et les livraisons, et les remplace a la mise a jour', async () => {
+    const coulage = {
+      ouvrage: 'Poteaux R+2, files A à C',
+      classeBeton: 'C30/37',
+      volumeM3: 12.5,
+      bonLivraison: 'BL-4471',
+      affaissementMm: 120,
+      eprouvettes: 3,
+    }
+    const livraison = {
+      designation: 'Acier HA 12',
+      fournisseur: null,
+      quantite: 8,
+      unite: 'T' as const,
+      bonLivraison: null,
+      conforme: false,
+      reserve: 'Barres oxydées, paquet refusé.',
+    }
+    await enregistrerReleve(
+      db,
+      projetId,
+      {
+        ...r,
+        coulages: [coulage, { ...coulage, ouvrage: 'Voile V3', volumeM3: 4 }],
+        livraisons: [livraison],
+      },
+      chefId,
+    )
+    const lus = async () => ({
+      coulages: await client<{ ouvrage: string; v: string }[]>`
+        select ouvrage, volume_m3::text as v from releve_coulage
+         where releve_journalier_id = ${r.id}::uuid order by rang`,
+      livraisons: await client<{ conforme: boolean; reserve: string | null }[]>`
+        select conforme, reserve from releve_livraison where releve_journalier_id = ${r.id}::uuid`,
+    })
+    const avant = await lus()
+    expect(avant.coulages.map((c) => c.ouvrage)).toEqual(['Poteaux R+2, files A à C', 'Voile V3'])
+    expect(avant.livraisons).toEqual([
+      { conforme: false, reserve: 'Barres oxydées, paquet refusé.' },
+    ])
+
+    await enregistrerReleve(db, projetId, { ...r, coulages: [coulage], livraisons: [] }, chefId)
+    const apres = await lus()
+    expect(apres.coulages).toHaveLength(1)
+    expect(Number(apres.coulages[0]?.v)).toBe(12.5)
+    expect(apres.livraisons).toHaveLength(0)
+    r = { ...r, coulages: [coulage] }
   })
 
   it('la soumission fait passer le releve au statut soumis', async () => {
@@ -306,6 +358,16 @@ describe('validation et gel', () => {
     ).rejects.toMatchObject({ code: 'CS001' })
   })
 
+  it('la base refuse toute modification du journal d un releve valide', async () => {
+    await expect(
+      client`delete from releve_coulage where releve_journalier_id = ${releveId}::uuid`,
+    ).rejects.toMatchObject({ code: 'CS001' })
+    await expect(
+      client`insert into releve_livraison (releve_journalier_id, designation, quantite, unite)
+             values (${releveId}::uuid, 'Sable', 5, 'M3')`,
+    ).rejects.toMatchObject({ code: 'CS001' })
+  })
+
   it('la base refuse la suppression d un releve valide', async () => {
     await expect(
       client`delete from releve_journalier where id = ${releveId}::uuid`,
@@ -368,7 +430,12 @@ describe('rectification', () => {
     expect(res.nouveauId).toBe(idRectificatif)
 
     const lignes = await client<
-      { id: string; statut: string; remplace: string | null; valideur: string | null }[]
+      {
+        id: string
+        statut: string
+        remplace: string | null
+        valideur: string | null
+      }[]
     >`
       select id, statut::text as statut, remplace_par as remplace, valide_par_id as valideur
         from releve_journalier where id in (${ancienId}::uuid, ${idRectificatif}::uuid)`
@@ -479,5 +546,135 @@ describe('alea declare depuis un releve', () => {
   it('retirer l alea du releve le supprime', async () => {
     await enregistrerReleve(db, projetId, { ...r, alea: null }, chefId)
     expect(await aleasDuReleve()).toEqual([])
+  })
+})
+
+describe('cloisonnement entre projets', () => {
+  let projetB: string
+  let lotB: string
+  let releveB: string
+
+  beforeAll(async () => {
+    const [p] = await client<{ id: string }[]>`
+      insert into projet (code, nom, maitre_ouvrage, maitre_oeuvre, entreprise, lieu,
+                          latitude, longitude, date_ordre_service, duree_contractuelle_j,
+                          date_fin_contractuelle, montant_marche_xof)
+      values ('TEST-B', 'Projet B', 'MOA B', 'MOE B', 'Entreprise B', 'Ailleurs',
+              5.3, -4.0, '2026-01-05', 100, '2026-04-14', 1000000)
+      returning id`
+    projetB = p?.id as string
+    const [l] = await client<{ id: string }[]>`
+      insert into lot (projet_id, code, nom, ordre, budget_xof, rang_couleur)
+      values (${projetB}::uuid, '01-B', 'Lot B', 1, 1000000, 0) returning id`
+    lotB = l?.id as string
+    releveB = randomUUID()
+    await client`
+      insert into releve_journalier (id, projet_id, lot_id, date, statut, observations)
+      values (${releveB}::uuid, ${projetB}::uuid, ${lotB}::uuid, '2026-02-02', 'BROUILLON',
+              'Relevé du projet B')`
+  })
+
+  afterAll(async () => {
+    await client`delete from projet where id = ${projetB}::uuid`
+  })
+
+  it('un releve d un autre projet ne se reecrit pas depuis ce projet', async () => {
+    await attendreRefus(
+      enregistrerReleve(db, projetId, saisie({ id: releveB, date: '2026-10-02' }), chefId),
+      'INTROUVABLE',
+    )
+    const [b] = await client<{ projetId: string; lotId: string; observations: string }[]>`
+      select projet_id as "projetId", lot_id as "lotId", observations
+        from releve_journalier where id = ${releveB}::uuid`
+    expect(b).toEqual({
+      projetId: projetB,
+      lotId: lotB,
+      observations: 'Relevé du projet B',
+    })
+  })
+
+  it('la base refuse un releve rattache au lot d un autre projet', async () => {
+    await expect(client`
+      insert into releve_journalier (id, projet_id, lot_id, date)
+      values (${randomUUID()}::uuid, ${projetId}::uuid, ${lotB}::uuid, '2026-10-03')`).rejects.toThrow(
+      /releve_lot_meme_projet/,
+    )
+  })
+})
+
+describe('versions concurrentes', () => {
+  it('une version plus ancienne arrivee apres une recente ne l ecrase pas', async () => {
+    const s = saisie({ date: '2026-10-05', lotId, revision: 2_000, effectifOuvriers: 12 })
+    await enregistrerReleve(db, projetId, s, chefId)
+    const r = await enregistrerReleve(
+      db,
+      projetId,
+      { ...s, revision: 1_000, effectifOuvriers: 3 },
+      chefId,
+    )
+    expect(r.depasse).toBe(true)
+    const [l] = await client<{ n: number }[]>`
+      select effectif_ouvriers as n from releve_journalier where id = ${s.id}::uuid`
+    expect(l?.n).toBe(12)
+  })
+
+  it('une version plus recente remplace l ancienne', async () => {
+    const s = saisie({ date: '2026-10-06', lotId, revision: 1_000, effectifOuvriers: 4 })
+    await enregistrerReleve(db, projetId, s, chefId)
+    await enregistrerReleve(db, projetId, { ...s, revision: 3_000, effectifOuvriers: 9 }, chefId)
+    const [l] = await client<{ n: number }[]>`
+      select effectif_ouvriers as n from releve_journalier where id = ${s.id}::uuid`
+    expect(l?.n).toBe(9)
+  })
+
+  it('la validation refuse un releve modifie depuis son affichage', async () => {
+    const s = saisie({ date: '2026-10-07', lotId, soumettre: true, revision: 1 })
+    await enregistrerReleve(db, projetId, s, chefId)
+    const [vue] = await client<{ v: string }[]>`
+      select modifie_le::text as v from releve_journalier where id = ${s.id}::uuid`
+    await enregistrerReleve(db, projetId, { ...s, revision: 2, effectifOuvriers: 30 }, chefId)
+    await attendreRefus(validerReleve(db, s.id, conducteurId, vue?.v), 'PERIME')
+    const [apres] = await client<{ v: string }[]>`
+      select modifie_le::text as v from releve_journalier where id = ${s.id}::uuid`
+    const r = await validerReleve(db, s.id, conducteurId, apres?.v)
+    expect(r.modifie).toBe(true)
+  })
+})
+
+describe('validation groupee', () => {
+  it('valide la selection en un recalcul, et rend a part les releves modifies', async () => {
+    const a = saisie({ date: '2026-10-08', lotId, soumettre: true, revision: 1 })
+    const b = saisie({ date: '2026-10-09', lotId, soumettre: true, revision: 1 })
+    await enregistrerReleve(db, projetId, a, chefId)
+    await enregistrerReleve(db, projetId, b, chefId)
+    const versions = await client<{ id: string; v: string }[]>`
+      select id, modifie_le::text as v from releve_journalier
+       where id in (${a.id}::uuid, ${b.id}::uuid)`
+    const version = (id: string) => versions.find((x) => x.id === id)?.v as string
+    // b change apres l'affichage : il ne doit pas etre valide a l'aveugle.
+    await enregistrerReleve(db, projetId, { ...b, revision: 2, effectifOuvriers: 25 }, chefId)
+
+    const r = await validerReleves(
+      db,
+      projetId,
+      [
+        { id: a.id, version: version(a.id) },
+        { id: b.id, version: version(b.id) },
+      ],
+      conducteurId,
+    )
+    expect(r.valides).toEqual([a.id])
+    expect(r.perimes).toEqual([b.id])
+    expect(r.recalcul).not.toBeNull()
+  })
+
+  it('ignore un releve d un autre projet glisse dans la selection', async () => {
+    const r = await validerReleves(
+      db,
+      randomUUID(),
+      [{ id: randomUUID(), version: '2026-10-08 10:00:00+00' }],
+      conducteurId,
+    )
+    expect(r.valides).toEqual([])
   })
 })

@@ -262,8 +262,10 @@ export function RapportHebdomadaire({ c }: { c: ContenuRapport }) {
             intitule="Fin projetée"
             valeur={c.dateFinProjetee === null ? '—' : dateCourte(c.dateFinProjetee)}
             precision={
-              fin.retardJ !== null && fin.retardJ > 0
-                ? `${fin.retardJ} j de retard, pénalité prévue ${fcfa(fin.penaliteXof)}`
+              c.retardProjeteJ > 0
+                ? `${c.retardProjeteJ} j de retard, pénalité prévue ${fcfa(c.penaliteXof)}${
+                    c.penalitePlafonnee ? ' (plafonnée)' : ''
+                  }`
                 : 'sans pénalité prévue'
             }
           />

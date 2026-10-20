@@ -15,7 +15,10 @@
  */
 
 import { redirect } from 'next/navigation'
+import { cache } from 'react'
 import { auth } from '@/auth'
+import { db } from '@/db/index'
+import { etatCompte } from '@/db/queries/lecture'
 import {
   NonAuthentifie,
   PEUT_LIRE,
@@ -28,18 +31,29 @@ import type { Role } from '@/db/schema'
 
 export * from '@/lib/droits'
 
-/** Utilisateur de la session, ou levee. N'effectue aucun controle de droit. */
-export async function utilisateurCourant(): Promise<Utilisateur> {
+/**
+ * Utilisateur de la session, ou levee. N'effectue aucun controle de droit.
+ *
+ * Le role, les projets accessibles et l'etat du compte sont RELUS EN BASE, et
+ * non pris dans le jeton : un compte desactive, retrogade ou retire d'un
+ * projet perd ses droits a la requete suivante, y compris dans les Server
+ * Actions et les routes d'API. Un jeton emis avant un changement de mot de
+ * passe est refuse. `cache` limite la relecture a une requete par rendu.
+ */
+export const utilisateurCourant = cache(async (): Promise<Utilisateur> => {
   const session = await auth()
   if (!session?.user?.id) throw new NonAuthentifie()
+  const compte = await etatCompte(db(), session.user.id)
+  if (!compte || !compte.actif) throw new NonAuthentifie()
+  if ((session.user.emisLe ?? 0) < compte.sessionsValidesApres) throw new NonAuthentifie()
   return {
     id: session.user.id,
     nom: session.user.name ?? '',
     email: session.user.email ?? '',
-    role: session.user.role,
-    projetIds: session.user.projetIds ?? [],
+    role: compte.role,
+    projetIds: compte.projetIds,
   }
-}
+})
 
 /** Utilisateur de la session, ou nul. Pour les pages qui s'adaptent. */
 export async function utilisateurEventuel(): Promise<Utilisateur | null> {
